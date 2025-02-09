@@ -1,1 +1,3 @@
-document.getElementById("message").innerText = "Hello World!";
+window.onload = function () {
+	document.getElementById("message").innerText = "Hello World";
+};

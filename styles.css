@@ -1,10 +1,11 @@
 body {
 	font-family: Arial, sans-serif;
 	text-align: center;
-	margin-top: 20%;
-	background-color:  #f4f4f4;
+	margin-top: 50px;
 }
 
-h1 {
-	color: #333; 
+#message {
+	font-size: 24px;
+	color: #007BFF;
+	margin-top: 20px;
 }
