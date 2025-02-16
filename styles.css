@@ -1,7 +1,48 @@
 body {
 	font-family: Arial, sans-serif;
 	text-align: center;
-	margin-top: 50px;
+	margin: 0;
+	margin-top: 20px;
+}
+
+.welcome-container {
+	margin-top: 20%;
+}
+
+button {
+	padding: 10px 20px;
+	font-size: 16px;
+	cursor: pointer;
+	background-color: #007BFF;
+	color: white;
+	border: none;
+	border-radius: 5px;
+}
+
+button:hover {
+	background-color: #0056b3;
+}
+
+.grid-item {
+	background: white;
+	padding: 10px;
+	border-radius: 8px;
+	box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.grid-item:hover {
+	transform: scale(1.05);
+}
+
+.grid-item img {
+	width: 100%;
+	height: auto;
+	border-radius: 8px;
+}
+
+.grid-item p {
+	margin: 10px 0 0;
+	font-weight: bold;
 }
 
 #message {
