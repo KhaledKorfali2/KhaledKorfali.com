@@ -4,7 +4,7 @@ function goToProjects() {
 
 // List of projects 
 const projects = [
-	{name: "Falling-Sand", image: "screenshots/placeholder.png", path: "Projects/Falling-Sand/index.html"}
+	{name: "Falling-Sand", image: "screenshots/placeholder.png", path: "./projects/falling-sand/index.html"}
 
 ];
 
@@ -14,11 +14,15 @@ document.addEventListener("DOMContentLoaded", function() {
 	if (!gridContainer) return;
 
 	projects.forEach(project => {
+		//if (!project.path) {
+		//	console.error(`Project "${project.name}" has not path!`);
+		//	return;
+		//}
 		const projectDiv = document.createElement("div");
 		projectDiv.classList.add("grid-item");
 
 		projectDiv.innerHTML = `
-            <a href="${project.demo}">
+            <a href="${project.path}">
                 <img src="${project.image}" alt="${project.name}">
                 <p>${project.name}</p>
             </a>
