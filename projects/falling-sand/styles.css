@@ -1,8 +1,25 @@
-body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+/* Remove default margin and padding */
+* {
     margin: 0;
-    background-color: black;
+    padding: 0;
+    box-sizing: border-box;
 }
+
+/* Ensure body takes full screen */
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* Prevent scrolling */
+    touch-action: none; /* Prevent default touch gestures */
+}
+
+/* Make sure the canvas covers the full screen */
+canvas {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+
+}
+
+
