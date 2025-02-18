@@ -4,7 +4,7 @@ function goToProjects() {
 
 // List of projects 
 const projects = [
-	{name: "Falling-Sand", image: "screenshots/placeholder.png", path: "./projects/falling-sand/index.html"}
+	{name: "Falling-Sand", image: "screenshots/falling-sand.png", path: "./projects/falling-sand/index.html"}
 
 ];
 

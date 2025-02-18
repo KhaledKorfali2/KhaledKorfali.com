@@ -1,4 +1,57 @@
-const canvas = document.createElement("canvas");
+// Select settings element
+const resetBtn = document.getElementById("resetBtn");
+const colorPicker = document.getElementById("colorPicker");
+const autoHueToggle = document.getElementById("autoHueToggle");
+
+// State Varibles
+let autoHueShift = true; // Default: Auto hue shifting ON
+
+// Reset Canvas
+resetBtn.addEventListener("click", () => {
+    grid = make2DArray(cols, rows);
+    velocityGrid = make2DArray(cols, rows);
+});
+
+// Toggle Auto Hue Shift
+autoHueToggle.addEventListener("change", () => {
+    autoHueShift = autoHueToggle.checked;
+});
+
+// Change sand color based on selected color
+colorPicker.addEventListener("input", () => {
+    let color = colorPicker.value;
+    let rgb = hexToHSL(color);
+    hueValue = rgb.h; // Update hue value for new sand color
+});
+
+// Convert hex color to HSL for consistent color blending
+function hexToHSL(hex) {
+    let r = parseInt(hex.substring(1, 3), 16) / 255;
+    let g = parseInt(hex.substring(3, 5), 16) / 255;
+    let b = parseInt(hex.substring(5, 7), 16) / 255;
+
+    let max = Math.max(r, g, b);
+    let min = Math.min(r, g, b);
+    let h, s, l;
+
+    l = (max + min) / 2;
+
+    if (max === min) {
+        h = s = 0;
+    } else {
+        let d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r: h = (g -b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b -r) / d + 2; break;
+            case b: h = (r -g) / d + 4; break;
+        }
+        h = Math.round(h * 60);
+    }
+    return {h, s, l};
+}
+
+const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 document.body.appendChild(canvas);
 
@@ -59,8 +112,11 @@ function addSand(e) {
         }
     }
 
-    hueValue += 0.5;
-    if (hueValue > 360) hueValue = 1;
+    // Only shift hue if autoHueShift is enabled
+    if (autoHueShift) {
+        hueValue += 0.5;
+        if (hueValue > 360) hueValue = 1;
+    }
 }
 
 // Mouse Events
