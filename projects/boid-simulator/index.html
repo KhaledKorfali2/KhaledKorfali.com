@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boid Simulation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="setting">
+        <button id="resetBtn">Reset</button>
+
+        <!-- Sliders for Boid Behavior -->
+         <div>
+            <label for="alignSlider">Alignment: </label>
+            <input type="range" id="alignSlider" min="0" max="2" step="0.1" value="1">
+            <span id="alignValue">1</span>
+         </div>
+         <div>
+            <label for="cohesionSlider">Cohesion: </label>
+            <input type="range" id="cohesionSlider" min="0" max="2" step="0.1" value="1">
+            <span id="cohesionValue">1</span>
+         </div>
+         <div>
+            <label for="separationSlider">Separation: </label>
+            <input type="range" id="separationSlider" min="0" max="2" step="0.1" value="1">
+            <span id="separationValue">1</span>
+         </div>
+    </div>
+    <script type="module" src="script.js"></script>
+</body>
+</html>
