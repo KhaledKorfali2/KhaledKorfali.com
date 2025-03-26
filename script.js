@@ -5,8 +5,8 @@ function goToProjects() {
 // List of projects 
 const projects = [
 	{name: "Falling Sand Simulator", image: "screenshots/falling-sand.png", path: "./projects/falling-sand/index.html"},
-	{name: "Boid Simulator", image: "screenshots/placeholder.png", path: "./projects/boid-simulator/index.html"}
-
+	{name: "Boid Simulator", image: "screenshots/boid-simulator.png", path: "./projects/boid-simulator/index.html"},
+	{name: "Arabic Flashcards", image: "screenshots/arabic-flashcards.png", path: "./projects/arabic-flashcards/index.html"}
 ];
 
 // Dynamically genearte project grid

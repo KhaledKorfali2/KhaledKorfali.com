@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arabic Alphabet Flashcards</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Sidebar with Checkboxes -->
+    <div class="sidebar">
+        <h3>Choose Forms:</h3>
+        <label><input type="checkbox" id="isolated" class="form-checkbox" value="isolated" checked> Include Isolated Form</label>
+        <label><input type="checkbox" id="start" class="form-checkbox" value="start"> Include Start Form</label>
+        <label><input type="checkbox" id="middle" class="form-checkbox" value="middle"> Include Middle Form</label>
+        <label><input type="checkbox" id="end" class="form-checkbox" value="end"> Include End Form</label>
+    </div>
+
+    <!-- Shuffle Button -->
+    <button id="shuffleBtn" class="shuffle-btn">🔀</button>
+
+    <!-- Flashcard Container -->
+    <div id="flashcard-container" class="flashcard-container">
+        <div id="message">Please select what forms you want to study</div>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="navigation">
+        <button id="prevBtn" class="nav-btn">←</button>
+        <button id="nextBtn" class="nav-btn">→</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
