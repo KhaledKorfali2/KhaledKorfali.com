@@ -141,6 +141,7 @@ body {
     }
     
     .nav-btn {
+        display: inline-block !important;
         font-size: 1.5rem;
     }
 
@@ -159,5 +160,12 @@ body {
     #flashcard-container {
         margin-top: 100px;
         width: 100%;
+    }
+
+    #shuffle-button {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
     }
 }
