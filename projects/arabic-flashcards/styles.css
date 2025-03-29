@@ -28,6 +28,20 @@ body {
     font-size: 14px;
 }
 
+@media (max-width: 768px) {
+    .flashcard {
+        width: 90%;
+        max-width: 300px; 
+        margin: auto;
+    }
+
+    .sidebar {
+        width: 80%;
+        max-width: 250px;
+        margin: 0 auto;
+    }
+}
+
 /* Shuffle Button */
 .shuffle-btn {
     position: absolute;
