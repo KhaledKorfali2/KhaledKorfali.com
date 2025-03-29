@@ -111,24 +111,52 @@ function shuffleArray(array) {
     }
 }
 
-document.getElementById("nextBtn").addEventListener("click", () => { 
+function nextCard() {
     if (flashcardsList.length > 0) {
         currentIndex = (currentIndex + 1) % flashcardsList.length;
         displayFlashcard(); 
     }
-});
-document.getElementById("prevBtn").addEventListener("click", () => { 
+}
+
+function previousCard() { 
     if (flashcardsList.length > 0) {
         currentIndex = (currentIndex - 1 + flashcardsList.length) % flashcardsList.length;
         displayFlashcard(); 
     }    
-});
+}
+
+document.getElementById("nextBtn").addEventListener("click", nextCard);
+document.getElementById("prevBtn").addEventListener("click", previousCard);
 document.getElementById("shuffleBtn").addEventListener("click", () => { 
     if (flashcardsList.length > 1) { 
         shuffleArray(flashcardsList);
         displayFlashcard(); 
     }
 });
+
+document.addEventListener("DOMContentLoaded", function () {
+    const naviationContainer = document.querySelector(".navigation");
+
+    if (naviationContainer) {
+        // Check if left arrow exists; if not, create it
+        if (!document.querySelector(".nav-btn.prev")) {
+            let leftArrow = document.createElement("button");
+            leftArrow.className = "nav-btn prev";
+            leftArrow.innerHTML = "&#9664;"  // left arrow symbol
+            leftArrow.onclick = function () { previousCard();};
+            naviationContainer.prepend(leftArrow);
+        }
+        
+        // Check if right arrow exists; if not, create it
+        if (!document.querySelector(".nav-btn.next")) {
+            let rightArrow = document.createElement("button");
+            rightArrow.className = "nav-btn prev";
+            rightArrow.innerHTML = "&#9654;"  // right arrow symbol
+            rightArrow.onclick = function () { nextCard();};
+            naviationContainer.appendChild(rightArrow);
+        }
+    }
+})
 
 document.addEventListener("DOMContentLoaded", updateFlashcards);
 
