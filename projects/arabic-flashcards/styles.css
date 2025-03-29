@@ -28,20 +28,6 @@ body {
     font-size: 14px;
 }
 
-@media (max-width: 768px) {
-    .flashcard {
-        width: 90%;
-        max-width: 300px; 
-        margin: auto;
-    }
-
-    .sidebar {
-        width: 80%;
-        max-width: 250px;
-        margin: 0 auto;
-    }
-}
-
 /* Shuffle Button */
 .shuffle-btn {
     position: absolute;
@@ -145,4 +131,33 @@ body {
     border: none;
     cursor: pointer;
     padding: 10px;
+}
+
+@media (max-width: 600px) {
+    .navigation {
+        bottom: 10px;
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .nav-btn {
+        font-size: 1.5rem;
+    }
+
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 10px;
+        box-shadow: none;
+        background: rgba(255, 255, 255, 0.9);
+        text-align: center;
+        z-index: 10;
+    }
+
+    #flashcard-container {
+        margin-top: 100px;
+        width: 100%;
+    }
 }
