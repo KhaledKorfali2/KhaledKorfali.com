@@ -134,7 +134,7 @@ document.getElementById("shuffleBtn").addEventListener("click", () => {
     }
 });
 
-document.addEventListener("DOMContentLoaded", function () {
+/*document.addEventListener("DOMContentLoaded", function () {
     const naviationContainer = document.querySelector(".navigation");
 
     if (naviationContainer) {
@@ -157,6 +157,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 })
+*/
 
 document.addEventListener("DOMContentLoaded", updateFlashcards);
 
