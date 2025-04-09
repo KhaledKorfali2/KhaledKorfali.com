@@ -11,20 +11,18 @@ body {
     position: relative;
     flex-direction: column;
 }
-/* ====== Shuffle Button ====== */
-#shuffle-button {
+
+/* ==== Shuffle Button ====== */
+.shuffle-btn {
     position: fixed;
-    top: 10px;
-    right: 10px;
+    top: 15px;
     z-index: 9999; /* Highest priority */
     background: white;
     border: 1px solid #ccc;
     border-radius: 6px;
     padding: 8px 12px;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
-
 
 /* ====== Sidebar ====== */
 .sidebar {
@@ -147,9 +145,16 @@ body {
         font-size: 1.5rem;
     }
 
-    #shuffle-button {
+   /* ==== Shuffle Button ====== */
+    .shuffle-btn {
+        position: fixed;
         top: 10px;
         right: 10px;
-        padding: 6px 10px;
+        z-index: 9999; /* Highest priority */
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 8px 12px;
+        cursor: pointer;
     }
 }
