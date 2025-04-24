@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arabic Word Guess Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Arabic Word Guess</h1>
+
+
+    
+    <!-- Reset Button -->
+    <button id="reset-btn">🔄 Reset</button>
+
+    <!-- Toggle Hint Button -->
+    <button id="toggle-hint-btn">💡 Show Hint</button>
+    <p id="hint-txt" style="display: none;"></p>
+
+    <!-- Result Message -->
+    <div id="result-message" dir="ltr"></div>
+    
+    <!-- Display Arabic Word -->
+    <h2 id="target-word" style="display: none;"></h2>
+
+    <!-- Game Board -->
+    <div id="guess-grid"></div>
+
+    <!-- Arabic Keyboard -->
+    <div id="keyboard"></div>
+
+
+    <script src="quran_words.json"></script>
+    <script src="script.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,61 @@
+body {
+    font-family: "Amiri", Arial, sans-serif;
+    background-color: #f7f7f7;
+    text-align: center;
+    direction: rtl;
+    padding: 20px;
+}
+
+h1 {
+    margin: 10px;
+}
+
+#guess-grid {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.guess-row {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+}
+
+.letter-box {
+    width: 50px;
+    height: 50px;
+    border: 2px solid #aaa;
+    font-size: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+}
+
+.letter-box.correct {
+    background-color: #6aaa64;
+    color: white;
+}
+
+#keyboard {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+}
+
+.key {
+    padding: 10px 15px;
+    background: #eee;
+    border: 1px solid #ccc;
+    cursor: pointer;
+}
+
+#hint-txt {
+    font-size: 1.2rem;
+    color: #333;
+    margin-bottom: 10px;
+}
