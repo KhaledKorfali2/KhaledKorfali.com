@@ -1,52 +1,117 @@
+/* Reset & Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
-	font-family: Arial, sans-serif;
-	text-align: center;
-	margin: 0;
-	margin-top: 20px;
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #f0f4ff, #e6f0fa);
+  color: #333;
+  text-align: center;
+  line-height: 1.6;
+  min-height: 100vh;
 }
 
-.welcome-container {
-	margin-top: 20%;
+/* Header/Nav */
+header {
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
+header a {
+  text-decoration: none;
+  color: #007BFF;
+  font-weight: 600;
+  margin-left: 20px;
+}
+
+/* Hero Section */
+#welcome-container {
+  max-width: 800px;
+  margin: 80px auto;
+  padding: 20px;
+}
+
+#welcome-container h1 {
+  font-size: 2.5rem;
+  color: #222;
+}
+
+#welcome-container p {
+  margin-top: 10px;
+  font-size: 1.2rem;
+  color: #555;
+}
+
+/* Button */
 button {
-	padding: 10px 20px;
-	font-size: 16px;
-	cursor: pointer;
-	background-color: #007BFF;
-	color: white;
-	border: none;
-	border-radius: 5px;
+  margin-top: 20px;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #007BFF;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  transition: all 0.3s ease;
 }
 
 button:hover {
-	background-color: #0056b3;
+  background: #0056b3;
+  transform: translateY(-2px);
+}
+
+/* Projects Grid */
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 0 20px;
 }
 
 .grid-item {
-	background: white;
-	padding: 10px;
-	border-radius: 8px;
-	box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .grid-item:hover {
-	transform: scale(1.05);
+  transform: translateY(-5px) scale(1.03);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
 }
 
 .grid-item img {
-	width: 100%;
-	height: auto;
-	border-radius: 8px;
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
 }
 
 .grid-item p {
-	margin: 10px 0 0;
-	font-weight: bold;
+  padding: 15px;
+  font-weight: 600;
+  color: #333;
 }
 
-#message {
-	font-size: 24px;
-	color: #007BFF;
-	margin-top: 20px;
+/* Mobile Adjustments */
+@media (max-width: 600px) {
+  #welcome-container h1 {
+    font-size: 1.8rem;
+  }
+  button {
+    width: 100%;
+  }
 }

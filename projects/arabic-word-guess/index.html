@@ -9,14 +9,18 @@
 <body>
     <h1>Arabic Word Guess</h1>
 
-
-    
     <!-- Reset Button -->
     <button id="reset-btn">🔄 Reset</button>
 
     <!-- Toggle Hint Button -->
     <button id="toggle-hint-btn">💡 Show Hint</button>
     <p id="hint-txt" style="display: none;"></p>
+
+    <!-- Study Mode -->
+     <label class="study-toggle">
+        <input type="checkbox" id="study-toggle">
+        <span>🧠 Study Mode</span>
+     </label>
 
     <!-- Result Message -->
     <div id="result-message" dir="ltr"></div>
@@ -30,9 +34,6 @@
     <!-- Arabic Keyboard -->
     <div id="keyboard"></div>
 
-
-    <script src="quran_words.json"></script>
     <script src="script.js"></script>
-
 </body>
 </html>

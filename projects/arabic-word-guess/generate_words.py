@@ -1,60 +1,57 @@
-import requests
-from pyquran import Quran
-import re
 import json
 import time
+import re
+import requests
+from pyquran import get_unique_words
+from pyquran import strip_tashkeel
 
-# Remove Arabic diacratics (harakat)
+# Helper: Remove diacritics and normalize Arabic
 def normalize_arabic(text):
-    return re.sub(r'[\u064B-\u0652]', '', text)
+    return strip_tashkeel(text).strip()
 
-# Use LibreTranslate to translate an jarabic word to English
+# Translate word to English using LibreTranslate API
 def translate_word(word):
     try:
-        res = requests.post("https://libretranslate.de/translate", json={
-            "q": word,
-            "source": "ar",
-            "target": "en",
-            "format": "text"
-        }, headers={"Content-Type": "application/json"})
-
-        if res.status_code == 200:
-            return res.json().get("translatedText", "")
+        response = requests.post(
+            "https://libretranslate.de/translate",
+            headers={"Content-Type": "application/json"},
+            json={
+                "q": word,
+                "source": "ar",
+                "target": "en",
+                "format": "text"
+            }
+        )
+        if response.status_code == 200:
+            return response.json().get("translatedText", "")
         else:
+            print(f"⚠️ Failed to translate {word} (HTTP {response.status_code})")
             return ""
     except Exception as e:
-        print(f"Error translating {word}: {e}")
+        print(f"❌ Error translating {word}: {e}")
         return ""
 
-# Step 1: Extract unique words
-quran = Quran()
-unique_words = set()
+# Main script
+def main():
+    print("🔎 Extracting unique Quran words...")
+    raw_words = get_unique_words()
+    print(f"✅ Found {len(raw_words)} raw unique words")
 
-for surah in range(1, 115):
-    for ayah in range(1, quran.count_verses(surah) + 1):
-        verse = quran.get_verse(surah, ayah)
-        normalized = normalize_arabic(verse)
-        words = normalized.split()
-        unique_words.update(words)
+    normalized_words = sorted(set(normalize_arabic(word) for word in raw_words if word.strip()))
+    print(f"✅ Normalized to {len(normalized_words)} unique words after cleaning")
 
-# Clean and Sort
-unique_words = sorted(unique_words)
+    results = []
+    for i, word in enumerate(normalized_words):
+        meaning = translate_word(word)
+        results.append({"word": word, "meaning": meaning})
+        print(f"{i + 1}/{len(normalized_words)}: {word} -> {meaning}")
+        time.sleep(1.1)  # Be kind to the API
 
-# Step 2:Translate and store results
-output = []
-print(f"Translating {len(unique_words)} unique words...")
+    # Save to JSON
+    with open("quran_words.json", "w", encoding="utf-8") as f:
+        json.dump(results, f, ensure_ascii=False, indent=2)
 
-for i, word in enumerate(unique_words):
-    english = translate_word(word)
-    output.append({
-        "word": word,
-        "meaning": english
-    })
-    print(f"{i + 1}/{len(unique_words)}: {word} -> {english}")
-    time.sleep(1.1) # Delay to avoid rate-limiting (LibreTranslate is free but slow)
+    print("✅ All done! Saved to quran_words.json")
 
-# Step 3: Write to quran_words.json
-with open("quran_words.json", "w", encoding="utf-8") as f:
-    json.dump(output, f, ensure_ascii=False, indent=2)
-
-print("✅ Finished! Saved to quran_words.json")
+if __name__ == "__main__":
+    main()

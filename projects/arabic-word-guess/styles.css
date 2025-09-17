@@ -40,6 +40,16 @@ h1 {
     color: white;
 }
 
+.letter-box.present {
+    background-color: #c9b458;
+    color:white;
+}
+
+.letter-box.absent {
+    background-color: #787c7e;
+    color: white;
+}
+
 #keyboard {
     display: flex;
     flex-wrap: wrap;
@@ -54,8 +64,60 @@ h1 {
     cursor: pointer;
 }
 
+.key.present {
+    background-color: #c9b458;
+}
+
+.key.absent {
+    background-color: #787c7e;
+    color: white;
+}
+
+.study-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 5px 8px;
+    padding: 6px 10px;
+    background: #eef4ff;
+    border: 1px solid #cfe0ff;
+    border-radius: 8px;
+    font-size: 0.95rem;
+}
+
+.study-toggle input { 
+    transform: scale(1.1);
+}
+
+#target-word {
+    font-size: 2rem;
+    margin: 8px 0 6px;
+    direction: rtl;
+    unicode-bidi: isolate;
+}
+
 #hint-txt {
+    direction: ltr;
+    unicode-bidi: plaintext;
+    text-align: center;
     font-size: 1.2rem;
     color: #333;
     margin-bottom: 10px;
+}
+
+/* Reset + Hint Buttons */
+button {
+    margin: 5px;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background: #007bff;
+    color: white;
+    font-size: 1rem;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background: #0056b3;
 }
