@@ -6,6 +6,9 @@ const resultMessage = document.getElementById("result-message");
 const targetWordDisplay = document.getElementById("target-word");
 const resetBtn = document.getElementById("reset-btn");
 const studyToggle = document.getElementById("study-toggle");
+const nativeInput = document.getElementById("native-input");
+
+
 
 
 let quranWords = [];    // Loaded from quran_words.json
@@ -39,14 +42,53 @@ function drawRow(attempt) {
 }
 
 function createKeyboard() {
-    arabicLetters.forEach(letter => {
-        const key = document.createElement("div");
-        key.className = "key";
-        key.textContent = letter;
-        key.onclick = () => handlekey(letter);
-        keyboard.appendChild(key);
-    });
+  // existing letters
+   arabicLetters.forEach(letter => {
+    const key = document.createElement("div");
+    key.className = "key";
+    key.textContent = letter;
+    key.onclick = () => { pressVisualFor(letter); handlekey(letter); };
+    keyboard.appendChild(key);
+  });
+
+  // spacer (optional)
+  const spacer = document.createElement("div");
+  spacer.style.flexBasis = "100%";
+  spacer.style.height = "6px";
+  keyboard.appendChild(spacer);
+
+  // Backspace
+  const backKey = document.createElement("div");
+  backKey.className = "key key-control key-backspace";
+  backKey.textContent = "⌫";                // icon keeps RTL nice
+  backKey.title = "Backspace";
+  backKey.onclick = doBackspace;
+  keyboard.appendChild(backKey);
+
+  // Enter
+  const enterKey = document.createElement("div");
+  enterKey.className = "key key-control key-enter";
+  enterKey.textContent = "⏎";               // icon keeps RTL nice
+  enterKey.title = "Enter";
+  enterKey.onclick = submitGuess;
+  keyboard.appendChild(enterKey);
 }
+
+
+function focusNativeInput() {
+  // On iOS/Safari the focus call must be within a user gesture
+  nativeInput && nativeInput.focus();
+}
+
+// Focus when user taps/clicks anywhere relevant
+["guess-grid", "keyboard", "result-message"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener("click", focusNativeInput);
+  }
+});
+document.addEventListener("touchstart", focusNativeInput, { passive: true });
+
 
 function handlekey(letter) {
     if (gameOver || curGuess.length >= wordLen) return;
@@ -60,7 +102,14 @@ function updateRow() {
         box.textContent = curGuess[i] || "";
     });
 
-    if (curGuess.length === wordLen) checkGuess();
+    //if (curGuess.length === wordLen) checkGuess();
+}
+
+function pressVisualFor(letter) {
+  const key = [...keyboard.children].find(k => k.textContent === letter);
+  if (!key) return;
+  key.classList.add("pressed");
+  setTimeout(() => key.classList.remove("pressed"), 120);
 }
 
 function checkGuess() {
@@ -171,6 +220,78 @@ studyToggle.addEventListener("change", (e) => {
 
 
 
+// Accept desktop hardware keyboard
+// Desktop hardware keyboard visual press:
+document.addEventListener("keydown", (e) => {
+  const tag = (e.target && e.target.tagName) || "";
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON") return;
+
+  if (e.key === "Backspace") { doBackspace(); e.preventDefault(); pressVisualFor("⌫"); return; }
+  if (e.key === "Enter")     { submitGuess(); e.preventDefault(); pressVisualFor("⏎"); return; }
+
+  if (e.key && e.key.length === 1 && arabicLetters.includes(e.key)) {
+    if (!gameOver || studyMode) { handlekey(e.key); pressVisualFor(e.key); }
+    e.preventDefault();
+  }
+});
+
+// Capture characters from the hidden input (mobile software keyboard)
+if (nativeInput) {
+  nativeInput.addEventListener("input", (e) => {
+    const v = e.target.value;
+    if (!v) return;
+
+    const ch = v[v.length - 1];
+    e.target.value = "";
+
+    if (arabicLetters.includes(ch)) {
+      if (!gameOver || studyMode) handlekey(ch);
+    }
+  });
+}
+
+
+// Keep focus after actions so mobile KB stays open
+["reset-btn", "toggle-hint-btn"].forEach(id => {
+  const btn = document.getElementById(id);
+  if (btn) btn.addEventListener("click", () => {
+    setTimeout(focusNativeInput, 0);
+  });
+});
+
+
+function doBackspace() {
+  if (gameOver && !studyMode) return;
+  if (curGuess.length > 0) {
+    curGuess.pop();
+    updateRow();
+  }
+}
+
+function submitGuess() {
+  if (gameOver && !studyMode) return;
+
+  if (curGuess.length === wordLen) {
+    checkGuess();
+  } else {
+    const row = document.getElementById(`row-${curAttempt}`);
+    if (row) {
+      row.classList.remove("shake");       // reset if still on element
+      void row.offsetWidth;                // reflow to restart animation
+      row.classList.add("shake");
+
+      // light haptic on supported mobiles (optional)
+      if (navigator.vibrate) navigator.vibrate(50);
+
+      // remove class after animation ends (cleanup)
+      row.addEventListener("animationend", () => {
+        row.classList.remove("shake");
+      }, { once: true });
+    }
+  }
+}
+
+
 
 resetBtn.addEventListener("click", startGame);
 
@@ -199,6 +320,8 @@ function startGame() {
 
     drawRow(curAttempt);
     createKeyboard();
+    focusNativeInput();
+
 
     if (studyMode) {
         targetWordDisplay.textContent = targetWord;   // show Arabic word
