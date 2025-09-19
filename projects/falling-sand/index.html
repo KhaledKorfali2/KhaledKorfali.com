@@ -9,6 +9,13 @@
 <body>
     <canvas id="canvas"></canvas>
     <div id="setting">
+        <label for="brushMode">Brush:</label>
+        <select id="brushMode">
+        <option value="surface" selected>Deposit to Surface</option>
+        <option value="deposit">Deposit Only (empty cells)</option>
+        <option value="paint">Paint Mode (recolor)</option>
+        </select>
+
         <button id ="resetBtn">Reset</button>
         <input type="color" id="colorPicker">
         <label>

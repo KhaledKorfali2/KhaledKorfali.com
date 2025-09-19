@@ -1,10 +1,23 @@
+const START_VELOCITY = 1;
+const MAX_VELOCITY = 6;
+const GRAVITY = 0.25; // a touch stronger feels nicer than 0.1
+
 // Select settings element
 const resetBtn = document.getElementById("resetBtn");
 const colorPicker = document.getElementById("colorPicker");
 const autoHueToggle = document.getElementById("autoHueToggle");
+const brushModeSelect = document.getElementById("brushMode");
 
 // State Varibles
 let autoHueShift = true; // Default: Auto hue shifting ON
+let brushMode = brushModeSelect ? brushModeSelect.value : "surface";
+
+if (brushModeSelect) {
+  brushModeSelect.addEventListener("change", () => {
+    brushMode = brushModeSelect.value; // "surface" | "deposit" | "paint"
+  });
+}
+
 
 // Reset Canvas
 resetBtn.addEventListener("click", () => {
@@ -19,37 +32,36 @@ autoHueToggle.addEventListener("change", () => {
 
 // Change sand color based on selected color
 colorPicker.addEventListener("input", () => {
-    let color = colorPicker.value;
-    let rgb = hexToHSL(color);
-    hueValue = rgb.h; // Update hue value for new sand color
+  const hex = colorPicker.value;
+  baseColorHSL = hexToHSL(hex); // {h,s,l} with s/l as percentages
 });
+
+
 
 // Convert hex color to HSL for consistent color blending
 function hexToHSL(hex) {
-    let r = parseInt(hex.substring(1, 3), 16) / 255;
-    let g = parseInt(hex.substring(3, 5), 16) / 255;
-    let b = parseInt(hex.substring(5, 7), 16) / 255;
+  let r = parseInt(hex.substring(1, 3), 16) / 255;
+  let g = parseInt(hex.substring(3, 5), 16) / 255;
+  let b = parseInt(hex.substring(5, 7), 16) / 255;
 
-    let max = Math.max(r, g, b);
-    let min = Math.min(r, g, b);
-    let h, s, l;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
 
-    l = (max + min) / 2;
-
-    if (max === min) {
-        h = s = 0;
-    } else {
-        let d = max - min;
-        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-        switch (max) {
-            case r: h = (g -b) / d + (g < b ? 6 : 0); break;
-            case g: h = (b -r) / d + 2; break;
-            case b: h = (r -g) / d + 4; break;
-        }
-        h = Math.round(h * 60);
+  if (max === min) {
+    h = s = 0;
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
     }
-    return {h, s, l};
+    h *= 60;
+  }
+  return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
 }
+
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -58,66 +70,106 @@ document.body.appendChild(canvas);
 let mousePressed = false;
 const w = 5;
 let cols, rows;
-let grid, velocityGrid; 
-let hueValue = 200;
-let gravity = 0.1;
+let grid, velocityGrid;
+// base color used when painting new grains
+let baseColorHSL = { h: 200, s: 100, l: 50 }; // percentages for s & l
+
 
 // Function to resize the canvas and update grid size
 function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    cols = Math.floor(canvas.width / w);
-    rows = Math.floor(canvas.height / w);
-    grid = make2DArray(cols, rows);
-    velocityGrid = make2DArray(cols, rows);
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+
+  // buffer size (device pixels)
+  canvas.width  = Math.floor(window.innerWidth  * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+
+  // **CSS size** (CSS pixels) -> prevents visual/coord mismatch
+  canvas.style.width  = window.innerWidth  + "px";
+  canvas.style.height = window.innerHeight + "px";
+
+  // draw in CSS pixels
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  cols = Math.floor(window.innerWidth / w);
+  rows = Math.floor(window.innerHeight / w);
+
+  grid = make2DArray(cols, rows);
+  velocityGrid = make2DArray(cols, rows);
 }
+
+
 
 // Create a 2D array
 function make2DArray(cols, rows) {
-    return Array.from({ length: cols }, () => Array(rows).fill(0));
+  return Array.from({ length: cols }, () => Array(rows).fill(null));
 }
+
 
 // Helper function to get touch/mouse position
 function getPointerPos(e) {
-    let x, y;
-    if (e.touches) {
-        x = e.touches[0].clientX - canvas.offsetLeft;
-        y = e.touches[0].clientY - canvas.offsetTop;
-    } else {
-        x = e.offsetX;
-        y = e.offsetY;
-    }
-    return { x, y };
+  const rect = canvas.getBoundingClientRect();
+  const point = e.touches ? e.touches[0] : e;
+  const x = point.clientX - rect.left; // CSS pixels
+  const y = point.clientY - rect.top;  // CSS pixels
+  return { x, y };
 }
+
 
 // Add sand at the touch/mouse position
 function addSand(e) {
-    e.preventDefault(); // Prevent scrolling on touch devices
-    let { x, y } = getPointerPos(e);
-    let mouseCol = Math.floor(x / w);
-    let mouseRow = Math.floor(y / w);
+  e.preventDefault();
+  const { x, y } = getPointerPos(e);
+  const mouseCol = Math.floor(x / w);
+  const mouseRow = Math.floor(y / w);
 
-    let matrix = 5;
-    let extent = Math.floor(matrix / 2);
-    for (let i = -extent; i <= extent; i++) {
-        for (let j = -extent; j <= extent; j++) {
-            if (Math.random() < 0.75) {
-                let col = mouseCol + i;
-                let row = mouseRow + j;
-                if (col >= 0 && col < cols && row >= 0 && row < rows) {
-                    grid[col][row] = hueValue;
-                    velocityGrid[col][row] = 1;
-                }
-            }
+  const matrix = 5;
+  const extent = Math.floor(matrix / 2);
+  const color = { h: baseColorHSL.h, s: baseColorHSL.s, l: baseColorHSL.l };
+
+  // track which columns we've already placed into (surface mode)
+  const placedCols = new Set();
+
+  for (let i = -extent; i <= extent; i++) {
+    for (let j = -extent; j <= extent; j++) {
+      if (Math.random() >= 0.75) continue;
+
+      const col = mouseCol + i;
+      const row = mouseRow + j;
+      if (col < 0 || col >= cols || row < 0 || row >= rows) continue;
+
+      if (brushMode === "deposit") {
+        if (!grid[col][row]) {
+          grid[col][row] = { ...color };
+          velocityGrid[col][row] = START_VELOCITY;
         }
-    }
+      } else if (brushMode === "surface") {
+        // only once per column per call
+        if (placedCols.has(col)) continue;
 
-    // Only shift hue if autoHueShift is enabled
-    if (autoHueShift) {
-        hueValue += 0.5;
-        if (hueValue > 360) hueValue = 1;
+        // climb upward to first empty
+        let yTop = Math.min(row, rows - 1);
+        while (yTop >= 0 && grid[col][yTop]) yTop--;
+        if (yTop >= 0) {
+          grid[col][yTop] = { ...color };
+          velocityGrid[col][yTop] = START_VELOCITY;
+          placedCols.add(col);
+        }
+      } else { // paint
+        if (grid[col][row]) {
+          grid[col][row] = { ...color };
+        } else {
+          grid[col][row] = { ...color };
+          velocityGrid[col][row] = START_VELOCITY;
+        }
+      }
     }
+  }
+
+  if (autoHueShift) {
+    baseColorHSL.h = (baseColorHSL.h + 0.5) % 360;
+  }
 }
+
 
 // Mouse Events
 canvas.addEventListener("mousedown", (e) => {
@@ -141,66 +193,69 @@ canvas.addEventListener("touchmove", (e) => {
 
 // Animation Loop
 function draw() {
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
-    let nextGrid = make2DArray(cols, rows);
-    let nextVelocityGrid = make2DArray(cols, rows);
 
-    for (let i = 0; i < cols; i++) {
-        for (let j = 0; j < rows; j++) {
-            let state = grid[i][j];
-            let velocity = velocityGrid[i][j];
-            let moved = false;
+  const nextGrid = make2DArray(cols, rows);
+  const nextVelocityGrid = make2DArray(cols, rows);
 
-            if (state > 0) {
-                let newPos = Math.floor(j + velocity);
-                for (let y = newPos; y > j; y--) {
-                    let below = grid[i][y];
-                    let dir = Math.random() < 0.5 ? -1 : 1;
-                    let belowA = (i + dir >= 0 && i + dir < cols) ? grid[i + dir][y] : -1;
-                    let belowB = (i - dir >= 0 && i - dir < cols) ? grid[i - dir][y] : -1;
+  for (let i = 0; i < cols; i++) {
+    for (let j = 0; j < rows; j++) {
+      const state = grid[i][j];           // null or {h,s,l}
+      let v = velocityGrid[i][j];
+      let moved = false;
 
-                    if (below === 0) {
-                        nextGrid[i][y] = state;
-                        nextVelocityGrid[i][y] = velocity + gravity;
-                        moved = true;
-                        break;
-                    } else if (belowA === 0) {
-                        nextGrid[i + dir][y] = state;
-                        nextVelocityGrid[i + dir][y] = velocity + gravity;
-                        moved = true;
-                        break;
-                    } else if (belowB === 0) {
-                        nextGrid[i - dir][y] = state;
-                        nextVelocityGrid[i - dir][y] = velocity + gravity;
-                        moved = true;
-                        break;
-                    }
-                }
+      if (state) {
+        v = Math.min(MAX_VELOCITY, v + GRAVITY);
+        const targetY = Math.min(rows - 1, Math.floor(j + v));
+
+        for (let y = j + 1; y <= targetY; y++) {
+          if (!grid[i][y] && !nextGrid[i][y]) {
+            nextGrid[i][y] = state;
+            nextVelocityGrid[i][y] = v;
+            moved = true;
+            break;
+          }
+          const dirFirst = Math.random() < 0.5 ? -1 : 1;
+          const tryDirs = [dirFirst, -dirFirst];
+          for (const dir of tryDirs) {
+            const nx = i + dir;
+            if (nx >= 0 && nx < cols && !grid[nx][y] && !nextGrid[nx][y]) {
+              nextGrid[nx][y] = state;
+              nextVelocityGrid[nx][y] = v;
+              moved = true;
+              break;
             }
-
-            if (state > 0 && !moved) {
-                nextGrid[i][j] = state;
-                nextVelocityGrid[i][j] = velocity + gravity;
-            }
+          }
+          if (moved) break;
         }
+      }
+
+      if (state && !moved) {
+        nextGrid[i][j] = state;
+        nextVelocityGrid[i][j] = START_VELOCITY;
+      }
     }
+  }
 
-    for (let i = 0; i < cols; i++) {
-        for (let j = 0; j < rows; j++) {
-            if (nextGrid[i][j] > 0) {
-                ctx.fillStyle = `hsl(${nextGrid[i][j]}, 100%, 50%)`;
-                ctx.fillRect(i * w, j * w, w, w);
-            }
-        }
+  // draw using full HSL
+  for (let i = 0; i < cols; i++) {
+    for (let j = 0; j < rows; j++) {
+      const c = nextGrid[i][j];
+      if (c) {
+        ctx.fillStyle = `hsl(${c.h}, ${c.s}%, ${c.l}%)`;
+        ctx.fillRect(i * w, j * w, w, w);
+      }
     }
+  }
 
-    grid = nextGrid;
-    velocityGrid = nextVelocityGrid;
-
-    requestAnimationFrame(draw);
+  grid = nextGrid;
+  velocityGrid = nextVelocityGrid;
+  requestAnimationFrame(draw);
 }
+
+
 
 // Resize canvas on widnow resize
 window.addEventListener("resize", resizeCanvas);
