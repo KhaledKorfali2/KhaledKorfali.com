@@ -66,16 +66,15 @@ export class Boid {
     }
 
     align(boids) {
-        return this.calculateSteering(boids, 25, 'align');
+        return this.calculateSteering(boids, 75, 'align');
     }
-    
     separation(boids) {
-        return this.calculateSteering(boids, 25, 'separation');
+        return this.calculateSteering(boids, 30, 'separation');
+    }
+    cohesion(boids) {
+        return this.calculateSteering(boids, 75, 'cohere');
     }
 
-    cohesion(boids) {
-        return this.calculateSteering(boids, 50, 'cohere');
-    }
 
     flock(boids) {
         let alignment = this.align(boids);
@@ -98,13 +97,18 @@ export class Boid {
         this.acceleration.mult(0);
     }
     show(ctx) {
-        ctx.fillStyle = "white";
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 15;  // Set stroke weight
-
-        ctx.beginPath();
-        ctx.arc(this.position.x, this.position.y, 7.5, 0, Math.PI * 2) // Draw a point-like circle
-        ctx.fill();
-        //ctx.stroke();
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.save();
+    ctx.translate(this.position.x, this.position.y);
+    let angle = Math.atan2(this.velocity.y, this.velocity.x);
+    ctx.rotate(angle);
+    ctx.moveTo(0, -5);
+    ctx.lineTo(10, 0);
+    ctx.lineTo(0, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
     }
+
 }
