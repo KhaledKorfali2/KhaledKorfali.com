@@ -44,6 +44,22 @@ canvas {
 }
 #setting label { font-size: 14px; }
 
+@media (max-width: 600px) {
+  #setting {
+    top: 5%;
+    right: 5%;
+    width: 90%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    font-size: 14px;
+  }
+  #setting label, #setting select, #setting button {
+    flex: 1 1 auto;
+    min-width: 60px;
+  }
+}
+
+
 #resetBtn {
     background: red;
     color: white;

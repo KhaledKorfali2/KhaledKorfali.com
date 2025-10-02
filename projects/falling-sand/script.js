@@ -83,15 +83,22 @@ function resizeCanvas() {
   canvas.width  = Math.floor(window.innerWidth  * dpr);
   canvas.height = Math.floor(window.innerHeight * dpr);
 
+  // Use visual viewport for height if available
+  const vw = window.innerWidth;
+  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+
   // **CSS size** (CSS pixels) -> prevents visual/coord mismatch
-  canvas.style.width  = window.innerWidth  + "px";
-  canvas.style.height = window.innerHeight + "px";
+  canvas.width  = Math.floor(vw * dpr);
+  canvas.height = Math.floor(vh * dpr);
+
+  canvas.style.width  = vw + "px";
+  canvas.style.height = vh + "px";
 
   // draw in CSS pixels
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  cols = Math.floor(window.innerWidth / w);
-  rows = Math.floor(window.innerHeight / w);
+  cols = Math.floor(vw / w);
+  rows = Math.floor(vh / w);
 
   grid = make2DArray(cols, rows);
   velocityGrid = make2DArray(cols, rows);
@@ -120,7 +127,7 @@ function addSand(e) {
   e.preventDefault();
   const { x, y } = getPointerPos(e);
   const mouseCol = Math.floor(x / w);
-  const mouseRow = Math.floor(y / w);
+  const mouseRow = Math.min(Math.floor(y / w), rows - 1);
 
   const matrix = 5;
   const extent = Math.floor(matrix / 2);
