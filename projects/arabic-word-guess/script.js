@@ -75,26 +75,71 @@ function createKeyboard() {
 }
 
 
+// ===== Native vs On-Screen Keyboard Handling =====
+const useNativeKeyboardToggle = document.getElementById("use-native-keyboard");
+let useNativeKeyboard = useNativeKeyboardToggle.checked;  // initial state
+
+// Apply initial state on page load
+if (useNativeKeyboard) {
+    nativeInput.style.display = "block";
+    keyboard.style.pointerEvents = "none";
+    keyboard.style.opacity = 0.5;
+} else {
+    nativeInput.style.display = "none";
+    keyboard.style.pointerEvents = "auto";
+    keyboard.style.opacity = 1;
+}
+
+useNativeKeyboardToggle.addEventListener("change", (e) => {
+    useNativeKeyboard = useNativeKeyboardToggle.checked;
+
+    if (useNativeKeyboard) {
+        nativeInput.style.display = "block";
+        keyboard.style.pointerEvents = "none";
+        keyboard.style.opacity = 0.5;
+        focusNativeInput();
+    } else {
+        nativeInput.style.display = "none";
+        keyboard.style.pointerEvents = "auto";
+        keyboard.style.opacity = 1;
+    }
+});
+
 function focusNativeInput() {
-  // On iOS/Safari the focus call must be within a user gesture
-  nativeInput && nativeInput.focus();
+    if (useNativeKeyboard && nativeInput) {
+        nativeInput.focus({ preventScroll: true });
+    }
 }
 
 // Focus when user taps/clicks anywhere relevant
 ["guess-grid", "keyboard", "result-message"].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) {
-    el.addEventListener("click", focusNativeInput);
-  }
+    const el = document.getElementById(id);
+    if (el) {
+        el.addEventListener("click", focusNativeInput);
+    }
 });
 document.addEventListener("touchstart", focusNativeInput, { passive: true });
 
 
 function handlekey(letter) {
-    if (gameOver || curGuess.length >= wordLen) return;
+    const row = document.getElementById(`row-${curAttempt}`);
+    if (gameOver) return;
+
+    if (curGuess.length >= wordLen) {
+        // Optional: shake row to show max length reached
+        if (row) {
+            row.classList.remove("shake");
+            void row.offsetWidth;
+            row.classList.add("shake");
+            if (navigator.vibrate) navigator.vibrate(30);
+        }
+        return;
+    }
+
     curGuess.push(letter);
     updateRow();
 }
+
 
 function updateRow() {
     const row = document.getElementById(`row-${curAttempt}`);
@@ -191,14 +236,22 @@ function checkGuess() {
 function markKeyboard(letter, status) {
     const key = [...keyboard.children].find(k => k.textContent === letter);
     if (!key) return;
+
     if (status === "correct") {
-        key.className = "key correct";
-    } else if (status === "present" && !key.classList.contains("correct")) {
-        key.className = "key present";
-    } else if (status === "absent" && !key.classList.contains("correct") && !key.classList.contains("present")) {
-        key.className = "key absent";
+        key.classList.remove("present", "absent");
+        key.classList.add("correct");
+    } else if (status === "present") {
+        if (!key.classList.contains("correct")) {
+            key.classList.remove("absent");
+            key.classList.add("present");
+        }
+    } else if (status === "absent") {
+        if (!key.classList.contains("correct") && !key.classList.contains("present")) {
+            key.classList.add("absent");
+        }
     }
 }
+
 
 
 studyToggle.addEventListener("change", (e) => {
@@ -235,61 +288,87 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Capture characters from the hidden input (mobile software keyboard)
+// Capture characters from mobile software keyboard
 if (nativeInput) {
-  nativeInput.addEventListener("input", (e) => {
-    const v = e.target.value;
-    if (!v) return;
+    // Handle beforeinput (preferred)
+    nativeInput.addEventListener("beforeinput", (e) => {
+        if (!useNativeKeyboard || (gameOver && !studyMode)) return;
 
-    const ch = v[v.length - 1];
-    e.target.value = "";
+        if (e.inputType === "deleteContentBackward") {
+            doBackspace();
+            pressVisualFor("⌫");
+        } else if (e.inputType === "insertLineBreak") {
+            submitGuess();
+            pressVisualFor("⏎");
+        } else if (e.data && arabicLetters.includes(e.data)) {
+            handlekey(e.data);
+            pressVisualFor(e.data);
+        }
 
-    if (arabicLetters.includes(ch)) {
-      if (!gameOver || studyMode) handlekey(ch);
-    }
-  });
+        e.preventDefault();
+        nativeInput.value = "";
+    });
+
+    // Fallback for mobile keyboards that don't trigger beforeinput
+    nativeInput.addEventListener("input", (e) => {
+        if (!useNativeKeyboard || (gameOver && !studyMode)) return;
+        if (!e.target.value) return;
+
+        const ch = e.target.value[e.target.value.length - 1];
+        e.target.value = "";
+
+        if (ch === "\n") {
+            submitGuess();
+            pressVisualFor("⏎");
+        } else if (arabicLetters.includes(ch)) {
+            handlekey(ch);
+            pressVisualFor(ch);
+        }
+    });
 }
+
+
 
 
 // Keep focus after actions so mobile KB stays open
 ["reset-btn", "toggle-hint-btn"].forEach(id => {
-  const btn = document.getElementById(id);
-  if (btn) btn.addEventListener("click", () => {
-    setTimeout(focusNativeInput, 0);
-  });
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener("click", () => {
+        setTimeout(focusNativeInput, 0);
+    });
 });
 
 
 function doBackspace() {
-  if (gameOver && !studyMode) return;
-  if (curGuess.length > 0) {
-    curGuess.pop();
-    updateRow();
-  }
+    if (gameOver && !studyMode) return;
+    if (curGuess.length > 0) {
+        curGuess.pop();
+        updateRow();
+    }
+    if (useNativeKeyboard) focusNativeInput();
 }
 
 function submitGuess() {
-  if (gameOver && !studyMode) return;
+    if (gameOver && !studyMode) return;
 
-  if (curGuess.length === wordLen) {
-    checkGuess();
-  } else {
-    const row = document.getElementById(`row-${curAttempt}`);
-    if (row) {
-      row.classList.remove("shake");       // reset if still on element
-      void row.offsetWidth;                // reflow to restart animation
-      row.classList.add("shake");
+    if (curGuess.length === wordLen) {
+        checkGuess();
+    } else {
+        const row = document.getElementById(`row-${curAttempt}`);
+        if (row) {
+            row.classList.remove("shake");
+            void row.offsetWidth;
+            row.classList.add("shake");
+            if (navigator.vibrate) navigator.vibrate(50);
 
-      // light haptic on supported mobiles (optional)
-      if (navigator.vibrate) navigator.vibrate(50);
-
-      // remove class after animation ends (cleanup)
-      row.addEventListener("animationend", () => {
-        row.classList.remove("shake");
-      }, { once: true });
+            row.addEventListener("animationend", () => {
+                row.classList.remove("shake");
+            }, { once: true });
+        }
     }
-  }
+    if (useNativeKeyboard) focusNativeInput();
 }
+
 
 
 
@@ -312,6 +391,7 @@ function startGame() {
     hintText.style.display = "none";
     guessGrid.innerHTML = "";
     keyboard.innerHTML = "";
+    nativeInput.value = "";
 
     const chosenWord = chooseRandomWord();
     targetWord = chosenWord.word;
@@ -329,6 +409,9 @@ function startGame() {
     } else {
         targetWordDisplay.style.display = "none";
     }
+
+    // Ensure mobile keyboard opens if native input is used
+    if (useNativeKeyboard) focusNativeInput();
 }
 
 async function loadQuranWords() {
