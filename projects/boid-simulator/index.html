@@ -9,24 +9,44 @@
 <body>
     <canvas id="canvas"></canvas>
     <div id="setting">
-        <button id="resetBtn">Reset</button>
+        <div id="settingsDropdown">
+            <button id="settingsBtn">
+               <span class="icon">⚙</span>
+               <span class="text">Settings</span>
+               <span class="arrow">▼</span>
+            </button>
 
-        <!-- Sliders for Boid Behavior -->
-         <div>
-            <label for="alignSlider">Alignment: </label>
-            <input type="range" id="alignSlider" min="0" max="2" step="0.1" value="1">
-            <span id="alignValue">1</span>
+
+            <div id="settingsContent" class="hidden">
+               <button id="resetBtn">Reset</button>
+
+               <div class="slider-group">
+                     <label for="alignSlider">Alignment</label>
+                     <input type="range" id="alignSlider" min="0" max="2" step="0.1" value="1">
+                     <span id="alignValue">1</span>
+               </div>
+
+               <div class="slider-group">
+                  <label for="velocitySlider">Velocity</label>
+                  <input type="range" id="velocitySlider" min="1" max="10" step="0.1" value="5">
+                  <span id="velocityValue">5</span>
+               </div>
+
+
+               <div class="slider-group">
+                     <label for="cohesionSlider">Cohesion</label>
+                     <input type="range" id="cohesionSlider" min="0" max="2" step="0.1" value="1">
+                     <span id="cohesionValue">1</span>
+               </div>
+
+               <div class="slider-group">
+                     <label for="separationSlider">Separation</label>
+                     <input type="range" id="separationSlider" min="0" max="2" step="0.1" value="1">
+                     <span id="separationValue">1</span>
+               </div>
+            </div>
          </div>
-         <div>
-            <label for="cohesionSlider">Cohesion: </label>
-            <input type="range" id="cohesionSlider" min="0" max="2" step="0.1" value="1">
-            <span id="cohesionValue">1</span>
-         </div>
-         <div>
-            <label for="separationSlider">Separation: </label>
-            <input type="range" id="separationSlider" min="0" max="2" step="0.1" value="1">
-            <span id="separationValue">1</span>
-         </div>
+
     </div>
     <script type="module" src="script.js"></script>
 </body>

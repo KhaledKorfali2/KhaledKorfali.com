@@ -97,18 +97,18 @@ export class Boid {
         this.acceleration.mult(0);
     }
     show(ctx) {
-    ctx.fillStyle = "white";
-    ctx.beginPath();
-    ctx.save();
-    ctx.translate(this.position.x, this.position.y);
-    let angle = Math.atan2(this.velocity.y, this.velocity.x);
-    ctx.rotate(angle);
-    ctx.moveTo(0, -5);
-    ctx.lineTo(10, 0);
-    ctx.lineTo(0, 5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+        ctx.fillStyle = "white";
+        ctx.beginPath();
+        ctx.save();
+        ctx.translate(this.position.x, this.position.y);
+        let angle = Math.atan2(this.velocity.y, this.velocity.x);
+        ctx.rotate(angle);
+        ctx.moveTo(0, -5);
+        ctx.lineTo(10, 0);
+        ctx.lineTo(0, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
     }
 
 }

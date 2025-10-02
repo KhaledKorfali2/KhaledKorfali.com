@@ -1,0 +1,127 @@
+/* Container */
+#settingsDropdown {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: rgba(30, 30, 30, 0.9);
+    padding: 12px 15px;
+    border-radius: 12px;
+    z-index: 10;
+    font-family: 'Poppins', sans-serif;
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    min-width: 220px;
+}
+
+/* Dropdown button */
+#settingsBtn {
+    width: 100%;
+    background: #1f8fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+
+#settingsBtn:hover {
+    background: #0073e6;
+    transform: scale(1.02);
+}
+
+#settingsBtn .icon {
+    margin-right: 8px; /* more spacing between icon and text */
+}
+
+/* Arrow rotation handled via JS */
+#settingsBtn .arrow {
+    display: inline-block;
+    margin-left: 10px;
+    font-size: 12px;
+    transition: transform 0.3s ease;
+}
+
+/* Smooth dropdown slide */
+#settingsContent {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+#settingsContent.open {
+    max-height: 500px; /* enough for sliders */
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+
+/* Reset button */
+#resetBtn {
+    width: 100%;
+    background: #ff4d4f;
+    border: none;
+    border-radius: 8px;
+    padding: 8px;
+    color: #fff;
+    font-weight: 500;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+#resetBtn:hover {
+    background: #d9363e;
+}
+
+/* Sliders */
+.slider-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+}
+
+.slider-group label {
+    margin-bottom: 5px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.slider-group input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 5px;
+    background: #555;
+    outline: none;
+    transition: background 0.3s ease;
+}
+
+.slider-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #1f8fff;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.slider-group input[type="range"]::-webkit-slider-thumb:hover {
+    background: #0073e6;
+    transform: scale(1.2);
+}
+
+.slider-group span {
+    text-align: right;
+    font-size: 12px;
+    color: #ccc;
+    margin-top: 2px;
+}
