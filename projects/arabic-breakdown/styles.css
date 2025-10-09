@@ -1,0 +1,145 @@
+body {
+  font-family: "Noto Naskh Arabic", sans-serif;
+  background: #f5f5f5;
+  color: #222;
+  direction: rtl;
+  text-align: center;
+  padding: 20px;
+}
+
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+h1 {
+  font-size: 1.8em;
+  margin-bottom: 15px;
+}
+
+textarea {
+  width: 100%;
+  height: 80px;
+  font-size: 1.2em;
+  direction: rtl;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  resize: none;
+}
+
+button {
+  margin-top: 10px;
+  padding: 10px 20px;
+  font-size: 1em;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #357ABD;
+}
+
+#output {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.word, .letter {
+  display: inline-block;
+  background: #e0f7fa;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 1.4em;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.2s;
+}
+
+.word:hover, .letter:hover {
+  background: #b2ebf2;
+  transform: scale(1.05);
+}
+
+
+#arabic-input {
+  width: 90%;
+  max-width: 500px;
+  font-size: 1.2rem;
+  direction: rtl;
+  text-align: right;
+  padding: 8px;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-family: "Amiri", serif;
+}
+
+#analyze-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+#analyze-btn:hover {
+  background: #0056b3;
+}
+
+#breakdown-container {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.word-block {
+  background: #f0f0f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.letter {
+  font-size: 1.8rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: white;
+  border: 1px solid #ddd;
+}
+
+.speak-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.speak-btn:hover {
+  background: #218838;
+}
