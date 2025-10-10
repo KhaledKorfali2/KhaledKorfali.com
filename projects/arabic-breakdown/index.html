@@ -6,13 +6,38 @@
   <title>Arabic Text Breakdown</title>
   <link rel="stylesheet" href="styles.css">
 </head>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js"></script>
 <body>
   <div class="container">
     <h1>Arabic Text Breakdown</h1>
     <div class="input-section">
       <textarea id="inputText" placeholder="Enter Arabic text here..."></textarea>
-      <button id="analyzeBtn">Analyze</button>
+      <div class="input-buttons">
+        <button id="scanBtn">📷 Scan Text</button>
+        <button id="analyzeBtn">Analyze</button>
+      </div>
     </div>
+
+    <!-- Hidden video and canvas elements -->
+    <video id="camera" autoplay playsinline style="display:none;"></video>
+    <canvas id="snapshotCanvas" style="display:none;"></canvas>
+
+    <!-- Camera Modal -->
+    <div id="cameraModal" class="modal">
+      <div class="modal-content">
+        <h2>📷 Scan Arabic Text</h2>
+        <video id="camera" autoplay playsinline></video>
+
+        <div class="modal-buttons">
+          <button id="captureBtn" class="capture">📸 Capture</button>
+          <button id="closeCameraBtn" class="close">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <canvas id="snapshotCanvas" style="display:none;"></canvas>
+
+
 
     <div class="controls">
       <button id="playAllBtn" class="play-all">🔊 Play All</button>
