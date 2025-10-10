@@ -1,154 +1,66 @@
-const input = document.getElementById("arabicInput");
-const breakButton = document.getElementById("breakButton");
-const output = document.getElementById("output");
+const inputText = document.getElementById("inputText");
+const analyzeBtn = document.getElementById("analyzeBtn");
+const outputDiv = document.getElementById("output");
+const playAllBtn = document.getElementById("playAllBtn");
 
+let voices = [];
 let arabicVoice = null;
-let fallbackVoice = null;
-let voicesLoaded = false;
 
-// --- Load available voices and pick Arabic + fallback ---
 function loadVoices() {
-  const voices = speechSynthesis.getVoices();
-  if (!voices.length) return; // voices not loaded yet
-
-  voicesLoaded = true;
-  arabicVoice = voices.find(v => v.lang && v.lang.startsWith("ar")) || null;
-  fallbackVoice = voices.find(v => v.lang && v.lang.startsWith("en")) || null;
-
-  console.log("Available voices:", voices.map(v => `${v.name} (${v.lang})`));
-
-  if (!arabicVoice && !loadVoices.warned) {
-    loadVoices.warned = true;
-    alert(
-      "⚠️ No Arabic voice found for text-to-speech.\n\n" +
-      "To enable Arabic speech:\n\n" +
-      "🖥️ Windows: Settings → Time & Language → Language & Region → Add Arabic → Speech → Download voice pack.\n" +
-      "📱 Android: Settings → Languages → Add Arabic → Restart Chrome.\n" +
-      "🍎 iOS/macOS: Settings → Accessibility → Spoken Content → Voices → Add Arabic.\n\n" +
-      "Until then, English will be used as a fallback."
-    );
-  }
+  voices = speechSynthesis.getVoices();
+  arabicVoice = voices.find(v => v.lang.startsWith("ar"));
 }
 
-// --- Ensure voices are loaded ---
-if ("speechSynthesis" in window) {
-  speechSynthesis.onvoiceschanged = loadVoices;
-  loadVoices();
-} else {
-  alert("Speech synthesis not supported in this browser.");
-}
+window.speechSynthesis.onvoiceschanged = loadVoices;
 
-// --- Speak text helper ---
-async function speakArabic(text) {
-  if (!("speechSynthesis" in window)) {
-    alert("Sorry, your browser doesn’t support speech synthesis.");
-    return;
-  }
-
-  // Wait until voices are loaded
-  if (!voicesLoaded) {
-    console.log("Voices not ready yet — waiting...");
-    await new Promise(resolve => setTimeout(resolve, 500));
-    loadVoices();
-  }
-
+function speak(text, voice = arabicVoice) {
+  if (!text) return;
   const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = arabicVoice ? "ar-SA" : "en-US";
-  utter.voice = arabicVoice || fallbackVoice || null;
-
-  // Helpful debugging output
+  utter.lang = voice ? voice.lang : "ar-SA";
+  utter.voice = voice || voices.find(v => v.lang.startsWith("ar")) || voices[0];
   console.log("🔊 Speaking:", text);
-  console.log("Using voice:", utter.voice ? utter.voice.name : "none");
-
-  try {
-    speechSynthesis.cancel(); // Stop previous speech
-    speechSynthesis.speak(utter);
-  } catch (err) {
-    console.error("Speech synthesis error:", err);
-    alert("⚠️ Speech synthesis failed — see console for details.");
-  }
+  speechSynthesis.speak(utter);
 }
 
-
-
-// --- Main breakdown logic ---
-breakButton.addEventListener("click", () => {
-  const text = input.value.trim();
+analyzeBtn.addEventListener("click", () => {
+  const text = inputText.value.trim();
   if (!text) return;
 
-  output.innerHTML = "";
-  const words = text.split(/[\s،؟.!]+/).filter(Boolean);
+  outputDiv.innerHTML = "";
 
-  words.forEach(word => {
-    const wordBlock = document.createElement("div");
-    wordBlock.className = "word-block";
+  const words = text.split(/\s+/);
 
-    // 🔊 Speak entire word
-    const speakWordBtn = document.createElement("button");
-    speakWordBtn.textContent = "🔊";
-    speakWordBtn.className = "speak-btn";
-    speakWordBtn.onclick = () => speakArabic(word);
-    wordBlock.appendChild(speakWordBtn);
+  words.forEach((word) => {
+    const wordCard = document.createElement("div");
+    wordCard.className = "word-card";
 
-    // 📖 Word text
-    const wordBox = document.createElement("span");
-    wordBox.className = "word";
-    wordBox.textContent = word;
-    wordBlock.appendChild(wordBox);
+    const wordHeader = document.createElement("div");
+    wordHeader.className = "word-header";
+    wordHeader.innerHTML = `<span class="word-text">${word}</span> 
+      <button class="play-btn" title="Speak word">🔊</button>`;
 
-    // Expand/collapse letters when word clicked
-    wordBox.addEventListener("click", () => toggleLetters(wordBlock, word));
+    const lettersDiv = document.createElement("div");
+    lettersDiv.className = "letters";
 
-    output.appendChild(wordBlock);
+    for (let char of word) {
+      const letter = document.createElement("span");
+      letter.className = "letter";
+      letter.textContent = char;
+      lettersDiv.appendChild(letter);
+    }
+
+    wordCard.appendChild(wordHeader);
+    wordCard.appendChild(lettersDiv);
+    outputDiv.appendChild(wordCard);
+
+    // Attach TTS handler
+    wordHeader.querySelector(".play-btn").addEventListener("click", () => {
+      speak(word);
+    });
   });
 });
 
-// --- Expand or collapse letters ---
-function toggleLetters(wordBlock, word) {
-  // If already expanded, revert to single word
-  if (wordBlock.dataset.expanded === "true") {
-    wordBlock.innerHTML = "";
-
-    const speakWordBtn = document.createElement("button");
-    speakWordBtn.textContent = "🔊";
-    speakWordBtn.className = "speak-btn";
-    speakWordBtn.onclick = () => speakArabic(word);
-    wordBlock.appendChild(speakWordBtn);
-
-    const wordSpan = document.createElement("span");
-    wordSpan.className = "word";
-    wordSpan.textContent = word;
-    wordSpan.addEventListener("click", () => toggleLetters(wordBlock, word));
-    wordBlock.appendChild(wordSpan);
-
-    wordBlock.dataset.expanded = "false";
-    return;
-  }
-
-  // Otherwise, show letters with TTS
-  wordBlock.innerHTML = "";
-  const letters = Array.from(word);
-
-  letters.forEach(ch => {
-    const letterWrap = document.createElement("div");
-    letterWrap.style.display = "inline-flex";
-    letterWrap.style.alignItems = "center";
-    letterWrap.style.gap = "4px";
-
-    const letterBox = document.createElement("span");
-    letterBox.className = "letter";
-    letterBox.textContent = ch;
-
-    const speakLetterBtn = document.createElement("button");
-    speakLetterBtn.textContent = "🔊";
-    speakLetterBtn.className = "speak-btn";
-    speakLetterBtn.onclick = () => speakArabic(ch);
-
-    letterWrap.appendChild(letterBox);
-    letterWrap.appendChild(speakLetterBtn);
-
-    wordBlock.appendChild(letterWrap);
-  });
-
-  wordBlock.dataset.expanded = "true";
-}
+playAllBtn.addEventListener("click", () => {
+  const text = inputText.value.trim();
+  if (text) speak(text);
+});

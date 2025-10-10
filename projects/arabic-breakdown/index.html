@@ -9,14 +9,19 @@
 <body>
   <div class="container">
     <h1>Arabic Text Breakdown</h1>
+    <div class="input-section">
+      <textarea id="inputText" placeholder="Enter Arabic text here..."></textarea>
+      <button id="analyzeBtn">Analyze</button>
+    </div>
 
-    <textarea id="arabicInput" placeholder="اكتب كلمة أو جملة بالعربية هنا..."></textarea>
-    <button id="breakButton">تفكيك النص</button>
-    <div id="breakdown-container"></div>
+    <div class="controls">
+      <button id="playAllBtn" class="play-all">🔊 Play All</button>
+    </div>
 
-    <div id="output"></div>
+    <div id="output" class="output"></div>
   </div>
 
   <script src="script.js"></script>
 </body>
+
 </html>
