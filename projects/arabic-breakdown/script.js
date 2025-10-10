@@ -67,6 +67,14 @@ playAllBtn.addEventListener("click", () => {
   if (text) speak(text);
 });
 
+const stopBtn = document.getElementById("stopBtn");
+
+stopBtn.addEventListener("click", () => {
+  speechSynthesis.cancel();
+  console.log("🛑 Speech stopped.");
+});
+
+
 // ---- Camera & OCR ----
 const scanBtn = document.getElementById("scanBtn");
 const cameraModal = document.getElementById("cameraModal");

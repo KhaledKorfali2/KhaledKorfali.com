@@ -107,6 +107,21 @@ button:active {
   background: #449d48;
 }
 
+.control-btn {
+  padding: 8px 14px;
+  background: #e53e3e;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.2s ease;
+}
+
+.control-btn:hover {
+  background: #c53030;
+}
+
 
 .input-buttons {
   display: flex;
