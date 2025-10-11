@@ -87,12 +87,25 @@ let stream = null;
 
 async function openCameraModal() {
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    console.log("Requesting camera access...");
+
+    // Prefer the back camera (useful for scanning text)
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+    });
+
+    const track = stream.getVideoTracks()[0];
+    const settings = track.getSettings();
+    console.log("Camera settings:", settings);
+
     camera.srcObject = stream;
+    camera.style.transform =
+      settings.facingMode === "user" ? "scaleX(-1)" : "scaleX(1)";
+
     cameraModal.style.display = "flex";
   } catch (err) {
-    alert("Camera access denied or unavailable.");
-    console.error(err);
+    console.error("Camera error:", err.name, err.message);
+    alert("Camera access denied or unavailable. Please check permissions.");
   }
 }
 
@@ -121,7 +134,7 @@ async function captureAndRecognize() {
   outputDiv.appendChild(processingNotice);
 
   try {
-    const { data: { text } } = await Tesseract.recognize(snapshotCanvas, "ara", {
+    const { data: { text } } = await Tesseract.recognize(snapshotCanvas, "ara+eng", {
       logger: info => console.log(info)
     });
 
