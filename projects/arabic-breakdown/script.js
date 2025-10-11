@@ -124,33 +124,29 @@ async function captureAndRecognize() {
   ctx.drawImage(camera, 0, 0);
 
   closeCameraModal();
-
-  const processingNotice = document.createElement("div");
-  processingNotice.textContent = "⏳ Processing Arabic text...";
-  processingNotice.style.padding = "10px";
-  processingNotice.style.background = "#eef";
-  processingNotice.style.borderRadius = "8px";
-  processingNotice.style.marginTop = "10px";
-  outputDiv.appendChild(processingNotice);
+  alert("⏳ Processing text... Please wait.");
 
   try {
+    // Recognize both Arabic and English (better accuracy)
     const { data: { text } } = await Tesseract.recognize(snapshotCanvas, "ara+eng", {
       logger: info => console.log(info)
     });
 
-    processingNotice.remove();
+    // 🔍 Extract only Arabic characters (U+0600–U+06FF, U+0750–U+077F, U+08A0–U+08FF)
+    const arabicOnly = text.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\s]+/g)?.join(" ") || "";
 
-    if (text.trim()) {
-      inputText.value += (inputText.value ? " " : "") + text.trim();
+    if (arabicOnly.trim()) {
+      inputText.value = arabicOnly.trim();
       alert("✅ Arabic text recognized and added to input!");
     } else {
       alert("❌ No Arabic text detected. Try again.");
     }
   } catch (err) {
-    processingNotice.remove();
     alert("Error during recognition: " + err.message);
+    console.error(err);
   }
 }
+
 
 scanBtn.addEventListener("click", openCameraModal);
 captureBtn.addEventListener("click", captureAndRecognize);
