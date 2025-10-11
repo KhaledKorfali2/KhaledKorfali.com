@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arabic Letter Quiz</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <h3>Choose Forms:</h3>
+      <label><input type="checkbox" class="form-checkbox" value="isolated" checked> Isolated</label>
+      <label><input type="checkbox" class="form-checkbox" value="start"> Start</label>
+      <label><input type="checkbox" class="form-checkbox" value="middle"> Middle</label>
+      <label><input type="checkbox" class="form-checkbox" value="end"> End</label>
+    </div>
+
+    <!-- Quiz -->
+    <div class="quiz">
+      <h1>Arabic Letter Quiz</h1>
+      <div id="question" class="question">Select forms to begin!</div>
+      <div id="answers" class="answers"></div>
+
+      <button id="nextBtn" class="next-btn">Next ➜</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
