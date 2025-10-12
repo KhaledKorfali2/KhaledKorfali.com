@@ -1,85 +1,208 @@
+/* ============ Base Layout ============ */
 body {
-  font-family: "Segoe UI", sans-serif;
-  background-color: #f8fafc;
-  color: #222;
+  font-family: Arial, sans-serif;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  height: 100vh;
+  flex-direction: row;
   margin: 0;
+  height: 100vh;
+  background-color: #fafafa;
+  overflow-x: hidden;
 }
 
-.container {
-  display: flex;
-  gap: 2rem;
-  padding: 2rem;
-}
-
+/* Sidebar */
 .sidebar {
-  background: #fff;
-  border-radius: 12px;
+  background-color: #f2f2f2;
   padding: 1rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  width: 220px;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
 }
 
-.quiz {
-  text-align: center;
-  background: #fff;
+.sidebar h3 {
+  margin-top: 0;
+}
+
+.sidebar label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+
+/* Main container */
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
   padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  width: 400px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+h1 {
+  margin-bottom: 1rem;
+}
+
+/* ============ Progress Bar & Score ============ */
+.progress-container {
+  width: 100%;
+  max-width: 600px;
+  height: 15px;
+  background-color: #ddd;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+#progress-bar {
+  height: 100%;
+  width: 0%;
+  background-color: #5cb85c;
+  border-radius: 10px;
+  transition: width 0.4s ease;
+}
+
+#score {
+  margin-bottom: 1.5rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+/* ============ Quiz Layout ============ */
+#quiz-container {
+  width: 100%;
+  max-width: 700px;
+  text-align: center;
 }
 
 .question {
-  font-size: 64px;
-  margin-bottom: 1.5rem;
-  border-bottom: 2px solid #eee;
-  padding-bottom: 1rem;
+  font-size: clamp(4rem, 10vw, 8rem); /* Bigger, responsive size */
+  margin-bottom: 2rem;
+  font-weight: bold;
+  color: #333;
 }
 
-.answers {
+/* ============ Answers Grid ============ */
+.answers-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0 1rem;
+  justify-items: stretch;
 }
 
-.answer-btn {
-  font-size: 18px;
-  padding: 1rem;
-  border: none;
-  border-radius: 10px;
+.answers-grid button {
+  width: 100%;
+  font-size: clamp(1.2rem, 4vw, 2rem);
+  padding: 1.5rem;
+  border: 2px solid #ccc;
+  border-radius: 1rem;
+  background-color: #f7f7f7;
   cursor: pointer;
-  background-color: #e2e8f0;
-  transition: background 0.2s;
+  transition: background-color 0.3s, transform 0.1s;
 }
 
-.answer-btn:hover {
-  background-color: #cbd5e1;
+.answers-grid button:hover {
+  background-color: #e0e0e0;
 }
 
-.correct {
-  background-color: #4ade80 !important;
-  color: white;
+.answers-grid button.selected {
+  background-color: #a0e0a0;
+  border-color: #5cb85c;
 }
 
-.incorrect {
-  background-color: #f87171 !important;
-  color: white;
-}
-
+/* ============ Next / Submit Button ============ */
 .next-btn {
   margin-top: 2rem;
-  padding: 0.8rem 1.5rem;
-  font-size: 18px;
-  border: none;
-  border-radius: 8px;
-  background: #2563eb;
+  padding: 1rem 2rem;
+  font-size: 1.2rem;
+  border-radius: 1rem;
+  background-color: #5cb85c;
   color: white;
+  border: none;
   cursor: pointer;
-  transition: 0.2s;
+  transition: background-color 0.3s;
 }
 
-.next-btn:hover {
-  background: #1e40af;
+.next-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* ============ Responsive Design ============ */
+@media (max-width: 900px) {
+  body {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .sidebar {
+    width: 100%;
+    box-shadow: none;
+    border-bottom: 2px solid #ddd;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+  }
+
+  .sidebar h3 {
+    width: 100%;
+    text-align: center;
+  }
+
+  .sidebar label {
+    font-size: 1.1rem;
+  }
+
+  .container {
+    width: 100%;
+    padding: 1rem;
+  }
+
+  .question {
+    font-size: clamp(5rem, 14vw, 10rem); /* Large Arabic letter on mobile */
+  }
+
+  .answers-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    padding: 0 0.5rem;
+  }
+
+  .answers-grid button {
+    font-size: 1.5rem;
+    padding: 1rem;
+  }
+
+  .next-btn {
+    width: 90%;
+    max-width: 400px;
+    margin: 1.5rem auto;
+    display: block;
+  }
+}
+
+@media (max-width: 480px) {
+  .answers-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.7rem;
+    padding: 0 0.4rem;
+  }
+
+  .answers-grid button {
+    font-size: 1.3rem;
+    padding: 1rem;
+  }
+
+  .question {
+    font-size: clamp(5rem, 20vw, 12rem); /* Even bigger on small phones */
+  }
+
+  .next-btn {
+    font-size: 1.1rem;
+  }
 }

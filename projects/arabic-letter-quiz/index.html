@@ -1,30 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Arabic Letter Quiz</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arabic Alphabet Quiz</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div class="sidebar">
+    <h3>Choose Forms:</h3>
+    <label><input type="checkbox" class="form-checkbox" value="isolated" checked> Isolated</label>
+    <label><input type="checkbox" class="form-checkbox" value="start"> Start</label>
+    <label><input type="checkbox" class="form-checkbox" value="middle"> Middle</label>
+    <label><input type="checkbox" class="form-checkbox" value="end"> End</label>
+  </div>
+
   <div class="container">
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <h3>Choose Forms:</h3>
-      <label><input type="checkbox" class="form-checkbox" value="isolated" checked> Isolated</label>
-      <label><input type="checkbox" class="form-checkbox" value="start"> Start</label>
-      <label><input type="checkbox" class="form-checkbox" value="middle"> Middle</label>
-      <label><input type="checkbox" class="form-checkbox" value="end"> End</label>
+    <h1>Arabic Alphabet Quiz</h1>
+
+    <div class="progress-container">
+      <div id="progress-bar"></div>
+    </div>
+    <div id="score">Score: 0 / 0</div>
+
+    <div id="quiz-container">
+      <div id="question" class="question"></div>
+      <div id="answers" class="answers-grid"></div>
     </div>
 
-    <!-- Quiz -->
-    <div class="quiz">
-      <h1>Arabic Letter Quiz</h1>
-      <div id="question" class="question">Select forms to begin!</div>
-      <div id="answers" class="answers"></div>
-
-      <button id="nextBtn" class="next-btn">Next ➜</button>
-    </div>
+    <button id="nextBtn" class="next-btn" disabled>Next</button>
   </div>
 
   <script src="script.js"></script>

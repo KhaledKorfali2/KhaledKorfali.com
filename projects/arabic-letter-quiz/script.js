@@ -1,108 +1,137 @@
-// Arabic letters + forms (same as your flashcard data)
 const letters = {
-  "Alif": { isolated: "ا", start: "ا", middle: "ـا", end: "ـا" },
-  "Ba": { isolated: "ب", start: "بـ", middle: "ـبـ", end: "ـب" },
-  "Ta": { isolated: "ت", start: "تـ", middle: "ـتـ", end: "ـت" },
-  "Tha": { isolated: "ث", start: "ثـ", middle: "ـثـ", end: "ـث" },
-  "Jeem": { isolated: "ج", start: "جـ", middle: "ـجـ", end: "ـج" },
-  "Haa": { isolated: "ح", start: "حـ", middle: "ـحـ", end: "ـح" },
-  "Khaa": { isolated: "خ", start: "خـ", middle: "ـخـ", end: "ـخ" },
-  "Dal": { isolated: "د", start: "د", middle: "ـد", end: "ـد" },
-  "Dhal": { isolated: "ذ", start: "ذ", middle: "ـذ", end: "ـذ" },
-  "Raa": { isolated: "ر", start: "ر", middle: "ـر", end: "ـر" },
-  "Zay": { isolated: "ز", start: "ز", middle: "ـز", end: "ـز" },
-  "Seen": { isolated: "س", start: "سـ", middle: "ـسـ", end: "ـس" },
-  "Sheen": { isolated: "ش", start: "شـ", middle: "ـشـ", end: "ـش" },
-  "Saad": { isolated: "ص", start: "صـ", middle: "ـصـ", end: "ـص" },
-  "Daad": { isolated: "ض", start: "ضـ", middle: "ـضـ", end: "ـض" },
-  "Taa": { isolated: "ط", start: "طـ", middle: "ـطـ", end: "ـط" },
-  "Zaa": { isolated: "ظ", start: "ظـ", middle: "ـظـ", end: "ـظ" },
-  "Ain": { isolated: "ع", start: "عـ", middle: "ـعـ", end: "ـع" },
-  "Ghayn": { isolated: "غ", start: "غـ", middle: "ـغـ", end: "ـغ" },
-  "Fa": { isolated: "ف", start: "فـ", middle: "ـفـ", end: "ـف" },
-  "Qaf": { isolated: "ق", start: "قـ", middle: "ـقـ", end: "ـق" },
-  "Kaf": { isolated: "ك", start: "كـ", middle: "ـكـ", end: "ـك" },
-  "Lam": { isolated: "ل", start: "لـ", middle: "ـلـ", end: "ـل" },
-  "Meem": { isolated: "م", start: "مـ", middle: "ـمـ", end: "ـم" },
-  "Noon": { isolated: "ن", start: "نـ", middle: "ـنـ", end: "ـن" },
-  "Haa2": { isolated: "ﻩ", start: "هـ", middle: "ـهـ", end: "ـه" },
-  "Waw": { isolated: "و", start: "و", middle: "ـو", end: "ـو" },
-  "Ya": { isolated: "ي", start: "يـ", middle: "ـيـ", end: "ـي" }
+  "Alif": { "isolated": "ا", "start": "ا", "middle": "ـا", "end": "ـا"},
+  "Ba": { "isolated": "ب", "start": "بـ", "middle": "ـبـ", "end": "ـب"},
+  "Ta": { "isolated": "ت", "start": "تـ", "middle": "ـتـ", "end": "ـت"},
+  "Tha": { "isolated": "ث", "start": "ثـ", "middle": "ـثـ", "end": "ـث"},
+  "Jeem": { "isolated": "ج", "start": "جـ", "middle": "ـجـ", "end": "ـج"},
+  "Haa": { "isolated": "ح", "start": "حـ", "middle": "ـحـ", "end": "ـح"},
+  "Khaa": { "isolated": "خ", "start": "خـ", "middle": "ـخـ", "end": "ـخ"},
+  "Dal": { "isolated": "د", "start": "د", "middle": "ـد", "end": "ـد"},
+  "Dhal": { "isolated": "ذ", "start": "ذ", "middle": "ـذ", "end": "ـذ"},
+  "Raa": { "isolated": "ر", "start": "ر", "middle": "ـر", "end": "ـر"},
+  "Zay": { "isolated": "ز", "start": "ز", "middle": "ـز", "end": "ـز"},
+  "Seen": { "isolated": "س", "start": "سـ", "middle": "ـسـ", "end": "ـس"},
+  "Sheen": { "isolated": "ش", "start": "شـ", "middle": "ـشـ", "end": "ـش"},
+  "Saad": { "isolated": "ص", "start": "صـ", "middle": "ـصـ", "end": "ـص"},
+  "Daad": { "isolated": "ض", "start": "ضـ", "middle": "ـضـ", "end": "ـض"},
+  "Taa": { "isolated": "ط", "start": "طـ", "middle": "ـطـ", "end": "ـط"},
+  "Zaa": { "isolated": "ظ", "start": "ظـ", "middle": "ـظـ", "end": "ـظ"},
+  "Ain": { "isolated": "ع", "start": "عـ", "middle": "ـعـ", "end": "ـع"},
+  "Ghayn": { "isolated": "غ", "start": "غـ", "middle": "ـغـ", "end": "ـغ"},
+  "Fa": { "isolated": "ف", "start": "فـ", "middle": "ـفـ", "end": "ـف"},
+  "Qaf": { "isolated": "ق", "start":"قـ", "middle": "ـقـ", "end": "ـق"},
+  "Kaf": { "isolated": "ك", "start": "كـ", "middle": "ـكـ", "end": "ـك"},
+  "Lam": { "isolated": "ل", "start": "لـ", "middle": "ـلـ", "end": "ـل"},
+  "Meem": { "isolated": "م", "start": "مـ", "middle": "ـمـ", "end": "ـم"},
+  "Noon": { "isolated": "ن", "start": "نـ", "middle": "ـنـ", "end": "ـن"},
+  "Haa2": { "isolated": "ﻩ", "start": "هـ", "middle": "ـهـ", "end": "ـه"},
+  "Waw": { "isolated": "و", "start": "و", "middle": "ـو", "end": "ـو"},
+  "Ya": { "isolated": "ي", "start": "يـ", "middle": "ـيـ", "end": "ـي"}
 };
 
-const selectedForms = new Set(["isolated"]);
 const questionEl = document.getElementById("question");
 const answersEl = document.getElementById("answers");
+const scoreEl = document.getElementById("score");
 const nextBtn = document.getElementById("nextBtn");
+const progressBar = document.getElementById("progress-bar");
 
-let currentQuestion = null;
+let selectedForms = new Set(["isolated"]);
+let questions = [];
+let currentQuestionIndex = 0;
+let score = 0;
 
-// Load selected forms
-document.querySelectorAll(".form-checkbox").forEach(cb => {
-  cb.addEventListener("change", () => {
-    if (cb.checked) selectedForms.add(cb.value);
-    else selectedForms.delete(cb.value);
-    generateQuestion();
-  });
-});
-
-function getRandomItem(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
+// Build all questions based on selected forms
+function generateQuestions() {
+  questions = [];
+  for (const [name, forms] of Object.entries(letters)) {
+    selectedForms.forEach(form => {
+      if (forms[form]) {
+        questions.push({ name, display: forms[form] });
+      }
+    });
+  }
+  shuffle(questions);
 }
 
-function shuffleArray(arr) {
-  return arr.sort(() => Math.random() - 0.5);
+// Utility: shuffle array
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
 }
 
-function generateQuestion() {
-  const formOptions = Array.from(selectedForms);
-  if (formOptions.length === 0) {
-    questionEl.textContent = "Please select at least one form.";
+function loadQuestion() {
+  if (currentQuestionIndex >= questions.length) {
+    questionEl.innerHTML = "🎉 Quiz Complete!";
     answersEl.innerHTML = "";
+    nextBtn.disabled = true;
     return;
   }
 
-  const allLetters = Object.entries(letters);
-  const [english, forms] = getRandomItem(allLetters);
-  const randomForm = getRandomItem(formOptions);
-  const arabicLetter = forms[randomForm];
+  const q = questions[currentQuestionIndex];
+  questionEl.innerHTML = q.display;
 
-  currentQuestion = { english, arabicLetter };
+  const correctAnswer = q.name;
+  const options = [correctAnswer];
 
-  // Generate wrong answers
-  const wrongs = allLetters
-    .filter(([e]) => e !== english)
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3)
-    .map(([e]) => e);
-
-  // Mix them up
-  const options = shuffleArray([english, ...wrongs]);
-
-  // Render
-  questionEl.textContent = arabicLetter;
-  questionEl.setAttribute("lang", "ar");
-  questionEl.setAttribute("dir", "rtl");
+  // Generate 3 random other options
+  const allNames = Object.keys(letters).filter(n => n !== correctAnswer);
+  shuffle(allNames);
+  options.push(...allNames.slice(0, 3));
+  shuffle(options);
 
   answersEl.innerHTML = "";
   options.forEach(opt => {
     const btn = document.createElement("button");
     btn.className = "answer-btn";
     btn.textContent = opt;
-    btn.onclick = () => handleAnswer(opt, btn);
+    btn.onclick = () => selectAnswer(btn, opt === correctAnswer);
     answersEl.appendChild(btn);
   });
+
+  nextBtn.disabled = true;
+  updateProgress();
 }
 
-function handleAnswer(choice, btn) {
-  const correct = choice === currentQuestion.english;
-  btn.classList.add(correct ? "correct" : "incorrect");
+function selectAnswer(button, isCorrect) {
+  const allBtns = answersEl.querySelectorAll(".answer-btn");
+  allBtns.forEach(b => b.disabled = true);
+  if (isCorrect) {
+    button.classList.add("correct");
+    score++;
+  } else {
+    button.classList.add("wrong");
+  }
 
-  // Disable all buttons
-  document.querySelectorAll(".answer-btn").forEach(b => (b.disabled = true));
+  scoreEl.textContent = `Score: ${score} / ${questions.length}`;
+  nextBtn.disabled = false;
 }
 
-nextBtn.addEventListener("click", generateQuestion);
+function nextQuestion() {
+  currentQuestionIndex++;
+  loadQuestion();
+}
+
+function updateProgress() {
+  const progress = ((currentQuestionIndex) / questions.length) * 100;
+  progressBar.style.width = `${progress}%`;
+}
+
+document.querySelectorAll(".form-checkbox").forEach(cb => {
+  cb.addEventListener("change", () => {
+    selectedForms = new Set(
+      Array.from(document.querySelectorAll(".form-checkbox:checked")).map(c => c.value)
+    );
+    score = 0;
+    currentQuestionIndex = 0;
+    generateQuestions();
+    loadQuestion();
+  });
+});
+
+nextBtn.addEventListener("click", nextQuestion);
 
 // Initialize
-generateQuestion();
+generateQuestions();
+loadQuestion();
