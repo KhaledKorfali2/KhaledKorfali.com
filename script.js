@@ -9,7 +9,7 @@ const projects = [
 	{name: "Arabic Flashcards", image: "screenshots/arabic-flashcards.png", path: "./projects/arabic-flashcards/index.html"},
 	{name: "Arabic Word Guess", image: "screenshots/arabic-word-guess.png", path: "./projects/arabic-word-guess/index.html"},
 	{name: "Arabic Word Breakdown", image: "screenshots/arabic-breakdown.png", path: "./projects/arabic-breakdown/index.html"},
-	{name: "Arabic Word Breakdown", image: "screenshots/arabic-breakdown.png", path: "./projects/arabic-letter-quiz/index.html"},
+	{name: "Arabic Letter Quiz", image: "screenshots/arabic-letter-quiz.png", path: "./projects/arabic-letter-quiz/index.html"},
 ];
 
 // Dynamically genearte project grid
