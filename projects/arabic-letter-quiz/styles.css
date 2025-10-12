@@ -206,3 +206,16 @@ h1 {
     font-size: 1.1rem;
   }
 }
+
+
+.answer-btn.correct {
+  background-color: #4CAF50 !important;
+  color: white !important;
+  border-color: #4CAF50 !important;
+}
+
+.answer-btn.wrong {
+  background-color: #f44336 !important;
+  color: white !important;
+  border-color: #f44336 !important;
+}
