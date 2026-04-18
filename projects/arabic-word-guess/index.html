@@ -1,61 +1,87 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arabic Word Guess Game</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arabic Word Guess</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&family=Amiri:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../styles/arabic-tools-shared.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>Arabic Word Guess</h1>
 
-    <!-- Reset Button -->
-    <button id="reset-btn">🔄 Reset</button>
+  <!-- Header (LTR override) -->
+  <header dir="ltr">
+    <a href="../../index.html" class="header-logo">folio<span>.</span></a>
+    <nav><a href="../../projects.html">← Projects</a></nav>
+  </header>
 
-    <!-- Toggle Hint Button -->
-    <button id="toggle-hint-btn">💡 Show Hint</button>
-    <p id="hint-txt" style="display: none;"></p>
+  <section class="hero" dir="ltr">
+    <p class="hero-eyebrow">Arabic Learning</p>
+    <h1>Arabic Word <em>Guess.</em></h1>
+    <p class="hero-description">
+      Guess the Qur'anic Arabic word letter-by-letter — Wordle-style. Green means correct position, yellow means wrong position.
+    </p>
+  </section>
+  <div class="hero-rule"></div>
 
-    <!-- Study Mode -->
-     <label class="study-toggle">
-        <input type="checkbox" id="study-toggle">
-        <span>🧠 Study Mode</span>
-     </label>
+  <main class="game-layout">
 
+    <!-- Top bar: controls -->
+    <div class="game-topbar" dir="ltr">
+      <div class="topbar-controls">
+        <button id="reset-btn" class="btn-ghost">↺ New Word</button>
+        <button id="toggle-hint-btn" class="btn-ghost">💡 Hint</button>
+      </div>
 
-    <label class="keyboard-toggle">
-        <input type="checkbox" id="use-native-keyboard">
-        <span>Use Device Keyboard</span>
-    </label>
+      <div class="topbar-toggles">
+        <label class="toggle" dir="ltr">
+          <input type="checkbox" id="study-toggle">
+          <span class="toggle-track"></span>
+          <span class="toggle-label">Study Mode</span>
+        </label>
+        <label class="toggle" dir="ltr">
+          <input type="checkbox" id="use-native-keyboard">
+          <span class="toggle-track"></span>
+          <span class="toggle-label">Device Keyboard</span>
+        </label>
+      </div>
+    </div>
 
-    <!-- Result Message -->
-    <div id="result-message" dir="ltr"></div>
-    
-    <!-- Display Arabic Word -->
-    <h2 id="target-word" style="display: none;"></h2>
+    <!-- Hint / target word -->
+    <div id="info-strip" class="info-strip" dir="ltr">
+      <p id="hint-txt" class="info-text" style="display:none;"></p>
+      <p id="result-message" class="info-text"></p>
+      <h2 id="target-word" class="target-word" style="display:none;"></h2>
+    </div>
 
-    <!-- Game Board -->
-    <div id="guess-grid"></div>
+    <!-- Game board -->
+    <div id="guess-grid" class="guess-grid"></div>
 
-    <!-- Arabic Keyboard -->
-    <div id="keyboard"></div>
-    
-    <!-- Hidden input to trigger native keyboards (desktop + mobile) -->
+    <!-- Keyboard -->
+    <div id="keyboard" class="keyboard"></div>
+
+    <!-- Hidden native input -->
     <input
-    id="native-input"
-    type="text"
-    dir="rtl"
-    lang="ar"
-    inputmode="text"
-    autocomplete="off"
-    autocapitalize="none"
-    spellcheck="false"
-    class="sr-only-input"
-    aria-label="Type Arabic letters here"
+      id="native-input"
+      type="text"
+      dir="rtl"
+      lang="ar"
+      inputmode="text"
+      autocomplete="off"
+      autocapitalize="none"
+      spellcheck="false"
+      class="sr-only-input"
+      aria-label="Type Arabic letters here"
     />
 
+  </main>
 
+  <footer dir="ltr">
+    <p>Qur'anic vocabulary</p>
+    <a href="../../projects.html">← Back to projects</a>
+  </footer>
 
-    <script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>

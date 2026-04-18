@@ -1,0 +1,98 @@
+[
+  {
+    "number": 1,
+    "name": {
+      "english": "Al-Fatiha",
+      "arabic": "الفاتحة"
+    },
+    "meaning": {
+      "english": "The Opening",
+      "arabic": "الفاتحة"
+    },
+    "ayahCount": 7,
+    "revelation": "Meccan",
+    "otherNames": [
+      {
+        "english": "Umm al-Kitab",
+        "arabic": "أم الكتاب"
+      }
+    ],
+    "juzDetail": [
+      { "juz": 1, "startAyah": 1, "endAyah": 7 }
+    ]
+  },
+  {
+    "number": 2,
+    "name": {
+      "english": "Al-Baqarah",
+      "arabic": "البقرة"
+    },
+    "meaning": {
+      "english": "The Cow",
+      "arabic": "البقرة"
+    },
+    "ayahCount": 286,
+    "revelation": "Medinan",
+    "otherNames": [],
+    "juzDetail": [
+      { "juz": 1, "startAyah": 1, "endAyah": 141 },
+      { "juz": 2, "startAyah": 142, "endAyah": 252 },
+      { "juz": 3, "startAyah": 253, "endAyah": 286 }
+    ]
+  },
+  {
+    "number": 3,
+    "name": {
+      "english": "Aal-E-Imran",
+      "arabic": "آل عمران"
+    },
+    "meaning": {
+      "english": "Family of Imran",
+      "arabic": "آل عمران"
+    },
+    "ayahCount": 200,
+    "revelation": "Medinan",
+    "otherNames": [],
+    "juzDetail": [
+      { "juz": 3, "startAyah": 1, "endAyah": 92 },
+      { "juz": 4, "startAyah": 93, "endAyah": 200 }
+    ]
+  },
+  {
+    "number": 4,
+    "name": {
+      "english": "An-Nisa",
+      "arabic": "النساء"
+    },
+    "meaning": {
+      "english": "The Women",
+      "arabic": "النساء"
+    },
+    "ayahCount": 176,
+    "revelation": "Medinan",
+    "otherNames": [],
+    "juzDetail": [
+      { "juz": 4, "startAyah": 1, "endAyah": 23 },
+      { "juz": 5, "startAyah": 24, "endAyah": 147 },
+      { "juz": 6, "startAyah": 148, "endAyah": 176 }
+    ]
+  },
+  {
+    "number": 5,
+    "name": {
+      "english": "Al-Ma'idah",
+      "arabic": "المائدة"
+    },
+    "meaning": {
+      "english": "The Table Spread",
+      "arabic": "المائدة"
+    },
+    "ayahCount": 120,
+    "revelation": "Medinan",
+    "otherNames": [],
+    "juzDetail": [
+      { "juz": 6, "startAyah": 1, "endAyah": 81 },
+      { "juz": 7, "startAyah": 82, "endAyah": 120 }
+    ]
+  }
+]

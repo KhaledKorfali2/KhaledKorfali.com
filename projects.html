@@ -3,26 +3,102 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Projects</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <title>Projects — My Portfolio</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Navigation -->
+
   <header>
-    <h2>My Portfolio</h2>
+    <a href="index.html" class="header-logo">folio<span>.</span></a>
     <nav>
       <a href="index.html">Home</a>
-      <a href="projects.html">Projects</a>
+      <a href="projects.html" class="active">Projects</a>
     </nav>
   </header>
 
-  <!-- Projects Grid -->
-  <main>
-    <h1>My JavaScript Projects</h1>
+  <section class="hero" style="padding-bottom: 48px;">
+    <p class="hero-eyebrow fade-up fade-up-1">The Collection</p>
+    <h1 class="fade-up fade-up-2" style="font-size: clamp(2.5rem, 6vw, 4.5rem);">
+      All <em>projects.</em>
+    </h1>
+    <p class="hero-description fade-up fade-up-3" style="margin-bottom: 28px;">
+      From physics simulations to Quranic Arabic tools — everything I've built and actually shipped.
+    </p>
+
+    <div class="hero-actions fade-up fade-up-4">
+      <div class="category-tags" id="filterTags">
+        <button class="tag active" data-filter="all">All</button>
+        <button class="tag" data-filter="simulation">Simulation</button>
+        <button class="tag" data-filter="arabic">Arabic Learning</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="hero-rule"></div>
+
+  <main id="projects-section">
     <div class="grid-container" id="projectsGrid"></div>
   </main>
 
+  <footer>
+    <p>Built with vanilla JS &amp; curiosity.</p>
+  </footer>
+
   <script src="script.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const grid = document.getElementById("projectsGrid");
+      const tags = document.querySelectorAll(".tag");
+      let activeFilter = "all";
+
+      function renderGrid(filter) {
+        grid.innerHTML = "";
+        const filtered = filter === "all"
+          ? projects
+          : projects.filter(p => p.category === filter);
+
+        if (filtered.length === 0) {
+          grid.innerHTML = `<div class="empty-state">No projects in this category yet.</div>`;
+          return;
+        }
+
+        filtered.forEach((project, i) => {
+          const div = document.createElement("div");
+          div.className = "grid-item";
+          div.style.animationDelay = `${i * 0.06}s`;
+          div.innerHTML = `
+            <a href="${project.path}">
+              <div class="card-image-wrap">
+                <img src="${project.image}" alt="${project.name}" loading="lazy">
+                <div class="card-image-overlay"></div>
+                <div class="card-arrow">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M1 7h12M7 1l6 6-6 6" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="card-body">
+                <span class="card-tag ${project.category}">${project.category === 'arabic' ? 'Arabic Learning' : 'Simulation'}</span>
+                <span class="card-name">${project.name}</span>
+              </div>
+            </a>
+          `;
+          grid.appendChild(div);
+        });
+      }
+
+      tags.forEach(tag => {
+        tag.addEventListener("click", () => {
+          tags.forEach(t => t.classList.remove("active"));
+          tag.classList.add("active");
+          activeFilter = tag.dataset.filter;
+          renderGrid(activeFilter);
+        });
+      });
+
+      renderGrid("all");
+    });
+  </script>
 </body>
 </html>

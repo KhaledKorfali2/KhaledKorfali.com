@@ -1,53 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Boid Simulation</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boid Simulation</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <canvas id="canvas"></canvas>
-    <div id="setting">
-        <div id="settingsDropdown">
-            <button id="settingsBtn">
-               <span class="icon">⚙</span>
-               <span class="text">Settings</span>
-               <span class="arrow">▼</span>
-            </button>
+  <canvas id="canvas"></canvas>
 
+  <div id="settingsDropdown">
 
-            <div id="settingsContent" class="hidden">
-               <button id="resetBtn">Reset</button>
+    <button id="settingsBtn">
+      <span class="icon">⚙</span>
+      <span class="text">Settings</span>
+      <span class="arrow">▼</span>
+    </button>
 
-               <div class="slider-group">
-                     <label for="alignSlider">Alignment</label>
-                     <input type="range" id="alignSlider" min="0" max="2" step="0.1" value="1">
-                     <span id="alignValue">1</span>
-               </div>
+    <div id="settingsContent" class="hidden">
 
-               <div class="slider-group">
-                  <label for="velocitySlider">Velocity</label>
-                  <input type="range" id="velocitySlider" min="1" max="10" step="0.1" value="5">
-                  <span id="velocityValue">5</span>
-               </div>
+      <!-- Flock controls -->
+      <div class="section-label">Flock</div>
 
+      <div class="slider-group">
+        <label for="countSlider">Count</label>
+        <div class="slider-row">
+          <input type="range" id="countSlider" min="10" max="400" step="1" value="100">
+          <span id="countValue">100</span>
+        </div>
+      </div>
 
-               <div class="slider-group">
-                     <label for="cohesionSlider">Cohesion</label>
-                     <input type="range" id="cohesionSlider" min="0" max="2" step="0.1" value="1">
-                     <span id="cohesionValue">1</span>
-               </div>
+      <div class="slider-group">
+        <label for="velocitySlider">Velocity</label>
+        <div class="slider-row">
+          <input type="range" id="velocitySlider" min="1" max="10" step="0.1" value="5">
+          <span id="velocityValue">5</span>
+        </div>
+      </div>
 
-               <div class="slider-group">
-                     <label for="separationSlider">Separation</label>
-                     <input type="range" id="separationSlider" min="0" max="2" step="0.1" value="1">
-                     <span id="separationValue">1</span>
-               </div>
-            </div>
-         </div>
+      <div class="slider-group">
+        <label for="alignSlider">Alignment</label>
+        <div class="slider-row">
+          <input type="range" id="alignSlider" min="0" max="2" step="0.05" value="1">
+          <span id="alignValue">1</span>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <label for="cohesionSlider">Cohesion</label>
+        <div class="slider-row">
+          <input type="range" id="cohesionSlider" min="0" max="2" step="0.05" value="1">
+          <span id="cohesionValue">1</span>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <label for="separationSlider">Separation</label>
+        <div class="slider-row">
+          <input type="range" id="separationSlider" min="0" max="2" step="0.05" value="1">
+          <span id="separationValue">1</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Visual controls -->
+      <div class="section-label">Visual</div>
+
+      <label class="toggle-row">
+        <span>Motion trails</span>
+        <div class="pill-toggle">
+          <input type="checkbox" id="trailToggle">
+          <span class="pill-track"></span>
+        </div>
+      </label>
+
+      <div class="divider"></div>
+
+      <!-- Barrier controls -->
+      <div class="section-label">Barriers</div>
+
+      <div class="barrier-btns">
+        <button id="barrierModeBtn" class="tool-btn">✏ Draw</button>
+        <button id="eraserModeBtn"  class="tool-btn">⌫ Erase</button>
+      </div>
+      <button id="clearBarriersBtn" class="clear-btn">Clear all</button>
+
+      <div class="divider"></div>
+
+      <button id="resetBtn" class="reset-btn">↺ Reset Flock</button>
 
     </div>
-    <script type="module" src="script.js"></script>
+  </div>
+
+  <!-- Mode indicator shown on canvas -->
+  <div id="modeIndicator" class="mode-indicator" style="display:none;"></div>
+
+  <script type="module" src="script.js"></script>
 </body>
 </html>

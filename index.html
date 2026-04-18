@@ -3,27 +3,93 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <title>My Portfolio</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Navigation -->
+
   <header>
-    <h2>My Portfolio</h2>
+    <a href="index.html" class="header-logo">folio<span>.</span></a>
     <nav>
-      <a href="index.html">Home</a>
+      <a href="index.html" class="active">Home</a>
       <a href="projects.html">Projects</a>
     </nav>
   </header>
 
-  <!-- Hero / Welcome -->
-  <div id="welcome-container">
-    <h1>Welcome to My Projects</h1>
-    <p>Explore my collection of JavaScript experiments and interactive demos.</p>
-    <button onclick="goToProjects()">View Projects</button>
-  </div>
+  <!-- Hero -->
+  <section class="hero">
+    <p class="hero-eyebrow fade-up fade-up-1">Personal Projects</p>
+    <h1 class="fade-up fade-up-2">
+      Building things<br><em>just to see</em><br>what happens.
+    </h1>
+    <p class="hero-description fade-up fade-up-3">
+      A collection of JavaScript experiments, Arabic learning tools, and interactive simulations — built out of curiosity and kept out of stubbornness.
+    </p>
+    <div class="hero-actions fade-up fade-up-4">
+      <a href="projects.html" class="btn-primary">
+        Browse Projects
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </div>
+
+    <div class="hero-stats fade-up fade-up-5">
+      <div class="stat-item">
+        <span class="stat-number">7</span>
+        <span class="stat-label">Projects</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">2</span>
+        <span class="stat-label">Categories</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">JS</span>
+        <span class="stat-label">Primary Stack</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="hero-rule"></div>
+
+  <!-- Featured Projects Teaser -->
+  <section class="project-teaser">
+    <div class="section-header">
+      <h2>Featured</h2>
+      <a href="projects.html" class="teaser-see-all">
+        All projects →
+      </a>
+    </div>
+
+    <div class="teaser-grid" id="teaserGrid"></div>
+  </section>
+
+  <footer>
+    <p>Built with vanilla JS &amp; curiosity.</p>
+    <p><a href="projects.html" style="color: var(--ink-muted); text-decoration:none;">View all projects →</a></p>
+  </footer>
 
   <script src="script.js"></script>
+  <script>
+    // Populate teaser with first 4 projects
+    document.addEventListener("DOMContentLoaded", () => {
+      const grid = document.getElementById("teaserGrid");
+      if (!grid) return;
+      const featured = projects.slice(0, 4);
+      featured.forEach((p, i) => {
+        const el = document.createElement("a");
+        el.className = "teaser-item";
+        el.href = p.path;
+        el.innerHTML = `
+          <span class="teaser-num">${String(i + 1).padStart(2, '0')}</span>
+          <div class="teaser-info">
+            <div class="teaser-name">${p.name}</div>
+            <div class="teaser-cat">${p.category === 'arabic' ? 'Arabic Learning' : 'Simulation'}</div>
+          </div>
+          <span class="teaser-arrow">→</span>
+        `;
+        grid.appendChild(el);
+      });
+    });
+  </script>
 </body>
 </html>

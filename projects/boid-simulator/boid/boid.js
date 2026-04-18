@@ -2,113 +2,108 @@
 import { Vector } from "../vector/vector.js";
 
 export class Boid {
-    constructor(x = 0, y = 0, z = 0) {
-        this.position = new Vector(x, y, z);
-        this.velocity = Vector.random();  
-        this.acceleration = new Vector();
-        this.maxForce = 0.2;
-        this.maxSpeed = 5;
+  constructor(x = 0, y = 0, z = 0) {
+    this.position     = new Vector(x, y, z);
+    this.velocity     = Vector.random();
+    this.acceleration = new Vector();
+    this.maxForce     = 0.25;
+    this.maxSpeed     = 5;
 
-        this.alignFactor = 1;
-        this.cohesionFactor = 1;
-        this.separationFactor = 1;
+    this.alignFactor      = 1;
+    this.cohesionFactor   = 1;
+    this.separationFactor = 1;
+  }
+
+  edges() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (this.position.x >  w) this.position.x = 0;
+    if (this.position.x <  0) this.position.x = w;
+    if (this.position.y >  h) this.position.y = 0;
+    if (this.position.y <  0) this.position.y = h;
+  }
+
+  // Unified steering helper — candidates already pre-filtered by spatial grid
+  _steer(candidates, radius, type) {
+    let sx = 0, sy = 0, total = 0;
+
+    for (const other of candidates) {
+      if (other === this) continue;
+      const dx = this.position.x - other.position.x;
+      const dy = this.position.y - other.position.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > radius * radius || d2 === 0) continue;
+
+      if (type === "align") {
+        sx += other.velocity.x;
+        sy += other.velocity.y;
+      } else if (type === "cohesion") {
+        sx += other.position.x;
+        sy += other.position.y;
+      } else { // separation
+        const d = Math.sqrt(d2);
+        sx += dx / (d * d);
+        sy += dy / (d * d);
+      }
+      total++;
     }
 
-    edges() {
-        let width = window.innerWidth;
-        let height = window.innerHeight;
-        if (this.position.x > width) {
-            this.position.x = 0;
-        } else if (this.position.x < 0) {
-            this.position.x = width;
-        }
-        
-        
-        if (this.position.y > height) {
-            this.position.y = 0;
-        } else if (this.position.y < 0) {
-            this.position.y = height;
-        }
+    if (total === 0) return { x: 0, y: 0 };
+
+    sx /= total;
+    sy /= total;
+
+    if (type === "cohesion") {
+      sx -= this.position.x;
+      sy -= this.position.y;
     }
 
-    // Helper function to handle common behviors for align, seperation, and adhesion
-    calculateSteering(boids, perceptionRadius, type) {
-        let steering = new Vector();
-        let total = 0;
-        
-        for (let other of boids) {
-            let d = Vector.dist(this.position, other.position);
-            if (other != this && d < perceptionRadius) {
-                if (type === 'align') {
-                    steering.add(other.velocity);
-                } else if (type === 'separation') {
-                    let diff = Vector.sub(this.position, other.position);
-                    diff.div(d * d);
-                    steering.add(diff);
-                } else if (type === 'cohere') {
-                    steering.add(other.position);
-                }
-                total += 1;
-            }
-        }
+    // Normalise and scale to maxSpeed
+    const mag = Math.sqrt(sx * sx + sy * sy) || 1;
+    sx = (sx / mag) * this.maxSpeed - this.velocity.x;
+    sy = (sy / mag) * this.maxSpeed - this.velocity.y;
 
-        if (total > 0) {
-            steering.div(total);
-            if (type === 'cohere') {
-                steering.sub(this.position);
-            }
-            steering.setMag(this.maxSpeed);
-            steering.sub(this.velocity);
-            steering.limit(this.maxForce);
-        }
-
-        return steering;
+    // Clamp to maxForce
+    const fmag = Math.sqrt(sx * sx + sy * sy);
+    if (fmag > this.maxForce) {
+      sx = (sx / fmag) * this.maxForce;
+      sy = (sy / fmag) * this.maxForce;
     }
 
-    align(boids) {
-        return this.calculateSteering(boids, 75, 'align');
-    }
-    separation(boids) {
-        return this.calculateSteering(boids, 30, 'separation');
-    }
-    cohesion(boids) {
-        return this.calculateSteering(boids, 75, 'cohere');
-    }
+    return { x: sx, y: sy };
+  }
 
+  flock(candidates) {
+    const a = this._steer(candidates, 75, "align");
+    const c = this._steer(candidates, 75, "cohesion");
+    const s = this._steer(candidates, 30, "separation");
 
-    flock(boids) {
-        let alignment = this.align(boids);
-        let cohesion = this.cohesion(boids);
-        let separation = this.separation(boids);
+    this.acceleration.x +=
+      a.x * this.alignFactor +
+      c.x * this.cohesionFactor +
+      s.x * this.separationFactor;
 
-        alignment.mult(this.alignFactor);
-        cohesion.mult(this.cohesionFactor);
-        separation.mult(this.separationFactor);
+    this.acceleration.y +=
+      a.y * this.alignFactor +
+      c.y * this.cohesionFactor +
+      s.y * this.separationFactor;
+  }
 
-        this.acceleration.add(alignment);
-        this.acceleration.add(cohesion)
-        this.acceleration.add(separation);
-    }
+  update() {
+    this.position.x  += this.velocity.x;
+    this.position.y  += this.velocity.y;
+    this.velocity.x  += this.acceleration.x;
+    this.velocity.y  += this.acceleration.y;
 
-    update() {
-        this.position.add(this.velocity);
-        this.velocity.add(this.acceleration);
-        this.velocity.limit(this.maxSpeed);
-        this.acceleration.mult(0);
-    }
-    show(ctx) {
-        ctx.fillStyle = "white";
-        ctx.beginPath();
-        ctx.save();
-        ctx.translate(this.position.x, this.position.y);
-        let angle = Math.atan2(this.velocity.y, this.velocity.x);
-        ctx.rotate(angle);
-        ctx.moveTo(0, -5);
-        ctx.lineTo(10, 0);
-        ctx.lineTo(0, 5);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
+    // Clamp speed
+    const spd = Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2);
+    if (spd > this.maxSpeed) {
+      this.velocity.x = (this.velocity.x / spd) * this.maxSpeed;
+      this.velocity.y = (this.velocity.y / spd) * this.maxSpeed;
     }
 
+    // Reset acceleration
+    this.acceleration.x = 0;
+    this.acceleration.y = 0;
+  }
 }

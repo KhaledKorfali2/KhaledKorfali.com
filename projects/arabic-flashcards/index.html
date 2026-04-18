@@ -1,47 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arabic Alphabet Flashcards</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arabic Flashcards</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&family=Amiri:ital@0;1&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../../styles/arabic-tools-shared.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-    
-    <!-- Sidebar with Checkboxes -->
-    <div class="sidebar">
-        <h3>Choose Forms:</h3>
-        <label><input type="checkbox" id="isolated" class="form-checkbox" value="isolated" checked> Include Isolated Form</label>
-        <label><input type="checkbox" id="start" class="form-checkbox" value="start"> Include Start Form</label>
-        <label><input type="checkbox" id="middle" class="form-checkbox" value="middle"> Include Middle Form</label>
-        <label><input type="checkbox" id="end" class="form-checkbox" value="end"> Include End Form</label>
-    </div>
+  <header>
+    <a href="../../index.html" class="header-logo">folio<span>.</span></a>
+    <nav><a href="../../projects.html">← Projects</a></nav>
+  </header>
 
+  <section class="hero">
+    <p class="hero-eyebrow">Arabic Learning</p>
+    <h1>Arabic <em>Flashcards.</em></h1>
+    <p class="hero-description">
+      Study Arabic letter forms — isolated, start, middle, and end positions. Click any card to reveal its name.
+    </p>
+  </section>
+  <div class="hero-rule"></div>
 
-    <!-- Flashcard Container -->
-    <div id="flashcard-container" class="flashcard-container">
-        <div id="message">Please select what forms you want to study</div>
-    </div>
+  <div class="tool-layout">
 
-    <!-- Navigation Buttons -->
-    <div class="navigation">
-        <button id="prevBtn" class="nav-btn">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M15 18l-6-6 6-6"></path>
-            </svg>
+    <!-- Controls -->
+    <aside class="controls-panel">
+      <p class="panel-label">Letter Forms</p>
+      <div class="form-group">
+        <label class="check-label">
+          <input type="checkbox" class="form-checkbox" value="isolated" checked>
+          <span class="check-box"></span>
+          Isolated
+        </label>
+        <label class="check-label">
+          <input type="checkbox" class="form-checkbox" value="start">
+          <span class="check-box"></span>
+          Start
+        </label>
+        <label class="check-label">
+          <input type="checkbox" class="form-checkbox" value="middle">
+          <span class="check-box"></span>
+          Middle
+        </label>
+        <label class="check-label">
+          <input type="checkbox" class="form-checkbox" value="end">
+          <span class="check-box"></span>
+          End
+        </label>
+      </div>
+
+      <div class="panel-divider"></div>
+
+      <button class="btn-ghost" id="shuffleBtn" style="width:100%;">
+        Shuffle
+      </button>
+
+      <div class="panel-divider"></div>
+
+      <div class="progress-info">
+        <span class="panel-label" style="margin:0;">Card</span>
+        <span class="card-counter" id="cardCounter">1 / 1</span>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="tool-main">
+
+      <div class="flashcard-area card" id="flashcardArea">
+        <div id="flashcard-container"></div>
+      </div>
+
+      <!-- Nav -->
+      <div class="flashcard-nav">
+        <button class="btn-icon" id="prevBtn" aria-label="Previous">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </button>
-        <button id="nextBtn" class="nav-btn">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 6l6 6-6 6"></path>
-            </svg>
+        <span class="nav-hint">Click card to flip</span>
+        <button class="btn-icon" id="nextBtn" aria-label="Next">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </button>
-    </div>
+      </div>
 
-    <!-- Shuffle Button -->
-    <button id="shuffleBtn" class="shuffle-btn">🔀</button>
-    
-    
-    <script src="script.js"></script>
+    </div>
+  </div>
+
+  <footer>
+    <p>Arabic Alphabet — 28 letters</p>
+    <a href="../../projects.html">← Back to projects</a>
+  </footer>
+
+  <script src="script.js"></script>
 </body>
 </html>

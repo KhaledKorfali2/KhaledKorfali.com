@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Surah Quiz</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <a href="../../index.html" class="header-logo">folio<span>.</span></a>
+    <nav>
+      <a href="../../projects.html">← Projects</a>
+    </nav>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <p class="hero-eyebrow">Arabic Learning</p>
+    <h1>Surah <em>Quiz.</em></h1>
+    <p class="hero-description">
+      Test your knowledge of the Qur'an's 114 surahs — names, numbers, and more.
+    </p>
+  </section>
+
+  <div class="hero-rule"></div>
+
+  <main class="main-content">
+
+    <!-- Settings Card -->
+    <div class="card" id="settingsCard">
+      <div class="card-label">Configure</div>
+      <h2 class="card-title">Quiz Settings</h2>
+
+      <div class="settings-grid">
+        <div class="setting-group">
+          <label class="setting-label">Mode</label>
+          <div class="select-wrap">
+            <select id="mode">
+              <option value="name-to-number">Name → Number</option>
+              <option value="number-to-name">Number → Name</option>
+              <option value="mixed">Mixed</option>
+            </select>
+            <span class="select-arrow">↓</span>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <label class="setting-label">Options</label>
+          <div class="toggle-group">
+            <label class="toggle">
+              <input type="checkbox" id="showArabic" checked>
+              <span class="toggle-track"></span>
+              <span class="toggle-label">Show Arabic</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="endlessMode">
+              <span class="toggle-track"></span>
+              <span class="toggle-label">Endless Mode</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="startQuiz()">
+        Begin Quiz
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar" id="statsBar" style="display:none;">
+      <div class="stat">
+        <span class="stat-num" id="score">0</span>
+        <span class="stat-lbl">Score</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-num" id="streak">0</span>
+        <span class="stat-lbl">Streak</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-num" id="bestStreak">0</span>
+        <span class="stat-lbl">Best</span>
+      </div>
+      <button class="btn-ghost-sm" onclick="startQuiz()">Restart</button>
+    </div>
+
+    <!-- Progress Bar -->
+    <div id="progressContainer" class="progress-wrap" style="display:none;">
+      <div class="progress-track">
+        <div id="progressBar" class="progress-fill"></div>
+      </div>
+      <span id="progressLabel" class="progress-label">0 / 0</span>
+    </div>
+
+    <!-- Quiz Card -->
+    <div id="quiz" class="card quiz-card" style="display:none;">
+      <div class="question-wrap">
+        <p class="question-num" id="questionNum"></p>
+        <h3 id="question" class="question-text"></h3>
+      </div>
+      <div id="answers" class="answers-grid"></div>
+    </div>
+
+    <!-- End Screen -->
+    <div id="endScreen" class="card end-card" style="display:none;">
+      <div class="end-icon">✦</div>
+      <h2 class="end-title">Quiz Complete</h2>
+      <div class="end-stats">
+        <div class="end-stat">
+          <span class="end-stat-num" id="finalScore">—</span>
+          <span class="end-stat-lbl">Score</span>
+        </div>
+        <div class="end-stat">
+          <span class="end-stat-num" id="finalAccuracy">—</span>
+          <span class="end-stat-lbl">Accuracy</span>
+        </div>
+        <div class="end-stat">
+          <span class="end-stat-num" id="finalBest">—</span>
+          <span class="end-stat-lbl">Best Streak</span>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="startQuiz()">
+        Try Again
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+  </main>
+
+  <footer>
+    <p>Part of the Arabic Learning suite.</p>
+    <a href="../../projects.html" style="color: var(--ink-muted); text-decoration:none; font-size:0.8rem;">← Back to projects</a>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

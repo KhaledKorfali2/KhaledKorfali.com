@@ -1,214 +1,108 @@
-/* ====== Reset ====== */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-/* ====== General Page Styles ====== */
-body {
-  font-family: 'Poppins', sans-serif;
+/* ── Flashcard area ── */
+.flashcard-area {
   display: flex;
-  justify-content: center;
   align-items: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #f0f4ff, #e6f0fa);
-  overflow-x: hidden;
-  flex-direction: column;
-  padding: 20px;
+  justify-content: center;
+  min-height: 340px;
+  padding: 40px;
 }
 
-/* ====== Sidebar ====== */
-.sidebar {
-  position: absolute;
-  left: 20px;
-  top: 80px;
-  padding: 15px;
-  background: #fff;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  border-radius: 10px;
-  max-width: 200px;
-}
-
-.sidebar h3 {
-  margin-bottom: 10px;
-  font-size: 1rem;
-  color: #007BFF;
-}
-
-.sidebar label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-/* ====== Flashcard Container ====== */
 #flashcard-container {
+  perspective: 1200px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  perspective: 1000px;
-  margin-top: 40px;
+  width: 100%;
 }
 
-/* ====== Flashcard ====== */
+/* ── Flashcard ── */
 .flashcard {
   width: 220px;
-  height: 320px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 60px;
-  text-align: center;
-  cursor: pointer;
-  transform-style: preserve-3d;
-  transition: transform 0.6s;
+  height: 300px;
   position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
 }
 
-.flashcard .front,
-.flashcard .back {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  backface-visibility: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  border-radius: 12px;
-}
-
-.flashcard .front {
-  font-family: 'Amiri', serif;
-  background: #fff;
-}
-
-.flashcard .back {
-  font-family: 'Poppins', sans-serif;
-  background: #f1f1f1;
-  color: #333;
-  transform: rotateY(180deg);
-}
-
-/* ====== Flip Animation ====== */
 .flashcard.flipped {
   transform: rotateY(180deg);
 }
 
-/* ====== No Selection Message ====== */
-#message {
-  font-size: 1rem;
-  font-weight: bold;
-  color: #555;
+.front,
+.back {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+}
+
+.front {
+  background: var(--surface-card);
+  font-family: 'Amiri', serif;
+  font-size: 96px;
+  color: var(--ink);
+}
+
+.back {
+  background: var(--accent-light);
+  border-color: rgba(155, 34, 38, 0.2);
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.4rem;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+  transform: rotateY(180deg);
+}
+
+/* ── Nav row ── */
+.flashcard-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.nav-hint {
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+  flex: 1;
   text-align: center;
 }
 
-/* ====== Navigation Buttons ====== */
-.navigation {
-  display: flex;
-  gap: 30px;           /* more spacing */
-  justify-content: center;
-  margin-top: 30px;
-}
-
-.nav-btn {
-  font-size: 3rem;     /* larger arrows */
-  background: linear-gradient(145deg, #007BFF, #0056b3);
-  color: white;
-  border: none;
-  border-radius: 50%;  /* circular buttons */
-  width: 60px;
-  height: 60px;
+/* ── Counter ── */
+.progress-info {
   display: flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  transition: transform 0.2s ease, background 0.3s ease;
+  justify-content: space-between;
 }
 
-.nav-btn:hover {
-  background: #0056b3;
-  transform: scale(1.1) rotate(5deg);  /* subtle zoom + rotation */
-  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+.card-counter {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1rem;
+  color: var(--ink-muted);
 }
 
-.nav-btn:active {
-  background: #007BFF; /* same as default */
-  transform: scale(0.98); /*small tap effect */
+/* ── Empty state ── */
+.empty-msg {
+  font-size: 0.9rem;
+  color: var(--ink-faint);
+  text-align: center;
 }
 
-
-/* Different hover colors for prev/next */
-#prevBtn:hover { background: #6c63ff; }
-#nextBtn:hover { background: #ff6b6b; }
-
-
-/* ====== Shuffle Button (FAB style) ====== */
-.shuffle-btn {
-  position: fixed;
-  bottom: 25px;
-  right: 25px;
-  background: #28a745; /* green */
-  border: none;
-  border-radius: 50%;
-  width: 65px;
-  height: 65px;
-  color: white;
-  font-size: 1.5rem;
-  cursor: pointer;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-  transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  -webkit-tap-highlight-color: transparent; /* remove mobile highlight */
-  touch-action: manipulation;
+/* ── Animate in on card change ── */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.shuffle-btn:hover {
-  background: #218838;
-  transform: scale(1.1);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
-}
-
-.shuffle-btn:active {
-  background: #1e7e34;
-  transform: scale(0.95);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-
-/* ====== Responsive Styles ====== */
-@media (max-width: 600px) {
-  .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 100%;
-    max-width: none;
-    padding: 15px;
-    border-radius: 0 0 10px 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    text-align: center;
-    z-index: 100;
-  }
-
-  #flashcard-container {
-    margin-top: 140px;
-  }
-
-  .flashcard {
-    width: 180px;
-    height: 260px;
-    font-size: 48px;
-  }
+/* Animation goes on a wrapper — never on the preserve-3d element itself,
+   since fill-mode 'both' leaves a computed transform that flattens the 3D context */
+.flashcard-wrapper {
+  animation: cardIn 0.25s var(--ease) both;
 }

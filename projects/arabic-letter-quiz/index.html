@@ -3,33 +3,115 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Arabic Alphabet Quiz</title>
+  <title>Arabic Letter Quiz</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&family=Amiri:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../styles/arabic-tools-shared.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="sidebar">
-    <h3>Choose Forms:</h3>
-    <label><input type="checkbox" class="form-checkbox" value="isolated" checked> Isolated</label>
-    <label><input type="checkbox" class="form-checkbox" value="start"> Start</label>
-    <label><input type="checkbox" class="form-checkbox" value="middle"> Middle</label>
-    <label><input type="checkbox" class="form-checkbox" value="end"> End</label>
-  </div>
 
-  <div class="container">
-    <h1>Arabic Alphabet Quiz</h1>
+  <header>
+    <a href="../../index.html" class="header-logo">folio<span>.</span></a>
+    <nav><a href="../../projects.html">← Projects</a></nav>
+  </header>
 
-    <div class="progress-container">
-      <div id="progress-bar"></div>
-    </div>
-    <div id="score">Score: 0 / 0</div>
+  <section class="hero">
+    <p class="hero-eyebrow">Arabic Learning</p>
+    <h1>Letter <em>Quiz.</em></h1>
+    <p class="hero-description">
+      Identify Arabic letters in any of their four written forms. Score as many correct in a row as you can.
+    </p>
+  </section>
+  <div class="hero-rule"></div>
 
-    <div id="quiz-container">
-      <div id="question" class="question"></div>
+  <div class="tool-layout">
+
+    <!-- Controls -->
+    <aside class="controls-panel">
+      <p class="panel-label">Letter Forms</p>
+      <div class="form-group">
+        <label class="check-label">
+          <input type="checkbox" class="form-checkbox" value="isolated" checked>
+          <span class="check-box"></span>
+          Isolated
+        </label>
+        <label class="check-label">
+          <input type="checkbox" class="form-checkbox" value="start">
+          <span class="check-box"></span>
+          Start
+        </label>
+        <label class="check-label">
+          <input type="checkbox" class="form-checkbox" value="middle">
+          <span class="check-box"></span>
+          Middle
+        </label>
+        <label class="check-label">
+          <input type="checkbox" class="form-checkbox" value="end">
+          <span class="check-box"></span>
+          End
+        </label>
+      </div>
+
+      <div class="panel-divider"></div>
+
+      <p class="panel-label">Session</p>
+      <div class="score-stack">
+        <div class="score-row">
+          <span class="score-lbl">Score</span>
+          <span class="score-val" id="score">0 / 0</span>
+        </div>
+        <div class="score-row">
+          <span class="score-lbl">Streak</span>
+          <span class="score-val" id="streak">0</span>
+        </div>
+      </div>
+
+      <div class="panel-divider"></div>
+
+      <!-- Progress bar -->
+      <div class="progress-wrap">
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-bar"></div>
+        </div>
+        <span class="progress-label" id="progress-label">0%</span>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="tool-main">
+
+      <!-- Question card -->
+      <div class="card question-card">
+        <div id="question" class="letter-display"></div>
+      </div>
+
+      <!-- Answers -->
       <div id="answers" class="answers-grid"></div>
-    </div>
 
-    <button id="nextBtn" class="next-btn" disabled>Next</button>
+      <!-- Next button -->
+      <div style="display:flex; justify-content:flex-end;">
+        <button id="nextBtn" class="btn-primary" disabled>
+          Next
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Complete banner -->
+      <div id="completeBanner" class="complete-banner" style="display:none;">
+        <span class="complete-icon">✦</span>
+        <span id="completeText"></span>
+        <button class="btn-ghost" id="restartBtn">Restart</button>
+      </div>
+
+    </div>
   </div>
+
+  <footer>
+    <p>Arabic Alphabet — 28 letters</p>
+    <a href="../../projects.html">← Back to projects</a>
+  </footer>
 
   <script src="script.js"></script>
 </body>
