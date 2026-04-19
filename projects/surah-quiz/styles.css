@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap');
 
-/* ── Design tokens (mirrors portfolio) ── */
+/* ── Design tokens ── */
 :root {
   --ink: #1a1a1a;
   --ink-muted: #6b6b6b;
@@ -32,7 +32,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Noise texture */
 body::before {
   content: '';
   position: fixed;
@@ -41,6 +40,9 @@ body::before {
   pointer-events: none;
   z-index: 0;
 }
+
+/* ── Utility ── */
+.hidden { display: none !important; }
 
 /* ── Header ── */
 header {
@@ -110,7 +112,6 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   font-size: clamp(2.8rem, 6vw, 4.5rem);
   line-height: 1.0;
   letter-spacing: -0.03em;
-  color: var(--ink);
   margin-bottom: 20px;
 }
 .hero h1 em { font-style: italic; color: var(--accent); }
@@ -165,64 +166,120 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   font-family: 'DM Serif Display', serif;
   font-size: 1.5rem;
   letter-spacing: -0.02em;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
-/* ── Settings ── */
-.settings-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  margin-bottom: 28px;
+/* ── Settings sections ── */
+.setting-section {
+  margin-bottom: 24px;
 }
 
 .setting-label {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--ink-muted);
   margin-bottom: 10px;
 }
 
-.select-wrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  width: 100%;
+/* ── Challenge type picker ── */
+.type-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
-.select-wrap select {
-  width: 100%;
-  appearance: none;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.9rem;
-  color: var(--ink);
+.type-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 16px 18px;
   background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  padding: 10px 36px 10px 14px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  outline: none;
-  transition: border-color 0.2s;
+  transition: all 0.2s var(--ease);
+  text-align: left;
+  font-family: 'DM Sans', sans-serif;
 }
-.select-wrap select:focus { border-color: var(--ink); }
-.select-wrap .select-arrow {
-  position: absolute;
-  right: 12px;
+
+.type-btn:hover {
+  border-color: var(--ink);
+  background: var(--surface-hover);
+}
+
+.type-btn.active {
+  border-color: var(--ink);
+  background: var(--surface-card);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.type-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+  margin-bottom: 4px;
+  color: var(--ink);
+}
+
+.type-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.type-desc {
   font-size: 0.75rem;
   color: var(--ink-muted);
-  pointer-events: none;
+  font-weight: 300;
 }
 
-.toggle-group { display: flex; flex-direction: column; gap: 12px; }
+/* ── Pill group ── */
+.pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 100px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.18s var(--ease);
+}
+
+.pill:hover { color: var(--ink); border-color: var(--ink); }
+.pill.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+/* ── Two-col layout ── */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+/* ── Toggle row ── */
+.toggle-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 
 .toggle {
   display: flex;
   align-items: center;
   gap: 10px;
   cursor: pointer;
+  width: fit-content;
 }
 .toggle input { display: none; }
 
@@ -238,10 +295,8 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
 .toggle-track::after {
   content: '';
   position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 14px;
-  height: 14px;
+  top: 3px; left: 3px;
+  width: 14px; height: 14px;
   background: #fff;
   border-radius: 50%;
   transition: transform 0.2s var(--ease);
@@ -249,8 +304,10 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
 }
 .toggle input:checked + .toggle-track { background: var(--ink); }
 .toggle input:checked + .toggle-track::after { transform: translateX(16px); }
+.toggle-label { font-size: 0.875rem; color: var(--ink); }
 
-.toggle-label { font-size: 0.9rem; color: var(--ink); }
+/* Faded = visually disabled */
+.faded { opacity: 0.35; pointer-events: none; }
 
 /* ── Buttons ── */
 .btn-primary {
@@ -282,9 +339,21 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   padding: 6px 14px;
   cursor: pointer;
   transition: all 0.2s;
-  margin-left: auto;
 }
 .btn-ghost-sm:hover { color: var(--ink); border-color: var(--ink); }
+
+.btn-ghost-outline {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 100px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-ghost-outline:hover { color: var(--ink); border-color: var(--ink); }
 
 /* ── Stats bar ── */
 .stats-bar {
@@ -311,10 +380,12 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   text-transform: uppercase;
   color: var(--ink-faint);
 }
-.stat-divider {
-  width: 1px;
-  height: 32px;
-  background: var(--border);
+.stat-divider { width: 1px; height: 32px; background: var(--border); }
+
+.stats-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
 }
 
 /* ── Progress ── */
@@ -335,7 +406,7 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   width: 0%;
   background: var(--ink);
   border-radius: 100px;
-  transition: width 0.4s var(--ease);
+  transition: width 0.35s var(--ease);
 }
 .progress-label {
   font-size: 0.75rem;
@@ -345,8 +416,12 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   text-align: right;
 }
 
-/* ── Quiz card ── */
-.quiz-card { animation: fadeUp 0.4s var(--ease) both; }
+/* ── Quiz card ──
+   Only animates once on mount; answers animate individually thereafter. ── */
+.quiz-card {
+  animation: fadeUp 0.35s var(--ease) both;
+  /* After first render the card stays put — answers handle their own entrance */
+}
 
 .question-wrap {
   border-bottom: 1px solid var(--border);
@@ -365,19 +440,35 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
 
 .question-text {
   font-family: 'DM Serif Display', serif;
-  font-size: clamp(1.2rem, 3vw, 1.6rem);
+  font-size: clamp(1.15rem, 3vw, 1.55rem);
   line-height: 1.3;
   letter-spacing: -0.01em;
 }
 
-/* ── Answers ── */
+/* ── Answer grid ── */
 .answers-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 8px;
 }
 
+.ordering-grid { grid-template-columns: 1fr; }
+
+/* Revelation name-to-type: two large centred buttons */
+.answers-grid--two {
+  grid-template-columns: 1fr 1fr;
+}
+.answers-grid--two .answer-btn {
+  justify-content: center;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 20px 16px;
+}
+
+/* Each answer fades up individually — staggered via inline animation-delay */
 .answer-btn {
+  position: relative;
   font-family: 'DM Sans', sans-serif;
   font-size: 0.9rem;
   font-weight: 400;
@@ -385,17 +476,31 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 13px 16px;
   text-align: left;
   cursor: pointer;
-  transition: all 0.2s var(--ease);
+  transition: background 0.18s var(--ease), border-color 0.18s var(--ease), transform 0.18s var(--ease);
   line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: answerIn 0.3s var(--ease) both;
 }
+
 .answer-btn:hover:not(:disabled) {
   background: var(--surface-hover);
   border-color: var(--ink);
+  transform: translateY(-1px);
 }
-.answer-btn:disabled { cursor: default; }
+
+.answer-btn:disabled { cursor: default; transform: none; }
+
+.answer-btn.selected {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
 
 .answer-btn.correct {
   background: var(--correct-light);
@@ -403,30 +508,77 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   color: var(--correct);
   font-weight: 500;
 }
+
 .answer-btn.wrong {
   background: var(--wrong-light);
   border-color: var(--wrong);
   color: var(--wrong);
 }
 
+/* ── Confirm bar ── */
+.confirm-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 20px;
+  animation: fadeUp 0.2s var(--ease) both;
+}
+
+.confirm-hint {
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+/* ── Order badge ── */
+.order-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.order-hint {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--wrong);
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
 /* ── End screen ── */
 .end-card {
   text-align: center;
   padding: 48px 32px;
-  animation: fadeUp 0.5s var(--ease) both;
+  animation: fadeUp 0.45s var(--ease) both;
 }
 
-.end-icon {
-  font-size: 2rem;
-  color: var(--accent);
-  margin-bottom: 16px;
-}
+.end-icon { font-size: 2rem; color: var(--accent); margin-bottom: 16px; }
 
 .end-title {
   font-family: 'DM Serif Display', serif;
   font-size: 2rem;
   letter-spacing: -0.02em;
-  margin-bottom: 32px;
+  margin-bottom: 6px;
+}
+
+.end-mode-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 28px;
 }
 
 .end-stats {
@@ -454,9 +606,12 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   color: var(--ink-muted);
 }
 
-.answer-btn.selected {
-  border-color: var(--accent);
-  background: var(--accent-light);
+.end-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 /* ── Footer ── */
@@ -479,6 +634,24 @@ footer p { font-size: 0.8rem; color: var(--ink-faint); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Answer buttons animate in on each new question */
+@keyframes answerIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Wrong answer shake */
+@keyframes shake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-6px); }
+  40%  { transform: translateX(5px); }
+  60%  { transform: translateX(-4px); }
+  80%  { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+
+.shake { animation: shake 0.4s var(--ease) both; }
+
 /* ── Mobile ── */
 @media (max-width: 640px) {
   header { padding: 0 20px; }
@@ -486,10 +659,16 @@ footer p { font-size: 0.8rem; color: var(--ink-faint); }
   .hero-rule { margin-left: 20px; }
   .main-content { padding: 32px 20px 80px; }
   .card { padding: 20px; }
-  .settings-grid { grid-template-columns: 1fr; gap: 16px; }
+  .type-picker { grid-template-columns: 1fr 1fr; }
+  .two-col { grid-template-columns: 1fr; gap: 16px; }
   .answers-grid { grid-template-columns: 1fr; }
-  .stats-bar { flex-wrap: wrap; }
-  .btn-ghost-sm { margin-left: 0; width: 100%; text-align: center; }
-  .end-stats { gap: 24px; }
+  .stats-bar { flex-wrap: wrap; gap: 12px; }
+  .stats-actions { margin-left: 0; width: 100%; justify-content: flex-end; }
+  .end-stats { gap: 20px; }
+  .confirm-bar { flex-direction: column; align-items: flex-start; gap: 10px; }
   footer { padding: 24px 20px; }
+}
+
+@media (max-width: 380px) {
+  .type-picker { grid-template-columns: 1fr; }
 }

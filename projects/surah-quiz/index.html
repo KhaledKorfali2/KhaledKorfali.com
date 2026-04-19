@@ -1,19 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Surah Quiz</title>
-  <link
-    href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap"
-    rel="stylesheet">
+  <title>Surah Quiz — Arabic Learning</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
 
-  <!-- Header -->
   <header>
     <a href="../../index.html" class="header-logo">folio<span>.</span></a>
     <nav>
@@ -21,12 +16,11 @@
     </nav>
   </header>
 
-  <!-- Hero -->
   <section class="hero">
     <p class="hero-eyebrow">Arabic Learning</p>
     <h1>Surah <em>Quiz.</em></h1>
     <p class="hero-description">
-      Test your knowledge of the Qur'an's 114 surahs — names, numbers, and more.
+      Test your knowledge of the Qur'an's 114 surahs — names, numbers, and order.
     </p>
   </section>
 
@@ -34,71 +28,83 @@
 
   <main class="main-content">
 
-    <!-- Settings Card -->
+    <!-- ── Settings Card ── -->
     <div class="card" id="settingsCard">
       <div class="card-label">Configure</div>
       <h2 class="card-title">Quiz Settings</h2>
 
-      <div class="settings-grid">
-        <div class="setting-group">
-          <label class="setting-label">Mode</label>
-          <div class="select-wrap">
-            <select id="mode">
-              <option value="name-to-number">Name → Number</option>
-              <option value="number-to-name">Number → Name</option>
-              <option value="mixed">Mixed</option>
-              <option value="ordering">Ordering Mode</option>
-            </select>
-            <span class="select-arrow">↓</span>
+      <div class="setting-section">
+        <span class="setting-label">Challenge Type</span>
+        <div class="type-picker" id="typePicker">
+          <button class="type-btn active" data-type="recall" aria-pressed="true">
+            <span class="type-icon">⇄</span>
+            <span class="type-name">Recall</span>
+            <span class="type-desc">Match names to numbers</span>
+          </button>
+          <button class="type-btn" data-type="ordering" aria-pressed="false">
+            <span class="type-icon">↕</span>
+            <span class="type-name">Ordering</span>
+            <span class="type-desc">Arrange by sequence</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="setting-section" id="recallOptions">
+        <span class="setting-label">Direction</span>
+        <div class="pill-group" id="recallMode">
+          <button class="pill active" data-mode="name-to-number" aria-pressed="true">Name → Number</button>
+          <button class="pill" data-mode="number-to-name" aria-pressed="false">Number → Name</button>
+          <button class="pill" data-mode="revelation" aria-pressed="false">Meccan / Medinan</button>
+          <button class="pill" data-mode="mixed" aria-pressed="false">Mixed</button>
+        </div>
+      </div>
+
+      <div class="setting-section hidden" id="orderingOptions">
+        <div class="two-col">
+          <div>
+            <span class="setting-label">Set size</span>
+            <div class="pill-group" id="orderCount">
+              <button class="pill active" data-count="5" aria-pressed="true">5</button>
+              <button class="pill" data-count="10" aria-pressed="false">10</button>
+              <button class="pill" data-count="15" aria-pressed="false">15</button>
+            </div>
+          </div>
+          <div>
+            <span class="setting-label">Selection</span>
+            <div class="pill-group" id="orderSelection">
+              <button class="pill active" data-consecutive="false" aria-pressed="true">Random</button>
+              <button class="pill" data-consecutive="true" aria-pressed="false">Consecutive</button>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div class="setting-group">
-          <label class="setting-label">Options</label>
-          <div class="toggle-group">
-            <label class="toggle">
-              <input type="checkbox" id="showArabic" checked>
-              <span class="toggle-track"></span>
-              <span class="toggle-label">Show Arabic</span>
-            </label>
-            <label class="toggle">
-              <input type="checkbox" id="endlessMode">
-              <span class="toggle-track"></span>
-              <span class="toggle-label">Endless Mode</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="setting-group" id="orderingSettings" style="display:none;">
-          <label class="setting-label">Ordering Settings</label>
-
-          <div class="select-wrap">
-            <select id="orderCount">
-              <option value="5">5 Surahs</option>
-              <option value="10">10 Surahs</option>
-              <option value="15">15 Surahs</option>
-            </select>
-          </div>
-
-          <label class="toggle" style="margin-top:10px;">
-            <input type="checkbox" id="consecutiveMode">
+      <div class="setting-section">
+        <span class="setting-label">Options</span>
+        <div class="toggle-row">
+          <label class="toggle">
+            <input type="checkbox" id="showArabic" checked>
             <span class="toggle-track"></span>
-            <span class="toggle-label">Consecutive Surahs</span>
+            <span class="toggle-label">Show Arabic script</span>
+          </label>
+          <label class="toggle" id="endlessModeToggleWrap">
+            <input type="checkbox" id="endlessMode">
+            <span class="toggle-track"></span>
+            <span class="toggle-label">Endless mode</span>
           </label>
         </div>
       </div>
 
-      <button class="btn-primary" onclick="startQuiz()">
+      <button class="btn-primary" id="startBtn">
         Begin Quiz
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-            stroke-linejoin="round" />
+          <path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
     </div>
 
-    <!-- Stats Bar -->
-    <div class="stats-bar" id="statsBar" style="display:none;">
+    <!-- ── Stats Bar ── -->
+    <div class="stats-bar hidden" id="statsBar">
       <div class="stat">
         <span class="stat-num" id="score">0</span>
         <span class="stat-lbl">Score</span>
@@ -113,19 +119,22 @@
         <span class="stat-num" id="bestStreak">0</span>
         <span class="stat-lbl">Best</span>
       </div>
-      <button class="btn-ghost-sm" onclick="startQuiz()">Restart</button>
+      <div class="stats-actions">
+        <button class="btn-ghost-sm" id="restartBtn">Restart</button>
+        <button class="btn-ghost-sm" id="exitBtn">✕ Exit</button>
+      </div>
     </div>
 
-    <!-- Progress Bar -->
-    <div id="progressContainer" class="progress-wrap" style="display:none;">
+    <!-- ── Progress Bar ── -->
+    <div id="progressContainer" class="progress-wrap hidden">
       <div class="progress-track">
         <div id="progressBar" class="progress-fill"></div>
       </div>
       <span id="progressLabel" class="progress-label">0 / 0</span>
     </div>
 
-    <!-- Quiz Card -->
-    <div id="quiz" class="card quiz-card" style="display:none;">
+    <!-- ── Quiz Card ── -->
+    <div id="quiz" class="card quiz-card hidden">
       <div class="question-wrap">
         <p class="question-num" id="questionNum"></p>
         <h3 id="question" class="question-text"></h3>
@@ -133,10 +142,22 @@
       <div id="answers" class="answers-grid"></div>
     </div>
 
-    <!-- End Screen -->
-    <div id="endScreen" class="card end-card" style="display:none;">
+    <!-- ── Confirm Bar (recall only) ── -->
+    <div id="confirmBar" class="confirm-bar hidden">
+      <p class="confirm-hint">Tap again to change your mind</p>
+      <button class="btn-primary" id="confirmBtn">
+        Confirm
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- ── End Screen ── -->
+    <div id="endScreen" class="card end-card hidden">
       <div class="end-icon">✦</div>
       <h2 class="end-title">Quiz Complete</h2>
+      <p class="end-mode-label" id="endModeLabel"></p>
       <div class="end-stats">
         <div class="end-stat">
           <span class="end-stat-num" id="finalScore">—</span>
@@ -151,24 +172,24 @@
           <span class="end-stat-lbl">Best Streak</span>
         </div>
       </div>
-      <button class="btn-primary" onclick="startQuiz()">
-        Try Again
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-            stroke-linejoin="round" />
-        </svg>
-      </button>
+      <div class="end-actions">
+        <button class="btn-primary" id="tryAgainBtn">
+          Try Again
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="btn-ghost-outline" id="changeSettingsBtn">Change Settings</button>
+      </div>
     </div>
 
   </main>
 
   <footer>
     <p>Part of the Arabic Learning suite.</p>
-    <a href="../../projects.html" style="color: var(--ink-muted); text-decoration:none; font-size:0.8rem;">← Back to
-      projects</a>
+    <a href="../../projects.html" style="color: var(--ink-muted); text-decoration:none; font-size:0.8rem;">← Back to projects</a>
   </footer>
 
   <script src="script.js"></script>
 </body>
-
 </html>
