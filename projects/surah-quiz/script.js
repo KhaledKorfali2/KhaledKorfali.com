@@ -169,6 +169,7 @@ function showSettings() {
   hide("quiz");
   hide("progressContainer");
   hide("confirmBar");
+  document.getElementById("disputedNote")?.remove();
   show("settingsCard");
   state.recallPhase = "idle";
   state.selectedBtn = null;
@@ -234,6 +235,7 @@ function nextQuestion() {
   state.recallPhase = "idle";
   state.selectedBtn = null;
   hide("confirmBar");
+  document.getElementById("disputedNote")?.remove();
 
   if (state.challengeType === "ordering") {
     if (state.questionIndex >= state.questionPool.length) { endQuiz(); return; }
@@ -444,7 +446,32 @@ function commitRecallAnswer(isCorrect) {
 
   updateScoreUI();
   if (!state.endless) state.questionIndex++;
+
+  // Show scholarly disagreement note if this was a revelation question
+  // on a surah with documented classification dispute
+  if (state.currentQuestion.direction === "revelation" &&
+      state.currentQuestion.surah.revelationDisputed) {
+    showDisputedNote(state.currentQuestion.surah);
+  }
+
   setTimeout(nextQuestion, 1300);
+}
+
+function showDisputedNote(surah) {
+  // Remove any existing note first
+  document.getElementById("disputedNote")?.remove();
+
+  const note = document.createElement("div");
+  note.id = "disputedNote";
+  note.className = "disputed-note";
+  note.innerHTML = `
+    <span class="disputed-icon">⚠</span>
+    <span>Scholars disagree on whether <strong>${surah.name.english}</strong> is Meccan or Medinan. The majority view (Wikipedia, Tanzil) classifies it as <strong>${surah.revelation}</strong>, but a minority scholarly opinion differs.</span>
+  `;
+
+  // Insert after the quiz card
+  const quiz = document.getElementById("quiz");
+  quiz.insertAdjacentElement("afterend", note);
 }
 
 function showConfirmBar(isCorrect) {
@@ -455,6 +482,7 @@ function showConfirmBar(isCorrect) {
   const old = document.getElementById("confirmBtn");
   const fresh = old.cloneNode(true);
   old.parentNode.replaceChild(fresh, old);
+
   fresh.addEventListener("click", () => commitRecallAnswer(isCorrect));
 }
 
