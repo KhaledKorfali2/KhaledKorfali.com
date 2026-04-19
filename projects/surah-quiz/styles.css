@@ -496,9 +496,10 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
 .answer-btn:disabled { cursor: default; transform: none; }
 
 .answer-btn.selected {
-  background: var(--accent-light);
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--surface-hover);
+  border-color: var(--ink);
+  border-width: 2px;
+  color: var(--ink);
   font-weight: 500;
 }
 
@@ -612,6 +613,27 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   justify-content: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/* ── Disputed revelation note ── */
+.disputed-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fffbf0;
+  border: 1px solid #e8c84a;
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #6b5a00;
+  animation: fadeUp 0.25s var(--ease) both;
+}
+
+.disputed-icon {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 /* ── Footer ── */
