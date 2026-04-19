@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Surah Quiz</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
 
   <!-- Header -->
@@ -43,6 +47,7 @@
               <option value="name-to-number">Name → Number</option>
               <option value="number-to-name">Number → Name</option>
               <option value="mixed">Mixed</option>
+              <option value="ordering">Ordering Mode</option>
             </select>
             <span class="select-arrow">↓</span>
           </div>
@@ -63,11 +68,32 @@
             </label>
           </div>
         </div>
+
+        <div class="setting-group" id="orderingSettings" style="display:none;">
+          <label class="setting-label">Ordering Settings</label>
+
+          <div class="select-wrap">
+            <select id="orderCount">
+              <option value="5">5 Surahs</option>
+              <option value="10">10 Surahs</option>
+              <option value="15">15 Surahs</option>
+            </select>
+          </div>
+
+          <label class="toggle" style="margin-top:10px;">
+            <input type="checkbox" id="consecutiveMode">
+            <span class="toggle-track"></span>
+            <span class="toggle-label">Consecutive Surahs</span>
+          </label>
+        </div>
       </div>
 
       <button class="btn-primary" onclick="startQuiz()">
         Begin Quiz
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+            stroke-linejoin="round" />
+        </svg>
       </button>
     </div>
 
@@ -127,7 +153,10 @@
       </div>
       <button class="btn-primary" onclick="startQuiz()">
         Try Again
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+            stroke-linejoin="round" />
+        </svg>
       </button>
     </div>
 
@@ -135,9 +164,11 @@
 
   <footer>
     <p>Part of the Arabic Learning suite.</p>
-    <a href="../../projects.html" style="color: var(--ink-muted); text-decoration:none; font-size:0.8rem;">← Back to projects</a>
+    <a href="../../projects.html" style="color: var(--ink-muted); text-decoration:none; font-size:0.8rem;">← Back to
+      projects</a>
   </footer>
 
   <script src="script.js"></script>
 </body>
+
 </html>

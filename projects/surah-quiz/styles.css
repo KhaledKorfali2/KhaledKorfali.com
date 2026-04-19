@@ -454,6 +454,11 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   color: var(--ink-muted);
 }
 
+.answer-btn.selected {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
 /* ── Footer ── */
 footer {
   position: relative;
