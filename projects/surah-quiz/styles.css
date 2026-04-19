@@ -636,6 +636,26 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   margin-top: 1px;
 }
 
+.disclaimer {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  opacity: 0.8;
+}
+
+.disclaimer-banner {
+  margin: 1rem auto 2rem;
+  max-width: 800px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  background: rgba(255, 200, 0, 0.08);
+  border: 1px solid rgba(255, 200, 0, 0.2);
+  border-radius: 8px;
+  text-align: center;
+}
+
 /* ── Footer ── */
 footer {
   position: relative;
