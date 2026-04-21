@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Boid Simulation</title>
+  <title>Boid Simulator</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -17,16 +17,16 @@
       <span class="arrow">▼</span>
     </button>
 
-    <div id="settingsContent" class="hidden">
+    <div id="settingsContent">
 
-      <!-- Flock controls -->
+      <!-- ── Flock ── -->
       <div class="section-label">Flock</div>
 
       <div class="slider-group">
         <label for="countSlider">Count</label>
         <div class="slider-row">
-          <input type="range" id="countSlider" min="10" max="400" step="1" value="100">
-          <span id="countValue">100</span>
+          <input type="range" id="countSlider" min="10" max="200" step="1" value="80">
+          <span id="countValue">80</span>
         </div>
       </div>
 
@@ -64,7 +64,14 @@
 
       <div class="divider"></div>
 
-      <!-- Visual controls -->
+      <!-- ── Colour Palette ── -->
+      <div class="section-label">Colour Palette</div>
+      <div id="paletteContainer" class="palette-grid"></div>
+      <div id="customEditor" class="custom-editor"></div>
+
+      <div class="divider"></div>
+
+      <!-- ── Visual ── -->
       <div class="section-label">Visual</div>
 
       <label class="toggle-row">
@@ -77,7 +84,7 @@
 
       <div class="divider"></div>
 
-      <!-- Barrier controls -->
+      <!-- ── Barriers ── -->
       <div class="section-label">Barriers</div>
 
       <div class="barrier-btns">
@@ -93,7 +100,6 @@
     </div>
   </div>
 
-  <!-- Mode indicator shown on canvas -->
   <div id="modeIndicator" class="mode-indicator" style="display:none;"></div>
 
   <script type="module" src="script.js"></script>
