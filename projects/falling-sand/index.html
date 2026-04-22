@@ -1,28 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name = "viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sand Simulation</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Particle Sandbox</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <canvas id="canvas"></canvas>
-    <div id="setting">
-        <label for="brushMode">Brush:</label>
-        <select id="brushMode">
-        <option value="surface" selected>Deposit to Surface</option>
-        <option value="deposit">Deposit Only (empty cells)</option>
-        <option value="paint">Paint Mode (recolor)</option>
-        </select>
+  <canvas id="canvas"></canvas>
 
-        <button id ="resetBtn">Reset</button>
-        <input type="color" id="colorPicker">
-        <label>
-            <input type="checkbox" id="autoHueToggle" checked>
-            Auto Hue Shift
-        </label>
+  <div id="setting">
+
+    <select id="particleType">
+      <option value="sand"  selected>🟡 Sand</option>
+      <option value="water">💧 Water</option>
+      <option value="fire"> 🔥 Fire</option>
+      <option value="smoke">💨 Smoke</option>
+      <option value="wall"> 🧱 Wall</option>
+      <option value="eraser">🧹 Eraser</option>
+    </select>
+
+    <select id="brushMode">
+      <option value="deposit" selected>Deposit</option>
+      <option value="surface">Surface</option>
+    </select>
+
+    <div id="colorControls" style="display:flex;align-items:center;gap:6px;">
+      <input type="color" id="colorPicker" value="#e6b84a">
+      <label style="display:flex;align-items:center;gap:4px;font-size:13px;">
+        <input type="checkbox" id="autoHueToggle" checked>
+        Auto Hue
+      </label>
     </div>
-    <script src="script.js"></script>
+
+    <button id="resetBtn">Reset</button>
+
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
