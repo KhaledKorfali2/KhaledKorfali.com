@@ -1,82 +1,320 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
+/* ── Reset ── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-body, html {
+/* ── Root ── */
+:root {
+  --glass:        rgba(14, 14, 16, 0.86);
+  --glass-border: rgba(255,255,255,0.09);
+  --glass-hover:  rgba(255,255,255,0.07);
+  --accent:       #c8502a;
+  --text:         #e8e4dc;
+  --muted:        rgba(232,228,220,0.42);
+  --font:         'DM Sans', system-ui, sans-serif;
+  --r:            10px;
+  --rsm:          6px;
+}
+
+html, body {
   width: 100%; height: 100%;
   overflow: hidden;
   touch-action: none;
-  background: #0a0a0a;
+  background: #090909;
+  font-family: var(--font);
 }
 
 canvas {
   display: block;
   position: absolute;
-  top: 0; left: 0;
+  inset: 0;
   z-index: 0;
 }
 
-#setting {
-  position: absolute;
-  top: 10px; right: 10px;
-  background: rgba(20, 20, 20, 0.82);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.1);
-  padding: 10px 12px;
-  border-radius: 10px;
+/* ── HUD ── */
+#hud {
+  position: fixed;
+  top: 12px; left: 14px;
+  z-index: 20;
+  display: flex;
+  gap: 10px;
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Brush cursor ── */
+#brushCursor {
+  position: fixed;
+  border: 1.5px solid rgba(255,255,255,0.35);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 30;
+  transform: translate(-50%, -50%);
+  display: none;
+  transition: width 0.1s, height 0.1s;
+}
+
+/* ══════════════════════════════════════
+   TOOLBAR WRAPPER
+   Fixed bottom-center; contains pill + panel
+══════════════════════════════════════ */
+#toolbar {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  /* don't clip the panel sliding up */
+  overflow: visible;
+}
+
+/* ── Pill (always visible) ── */
+#pill {
   display: flex;
   align-items: center;
   gap: 8px;
-  z-index: 10;
-  color: #eee;
-  font-family: system-ui, sans-serif;
-  font-size: 14px;
+  background: var(--glass);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 100px;
+  padding: 7px 12px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.04) inset;
+  /* pill never wraps */
+  white-space: nowrap;
 }
 
-#setting select {
-  padding: 5px 8px;
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(255,255,255,0.08);
-  color: #eee;
-  font-size: 13px;
+/* Active element badge */
+#pillActive {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text);
+  font-weight: 400;
+  min-width: 56px;
+}
+
+.pill-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--glass-border);
+  flex-shrink: 0;
+}
+
+/* Quick-pick dots */
+#pillDots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qdot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--c, #888);
+  border: 1.5px solid transparent;
   cursor: pointer;
-}
-
-#setting select option {
-  background: #222;
-  color: #eee;
-}
-
-#resetBtn {
-  background: #c0392b;
-  color: white;
-  border: none;
-  padding: 6px 11px;
-  cursor: pointer;
-  border-radius: 6px;
-  font-size: 13px;
-  transition: background 0.15s;
-}
-#resetBtn:hover { background: #e74c3c; }
-
-#colorPicker {
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  width: 34px; height: 28px;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  flex-shrink: 0;
   padding: 0;
-  border-radius: 4px;
 }
 
-label { font-size: 13px; color: #ddd; white-space: nowrap; }
+.qdot:hover {
+  transform: scale(1.25);
+}
 
-@media (max-width: 600px) {
-  #setting {
-    top: auto;
-    bottom: 12px;
-    right: 50%;
-    transform: translateX(50%);
-    width: 95%;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
+.qdot.active {
+  border-color: rgba(255,255,255,0.6);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.12);
+  transform: scale(1.2);
+}
+
+.eraser-qdot {
+  background: transparent !important;
+  border: 1.5px solid rgba(255,255,255,0.32) !important;
+}
+
+.eraser-qdot.active {
+  border-color: rgba(255,255,255,0.7) !important;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.12);
+}
+
+/* elem-dot (badge inside pillActive) */
+.elem-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Expand button */
+#expandBtn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+#expandBtn:hover { color: var(--text); background: var(--glass-hover); }
+
+#expandIcon {
+  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* Rotate icon when expanded */
+#toolbar.expanded #expandIcon {
+  transform: rotate(180deg);
+}
+
+/* ── Panel ── */
+#panel {
+  width: max-content;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.28s cubic-bezier(0.4,0,0.2,1),
+              opacity    0.22s ease;
+  opacity: 0;
+  /* panel sits above the pill */
+  order: -1;
+}
+
+#toolbar.expanded #panel {
+  max-height: 300px;
+  opacity: 1;
+}
+
+#panelInner {
+  background: var(--glass);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r);
+  padding: 10px 14px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.04) inset;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 2px;
+}
+
+.panel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+}
+
+.panel-divider {
+  height: 1px;
+  background: var(--glass-border);
+}
+
+.ctrl-label {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  min-width: 44px;
+  flex-shrink: 0;
+}
+
+/* Color picker */
+#colorPicker {
+  width: 24px; height: 24px;
+  border: none; border-radius: 50%;
+  padding: 0; cursor: pointer;
+  background: transparent; overflow: hidden;
+  flex-shrink: 0;
+}
+#colorPicker::-webkit-color-swatch-wrapper { padding: 0; }
+#colorPicker::-webkit-color-swatch { border: none; border-radius: 50%; }
+
+/* Toggle */
+.toggle-label {
+  display: flex; align-items: center; gap: 6px;
+  cursor: pointer; font-size: 12px; color: var(--muted); user-select: none;
+}
+.toggle-label input { display: none; }
+.toggle-track {
+  position: relative; width: 28px; height: 16px;
+  background: rgba(255,255,255,0.1); border-radius: 100px; flex-shrink: 0;
+  transition: background 0.2s;
+}
+.toggle-label input:checked + .toggle-track { background: var(--accent); }
+.toggle-thumb {
+  position: absolute; top: 2px; left: 2px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #fff; transition: transform 0.2s;
+}
+.toggle-label input:checked + .toggle-track .toggle-thumb { transform: translateX(12px); }
+
+/* Brush slider */
+#brushSize {
+  -webkit-appearance: none;
+  width: 80px; height: 3px;
+  background: rgba(255,255,255,0.12); border-radius: 100px; outline: none; cursor: pointer;
+}
+#brushSize::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--text); cursor: pointer; transition: background 0.15s;
+}
+#brushSize::-webkit-slider-thumb:hover { background: #fff; }
+#brushSizeVal {
+  font-size: 12px; color: var(--muted);
+  min-width: 10px; text-align: right; font-variant-numeric: tabular-nums;
+}
+
+/* Segmented mode buttons */
+.seg {
+  display: flex;
+  background: rgba(255,255,255,0.05);
+  border-radius: var(--rsm);
+  padding: 2px; gap: 2px;
+}
+.mode-btn {
+  background: transparent; border: none; border-radius: 4px;
+  color: var(--muted); font-family: var(--font); font-size: 11.5px; font-weight: 400;
+  padding: 4px 9px; cursor: pointer; transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.mode-btn:hover { color: var(--text); }
+.mode-btn.active { background: rgba(255,255,255,0.1); color: var(--text); }
+
+/* Reset button */
+#resetBtn {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(200,80,42,0.15); border: 1px solid rgba(200,80,42,0.28);
+  border-radius: var(--rsm); color: #d96040; font-family: var(--font);
+  font-size: 12px; font-weight: 400; padding: 5px 10px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s; white-space: nowrap;
+}
+#resetBtn:hover { background: rgba(200,80,42,0.28); border-color: rgba(200,80,42,0.5); color: #f07050; }
+
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  #toolbar { bottom: 12px; }
+
+  #pill { padding: 6px 10px; gap: 7px; }
+
+  /* On small screens, hide pill label to save space */
+  #pillActive { display: none; }
+
+  #panelInner { padding: 8px 12px; }
 }
