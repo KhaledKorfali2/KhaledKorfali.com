@@ -17,6 +17,12 @@ const projects = [
     category: "simulation"
   },
   {
+    name: "Conway's Game of Life",
+    image: "screenshots/placeholder.png",
+    path: "./projects/game-of-life/index.html",
+    category: "simulation"
+  },
+  {
     name: "Arabic Flashcards",
     image: "screenshots/arabic-flashcards.png",
     path: "./projects/arabic-flashcards/index.html",

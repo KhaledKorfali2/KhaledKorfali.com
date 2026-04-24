@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game of Life</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Canvas fills the viewport -->
+  <canvas id="canvas"></canvas>
+
+  <!-- Top bar: title + stats -->
+  <header id="topbar">
+    <div id="title">
+      <span class="title-main">Game of Life</span>
+      <span class="title-rule" id="ruleDisplay">B3/S23</span>
+    </div>
+    <div id="stats">
+      <div class="stat">
+        <span class="stat-val" id="statGen">0</span>
+        <span class="stat-lbl">gen</span>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat">
+        <span class="stat-val" id="statPop">0</span>
+        <span class="stat-lbl">cells</span>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat">
+        <span class="stat-val" id="statFps">—</span>
+        <span class="stat-lbl">fps</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Bottom control panel -->
+  <div id="panel">
+
+    <!-- Row 1: transport controls -->
+    <div class="panel-row" id="transport">
+
+      <!-- Play / Pause -->
+      <button class="ctrl-btn" id="playBtn" title="Play / Pause (Space)">
+        <svg id="playIcon" viewBox="0 0 16 16" fill="currentColor" width="15" height="15">
+          <path d="M4 2.5l10 5.5-10 5.5V2.5z"/>
+        </svg>
+        <svg id="pauseIcon" viewBox="0 0 16 16" fill="currentColor" width="15" height="15" style="display:none">
+          <rect x="3" y="2" width="4" height="12" rx="1"/>
+          <rect x="9" y="2" width="4" height="12" rx="1"/>
+        </svg>
+        <span id="playLabel">Play</span>
+      </button>
+
+      <!-- Step -->
+      <button class="ctrl-btn" id="stepBtn" title="Step once (. or →)">
+        <svg viewBox="0 0 16 16" fill="currentColor" width="15" height="15">
+          <path d="M3 2.5l8 5.5-8 5.5V2.5z"/>
+          <rect x="12" y="2" width="2.5" height="12" rx="1"/>
+        </svg>
+        Step
+      </button>
+
+      <!-- Clear -->
+      <button class="ctrl-btn secondary" id="clearBtn" title="Clear grid (C)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" width="14" height="14">
+          <path d="M3 3l10 10M13 3L3 13"/>
+        </svg>
+        Clear
+      </button>
+
+      <!-- Random fill -->
+      <button class="ctrl-btn secondary" id="randomBtn" title="Random fill (R)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"
+             stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+          <path d="M2 5h2.5l2 3 2-5 2 5 1.5-3H14"/>
+          <path d="M2 11h2.5l1-2"/>
+          <path d="M12 9l1-2 1 2"/>
+        </svg>
+        Random
+      </button>
+
+      <div class="transport-sep"></div>
+
+      <!-- Speed -->
+      <div class="ctrl-group">
+        <span class="ctrl-lbl">Speed</span>
+        <div class="seg" id="speedSeg">
+          <button class="seg-btn" data-fps="1">1</button>
+          <button class="seg-btn" data-fps="5">5</button>
+          <button class="seg-btn" data-fps="15">15</button>
+          <button class="seg-btn active" data-fps="30">30</button>
+          <button class="seg-btn" data-fps="60">Max</button>
+        </div>
+        <span class="ctrl-unit">fps</span>
+      </div>
+
+    </div>
+
+    <!-- Divider -->
+    <div class="panel-divider"></div>
+
+    <!-- Row 2: rule editor + visual mode + patterns -->
+    <div class="panel-row" id="settings">
+
+      <!-- Rule editor -->
+      <div class="ctrl-group">
+        <span class="ctrl-lbl">Born</span>
+        <div class="bit-row" id="bornBits">
+          <!-- 0–8 toggles, built by JS -->
+        </div>
+      </div>
+
+      <div class="rule-sep"></div>
+
+      <div class="ctrl-group">
+        <span class="ctrl-lbl">Survive</span>
+        <div class="bit-row" id="surviveBits">
+        </div>
+      </div>
+
+      <div class="rule-sep"></div>
+
+      <!-- Presets -->
+      <div class="ctrl-group">
+        <span class="ctrl-lbl">Rules</span>
+        <div class="seg" id="ruleSeg">
+          <button class="seg-btn active" data-rule="B3/S23">Life</button>
+          <button class="seg-btn" data-rule="B36/S23">Highlife</button>
+          <button class="seg-btn" data-rule="B3/S12345">Maze</button>
+          <button class="seg-btn" data-rule="B3678/S34678">Day&amp;Night</button>
+          <button class="seg-btn" data-rule="B2/S">Seeds</button>
+        </div>
+      </div>
+
+      <div class="rule-sep"></div>
+
+      <!-- Visual mode -->
+      <div class="ctrl-group">
+        <span class="ctrl-lbl">Colour</span>
+        <div class="seg" id="colourSeg">
+          <button class="seg-btn active" data-mode="phosphor">Phosphor</button>
+          <button class="seg-btn" data-mode="heat">Heat</button>
+          <button class="seg-btn" data-mode="mono">Mono</button>
+        </div>
+      </div>
+
+      <div class="rule-sep"></div>
+
+      <!-- Edge mode -->
+      <div class="ctrl-group">
+        <span class="ctrl-lbl">Edge</span>
+        <div class="seg" id="edgeSeg">
+          <button class="seg-btn active" data-edge="wrap">Wrap</button>
+          <button class="seg-btn" data-edge="dead">Dead</button>
+        </div>
+      </div>
+
+      <div class="rule-sep"></div>
+
+      <!-- Pattern presets -->
+      <div class="ctrl-group">
+        <span class="ctrl-lbl">Pattern</span>
+        <div class="seg" id="patternSeg">
+          <button class="seg-btn" data-pattern="glider">Glider</button>
+          <button class="seg-btn" data-pattern="pulsar">Pulsar</button>
+          <button class="seg-btn" data-pattern="gun">Gun</button>
+          <button class="seg-btn" data-pattern="rpent">R-pent</button>
+          <button class="seg-btn" data-pattern="diehard">Diehard</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /panel -->
+
+  <!-- Draw mode hint -->
+  <div id="drawHint">Click or drag to toggle cells</div>
+
+  <script src="script.js"></script>
+</body>
+</html>

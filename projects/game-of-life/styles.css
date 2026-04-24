@@ -1,0 +1,384 @@
+/* ── Reset ── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ── Design tokens ── */
+:root {
+  /* Phosphor palette */
+  --bg:           #070b09;
+  --grid:         rgba(52, 255, 120, 0.04);
+  --phosphor:     #39ff7e;
+  --phosphor-dim: rgba(57, 255, 126, 0.18);
+  --amber:        #ffb347;
+  --cold:         #4ab8ff;
+
+  /* Panel */
+  --panel-bg:     rgba(7, 11, 9, 0.92);
+  --panel-border: rgba(57, 255, 126, 0.14);
+  --panel-glow:   rgba(57, 255, 126, 0.06);
+
+  /* Text */
+  --text:         rgba(220, 255, 235, 0.9);
+  --text-muted:   rgba(160, 210, 180, 0.45);
+  --text-dim:     rgba(120, 170, 140, 0.3);
+
+  /* Controls */
+  --seg-active-bg:     rgba(57, 255, 126, 0.14);
+  --seg-active-border: rgba(57, 255, 126, 0.45);
+  --seg-hover-bg:      rgba(57, 255, 126, 0.07);
+  --bit-on-bg:         rgba(57, 255, 126, 0.22);
+  --bit-on-border:     rgba(57, 255, 126, 0.7);
+
+  --font-mono: 'DM Mono', 'Fira Mono', monospace;
+  --font-serif: 'DM Serif Display', Georgia, serif;
+  --radius: 6px;
+  --radius-sm: 4px;
+}
+
+/* ── Base ── */
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  touch-action: none;
+}
+
+/* ── Canvas ── */
+#canvas {
+  display: block;
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  /* Subtle vignette so edges feel infinite */
+  -webkit-mask-image: radial-gradient(ellipse 95% 90% at 50% 50%, black 60%, transparent 100%);
+  mask-image:         radial-gradient(ellipse 95% 90% at 50% 50%, black 60%, transparent 100%);
+}
+
+/* ── Top bar ── */
+#topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: linear-gradient(to bottom, rgba(7,11,9,0.96) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+#title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.title-main {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.15rem;
+  color: var(--phosphor);
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 20px rgba(57,255,126,0.5);
+}
+
+.title-rule {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  font-weight: 300;
+}
+
+#stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.stat-val {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.stat-lbl {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  font-weight: 300;
+}
+
+.stat-sep {
+  width: 1px; height: 12px;
+  background: var(--panel-border);
+}
+
+/* ── Bottom panel ── */
+#panel {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 20;
+  background: var(--panel-bg);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border-top: 1px solid var(--panel-border);
+  box-shadow:
+    0 -1px 0 rgba(57,255,126,0.04) inset,
+    0 -24px 48px rgba(7,11,9,0.7);
+  padding: 10px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Scan-line texture on panel */
+#panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(57,255,126,0.012) 2px,
+    rgba(57,255,126,0.012) 4px
+  );
+  pointer-events: none;
+}
+
+.panel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.panel-divider {
+  height: 1px;
+  background: var(--panel-border);
+  position: relative;
+}
+
+/* ── Control groups ── */
+.ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ctrl-lbl {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-weight: 400;
+}
+
+.ctrl-unit {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+}
+
+/* ── Segmented controls ── */
+.seg {
+  display: flex;
+  background: rgba(57,255,126,0.03);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 2px;
+  gap: 2px;
+}
+
+.seg-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  padding: 4px 9px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.seg-btn:hover {
+  background: var(--seg-hover-bg);
+  color: var(--text);
+}
+
+.seg-btn.active {
+  background: var(--seg-active-bg);
+  border-color: var(--seg-active-border);
+  color: var(--phosphor);
+  text-shadow: 0 0 8px rgba(57,255,126,0.5);
+}
+
+/* ── Transport buttons ── */
+.ctrl-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(57,255,126,0.08);
+  border: 1px solid rgba(57,255,126,0.22);
+  border-radius: var(--radius);
+  color: var(--phosphor);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  padding: 6px 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+
+.ctrl-btn:hover {
+  background: rgba(57,255,126,0.15);
+  border-color: rgba(57,255,126,0.45);
+  box-shadow: 0 0 12px rgba(57,255,126,0.15);
+}
+
+.ctrl-btn.active {
+  background: rgba(57,255,126,0.18);
+  border-color: var(--phosphor);
+  box-shadow: 0 0 16px rgba(57,255,126,0.25);
+  color: #fff;
+  text-shadow: 0 0 8px var(--phosphor);
+}
+
+.ctrl-btn.secondary {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.1);
+  color: var(--text-muted);
+}
+
+.ctrl-btn.secondary:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.2);
+  color: var(--text);
+  box-shadow: none;
+}
+
+/* ── Bit toggles (born/survive) ── */
+.bit-row {
+  display: flex;
+  gap: 3px;
+}
+
+.bit-btn {
+  width: 24px; height: 24px;
+  background: rgba(57,255,126,0.03);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s;
+  display: flex; align-items: center; justify-content: center;
+  letter-spacing: 0;
+}
+
+.bit-btn:hover {
+  background: var(--seg-hover-bg);
+  color: var(--text-muted);
+}
+
+.bit-btn.on {
+  background: var(--bit-on-bg);
+  border-color: var(--bit-on-border);
+  color: var(--phosphor);
+  box-shadow: 0 0 6px rgba(57,255,126,0.25);
+  text-shadow: 0 0 6px rgba(57,255,126,0.6);
+}
+
+/* ── Separators inside rows ── */
+.transport-sep, .rule-sep {
+  width: 1px; height: 22px;
+  background: var(--panel-border);
+  flex-shrink: 0;
+}
+
+/* ── Draw hint ── */
+#drawHint {
+  position: fixed;
+  top: 52px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 10.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 1.5s ease;
+  z-index: 10;
+}
+
+#drawHint.hidden { opacity: 0; }
+
+/* ── Keyboard hint overlay ── */
+#keyhints {
+  position: fixed;
+  bottom: 130px; right: 16px;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  line-height: 1.9;
+  pointer-events: none;
+  z-index: 10;
+  text-align: right;
+}
+
+/* ── Animations ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#panel  { animation: fadeIn 0.4s ease 0.1s both; }
+#topbar { animation: fadeIn 0.4s ease 0.05s both; }
+
+/* ── Mobile ── */
+@media (max-width: 700px) {
+  #panel { padding: 8px 10px 10px; gap: 6px; }
+
+  .panel-row { gap: 7px; }
+
+  .seg-btn  { font-size: 10px; padding: 3px 7px; }
+  .ctrl-btn { font-size: 11px; padding: 5px 10px; }
+  .ctrl-lbl { font-size: 9px; }
+
+  #stats .stat-val { font-size: 0.78rem; }
+
+  /* Hide less important controls on tiny screens */
+  #colourSeg .seg-btn[data-mode="mono"],
+  #edgeSeg { display: none; }
+
+  .rule-sep:last-of-type { display: none; }
+
+  #keyhints { display: none; }
+}
+
+@media (max-width: 480px) {
+  .title-main { font-size: 1rem; }
+
+  /* collapse pattern seg to fewer entries */
+  #patternSeg .seg-btn[data-pattern="diehard"],
+  #patternSeg .seg-btn[data-pattern="rpent"] { display: none; }
+}
