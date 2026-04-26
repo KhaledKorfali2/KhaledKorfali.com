@@ -3,35 +3,30 @@
 
 /* ── Design tokens ── */
 :root {
-  /* Phosphor palette */
   --bg:           #070b09;
-  --grid:         rgba(52, 255, 120, 0.04);
   --phosphor:     #39ff7e;
   --phosphor-dim: rgba(57, 255, 126, 0.18);
-  --amber:        #ffb347;
-  --cold:         #4ab8ff;
 
-  /* Panel */
-  --panel-bg:     rgba(7, 11, 9, 0.92);
+  --panel-bg:     rgba(7, 11, 9, 0.93);
   --panel-border: rgba(57, 255, 126, 0.14);
-  --panel-glow:   rgba(57, 255, 126, 0.06);
 
-  /* Text */
   --text:         rgba(220, 255, 235, 0.9);
   --text-muted:   rgba(160, 210, 180, 0.45);
   --text-dim:     rgba(120, 170, 140, 0.3);
 
-  /* Controls */
   --seg-active-bg:     rgba(57, 255, 126, 0.14);
   --seg-active-border: rgba(57, 255, 126, 0.45);
   --seg-hover-bg:      rgba(57, 255, 126, 0.07);
   --bit-on-bg:         rgba(57, 255, 126, 0.22);
   --bit-on-border:     rgba(57, 255, 126, 0.7);
 
-  --font-mono: 'DM Mono', 'Fira Mono', monospace;
+  --font-mono:  'DM Mono', 'Fira Mono', monospace;
   --font-serif: 'DM Serif Display', Georgia, serif;
-  --radius: 6px;
+  --radius:    6px;
   --radius-sm: 4px;
+  --radius-lg: 12px;
+
+  --bar-h: 68px; /* mobile bottom bar height — used in multiple places */
 }
 
 /* ── Base ── */
@@ -41,18 +36,78 @@ html, body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-mono);
-  touch-action: none;
+  /* Allow touch-action on UI elements; canvas blocks its own scrolling */
+  touch-action: manipulation;
 }
 
 /* ── Canvas ── */
 #canvas {
   display: block;
   position: absolute;
-  inset: 0;
+  top: 0; left: 0;
+  /* Width/height set by JS. Default occupies full viewport. */
   cursor: crosshair;
-  /* Subtle vignette so edges feel infinite */
+  touch-action: none; /* Canvas handles all its own touch events */
   -webkit-mask-image: radial-gradient(ellipse 95% 90% at 50% 50%, black 60%, transparent 100%);
   mask-image:         radial-gradient(ellipse 95% 90% at 50% 50%, black 60%, transparent 100%);
+}
+
+/* ══════════════════════════════════════
+   TOOLTIP
+══════════════════════════════════════ */
+#tooltip {
+  position: fixed;
+  z-index: 1000; /* above everything */
+  pointer-events: none;
+
+  background: rgba(10, 18, 12, 0.97);
+  border: 1px solid rgba(57, 255, 126, 0.3);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+
+  padding: 7px 11px;
+  max-width: 220px;
+
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 300;
+  line-height: 1.5;
+  color: var(--text);
+  letter-spacing: 0.02em;
+  white-space: normal;
+
+  /* Hidden by default */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0s linear 0.14s;
+}
+
+#tooltip.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0s;
+}
+
+/* Arrow pointing down (tooltip above element) */
+#tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: var(--arrow-x, 50%);
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid rgba(57, 255, 126, 0.3);
+}
+
+/* Arrow pointing up (tooltip below element) */
+#tooltip.tip-below::after {
+  bottom: auto;
+  top: -5px;
+  border-top: none;
+  border-bottom: 5px solid rgba(57, 255, 126, 0.3);
 }
 
 /* ── Top bar ── */
@@ -68,11 +123,7 @@ html, body {
   pointer-events: none;
 }
 
-#title {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
+#title { display: flex; align-items: baseline; gap: 12px; }
 
 .title-main {
   font-family: var(--font-serif);
@@ -90,39 +141,18 @@ html, body {
   font-weight: 300;
 }
 
-#stats {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.stat {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
+#stats { display: flex; align-items: center; gap: 8px; }
+.stat  { display: flex; align-items: baseline; gap: 4px; }
 .stat-val {
-  font-size: 0.88rem;
-  font-weight: 500;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
+  font-size: 0.88rem; font-weight: 500; color: var(--text);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.04em;
 }
+.stat-lbl  { font-size: 0.65rem; color: var(--text-muted); letter-spacing: 0.08em; font-weight: 300; }
+.stat-sep  { width: 1px; height: 12px; background: var(--panel-border); }
 
-.stat-lbl {
-  font-size: 0.65rem;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-  font-weight: 300;
-}
-
-.stat-sep {
-  width: 1px; height: 12px;
-  background: var(--panel-border);
-}
-
-/* ── Bottom panel ── */
+/* ══════════════════════════════════════
+   DESKTOP PANEL
+══════════════════════════════════════ */
 #panel {
   position: fixed;
   bottom: 0; left: 0; right: 0;
@@ -131,27 +161,18 @@ html, body {
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
   border-top: 1px solid var(--panel-border);
-  box-shadow:
-    0 -1px 0 rgba(57,255,126,0.04) inset,
-    0 -24px 48px rgba(7,11,9,0.7);
+  box-shadow: 0 -1px 0 rgba(57,255,126,0.04) inset, 0 -24px 48px rgba(7,11,9,0.7);
   padding: 10px 16px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-/* Scan-line texture on panel */
 #panel::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(57,255,126,0.012) 2px,
-    rgba(57,255,126,0.012) 4px
-  );
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(57,255,126,0.012) 2px, rgba(57,255,126,0.012) 4px);
   pointer-events: none;
 }
 
@@ -163,18 +184,10 @@ html, body {
   position: relative;
 }
 
-.panel-divider {
-  height: 1px;
-  background: var(--panel-border);
-  position: relative;
-}
+.panel-divider { height: 1px; background: var(--panel-border); }
 
 /* ── Control groups ── */
-.ctrl-group {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
+.ctrl-group { display: flex; align-items: center; gap: 7px; }
 
 .ctrl-lbl {
   font-size: 10px;
@@ -185,11 +198,7 @@ html, body {
   font-weight: 400;
 }
 
-.ctrl-unit {
-  font-size: 10px;
-  color: var(--text-dim);
-  letter-spacing: 0.08em;
-}
+.ctrl-unit { font-size: 10px; color: var(--text-dim); letter-spacing: 0.08em; }
 
 /* ── Segmented controls ── */
 .seg {
@@ -200,6 +209,8 @@ html, body {
   padding: 2px;
   gap: 2px;
 }
+
+.seg.large .seg-btn { font-size: 13px; padding: 8px 14px; }
 
 .seg-btn {
   background: transparent;
@@ -214,13 +225,11 @@ html, body {
   transition: background 0.15s, color 0.15s, border-color 0.15s;
   white-space: nowrap;
   letter-spacing: 0.02em;
+  /* Ensure tap targets are large enough */
+  min-height: 28px;
 }
 
-.seg-btn:hover {
-  background: var(--seg-hover-bg);
-  color: var(--text);
-}
-
+.seg-btn:hover { background: var(--seg-hover-bg); color: var(--text); }
 .seg-btn.active {
   background: var(--seg-active-bg);
   border-color: var(--seg-active-border);
@@ -230,21 +239,18 @@ html, body {
 
 /* ── Transport buttons ── */
 .ctrl-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: flex; align-items: center; gap: 6px;
   background: rgba(57,255,126,0.08);
   border: 1px solid rgba(57,255,126,0.22);
   border-radius: var(--radius);
   color: var(--phosphor);
   font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 400;
+  font-size: 12px; font-weight: 400;
   padding: 6px 13px;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-  white-space: nowrap;
-  letter-spacing: 0.03em;
+  white-space: nowrap; letter-spacing: 0.03em;
+  min-height: 32px;
 }
 
 .ctrl-btn:hover {
@@ -274,10 +280,14 @@ html, body {
   box-shadow: none;
 }
 
-/* ── Bit toggles (born/survive) ── */
-.bit-row {
-  display: flex;
-  gap: 3px;
+/* ── Bit toggles ── */
+.bit-row { display: flex; gap: 3px; flex-wrap: wrap; }
+
+.bit-row.large { gap: 6px; }
+.bit-row.large .bit-btn {
+  width: 34px; height: 34px;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
 }
 
 .bit-btn {
@@ -287,19 +297,14 @@ html, body {
   border-radius: var(--radius-sm);
   color: var(--text-dim);
   font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
+  font-size: 10.5px; font-weight: 500;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s;
   display: flex; align-items: center; justify-content: center;
-  letter-spacing: 0;
+  flex-shrink: 0;
 }
 
-.bit-btn:hover {
-  background: var(--seg-hover-bg);
-  color: var(--text-muted);
-}
-
+.bit-btn:hover { background: var(--seg-hover-bg); color: var(--text-muted); }
 .bit-btn.on {
   background: var(--bit-on-bg);
   border-color: var(--bit-on-border);
@@ -308,10 +313,297 @@ html, body {
   text-shadow: 0 0 6px rgba(57,255,126,0.6);
 }
 
-/* ── Separators inside rows ── */
+/* Separators */
 .transport-sep, .rule-sep {
   width: 1px; height: 22px;
   background: var(--panel-border);
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════
+   MOBILE UI
+   Z-index ladder:
+     canvas       = 0  (base)
+     topbar       = 20
+     mobileBar    = 30
+     sheetBackdrop= 35
+     sheet        = 40
+     tooltip      = 1000
+══════════════════════════════════════ */
+
+/* ── Bottom bar ── */
+#mobileBar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 30;
+  height: var(--bar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  gap: 8px;
+
+  background: rgba(7, 11, 9, 0.97);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border-top: 1px solid var(--panel-border);
+  box-shadow: 0 -16px 40px rgba(7,11,9,0.7);
+}
+
+.mbar-group { display: flex; align-items: center; gap: 6px; }
+
+.mbar-label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-right: 2px;
+}
+
+.mbar-btn {
+  width: 44px; height: 44px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mbar-btn:active {
+  background: rgba(255,255,255,0.12);
+  color: var(--text);
+}
+
+.mbar-btn.primary {
+  background: rgba(57,255,126,0.12);
+  border-color: rgba(57,255,126,0.3);
+  color: var(--phosphor);
+}
+
+.mbar-btn.primary:active {
+  background: rgba(57,255,126,0.22);
+  border-color: rgba(57,255,126,0.6);
+}
+
+.mbar-btn.primary.playing {
+  background: rgba(57,255,126,0.2);
+  border-color: var(--phosphor);
+  box-shadow: 0 0 16px rgba(57,255,126,0.3);
+  color: #fff;
+}
+
+.mbar-btn.settings.open {
+  background: rgba(57,255,126,0.14);
+  border-color: rgba(57,255,126,0.4);
+  color: var(--phosphor);
+}
+
+/* Speed dots */
+.speed-dots { display: flex; align-items: center; gap: 8px; }
+
+.sdot {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.15s, transform 0.15s;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sdot:active { transform: scale(1.2); }
+.sdot.active {
+  color: var(--phosphor);
+  transform: scale(1.4);
+  text-shadow: 0 0 8px rgba(57,255,126,0.6);
+}
+
+/* ── Sheet backdrop ── */
+#sheetBackdrop {
+  position: fixed;
+  inset: 0;
+  bottom: var(--bar-h); /* don't cover the bar */
+  z-index: 35;
+  background: rgba(0,0,0,0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+#sheetBackdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ── Settings sheet ── */
+#sheet {
+  position: fixed;
+  /* sits just above the mobile bar */
+  bottom: var(--bar-h);
+  left: 0; right: 0;
+  z-index: 40;
+
+  background: rgba(8, 14, 10, 0.98);
+  border: 1px solid var(--panel-border);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.7);
+
+  /* Collapsed: translated fully below the bar */
+  transform: translateY(100%);
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+
+  max-height: calc(100vh - var(--bar-h) - 60px); /* leave room for topbar */
+  display: flex;
+  flex-direction: column;
+  /* Prevent the sheet itself from being scrollable at the outer level */
+  overflow: hidden;
+}
+
+#sheet.open { transform: translateY(0); }
+
+#sheetHandle {
+  width: 36px; height: 4px;
+  background: rgba(57,255,126,0.2);
+  border-radius: 100px;
+  margin: 10px auto 4px;
+  flex-shrink: 0;
+}
+
+#sheetContent {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Allow scrolling inside sheet, but stop propagation to canvas */
+  overscroll-behavior: contain;
+  padding: 4px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Sheet cards ── */
+.sheet-card {
+  background: rgba(57,255,126,0.02);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  padding: 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sheet-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sheet-card-title {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.sheet-card-sub {
+  font-size: 11px;
+  color: var(--phosphor);
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+}
+
+/* Rule editor rows in sheet */
+.sheet-rule-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sheet-rule-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  width: 48px;
+  flex-shrink: 0;
+}
+
+/* 2-column grid of sheet buttons */
+.sheet-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sheet-btn {
+  background: rgba(57,255,126,0.03);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  -webkit-tap-highlight-color: transparent;
+  /* Minimum comfortable tap target */
+  min-height: 56px;
+}
+
+.sheet-btn:active {
+  background: rgba(57,255,126,0.09);
+  border-color: rgba(57,255,126,0.3);
+}
+
+.sheet-btn.active {
+  background: rgba(57,255,126,0.12);
+  border-color: rgba(57,255,126,0.45);
+}
+
+.sheet-btn-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.sheet-btn.active .sheet-btn-name {
+  color: var(--phosphor);
+  text-shadow: 0 0 8px rgba(57,255,126,0.4);
+}
+
+.sheet-btn-desc {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 300;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* Option rows (colour / edge) */
+.sheet-option-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sheet-option-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  width: 48px;
   flex-shrink: 0;
 }
 
@@ -328,11 +620,12 @@ html, body {
   opacity: 1;
   transition: opacity 1.5s ease;
   z-index: 10;
+  white-space: nowrap;
 }
 
 #drawHint.hidden { opacity: 0; }
 
-/* ── Keyboard hint overlay ── */
+/* ── Keyboard hints (desktop only) ── */
 #keyhints {
   position: fixed;
   bottom: 130px; right: 16px;
@@ -351,34 +644,23 @@ html, body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-#panel  { animation: fadeIn 0.4s ease 0.1s both; }
-#topbar { animation: fadeIn 0.4s ease 0.05s both; }
+#panel    { animation: fadeIn 0.4s ease 0.1s both; }
+#topbar   { animation: fadeIn 0.4s ease 0.05s both; }
+#mobileBar{ animation: fadeIn 0.4s ease 0.1s both; }
 
-/* ── Mobile ── */
-@media (max-width: 700px) {
-  #panel { padding: 8px 10px 10px; gap: 6px; }
+/* ══════════════════════════════════════
+   RESPONSIVE: desktop vs mobile
+══════════════════════════════════════ */
+.mobile-only  { display: none; }
+.desktop-only { display: flex; }
 
-  .panel-row { gap: 7px; }
-
-  .seg-btn  { font-size: 10px; padding: 3px 7px; }
-  .ctrl-btn { font-size: 11px; padding: 5px 10px; }
-  .ctrl-lbl { font-size: 9px; }
-
-  #stats .stat-val { font-size: 0.78rem; }
-
-  /* Hide less important controls on tiny screens */
-  #colourSeg .seg-btn[data-mode="mono"],
-  #edgeSeg { display: none; }
-
-  .rule-sep:last-of-type { display: none; }
-
-  #keyhints { display: none; }
+@media (max-width: 768px) {
+  .desktop-only { display: none !important; }
+  .mobile-only  { display: block; }
+  #keyhints     { display: none; }
 }
 
-@media (max-width: 480px) {
-  .title-main { font-size: 1rem; }
-
-  /* collapse pattern seg to fewer entries */
-  #patternSeg .seg-btn[data-pattern="diehard"],
-  #patternSeg .seg-btn[data-pattern="rpent"] { display: none; }
+@media (min-width: 769px) {
+  .mobile-only  { display: none !important; }
+  .desktop-only { display: flex; }
 }
