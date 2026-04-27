@@ -11,6 +11,12 @@ const projects = [
     category: "simulation"
   },
   {
+    name: "Frontend Playground",
+    image: "screenshots/placeholder.png",
+    path: "./projects/frontend-playground/index.html",
+    category: "programming"
+  },
+  {
     name: "Boid Simulator",
     image: "screenshots/boid-simulator.png",
     path: "./projects/boid-simulator/index.html",

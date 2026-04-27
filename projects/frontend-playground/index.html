@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS Playground</title>
+  <link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;600&family=JetBrains+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ── Left sidebar: lesson nav ── -->
+  <aside id="sidebar">
+    <div id="sidebar-header">
+      <span class="logo-mark">{}</span>
+      <span class="logo-text">CSS Playground</span>
+      <button id="sidebarCollapseBtn" class="pane-collapse-btn" data-tip="Collapse sidebar" aria-label="Collapse sidebar">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 2L4 7l5 5"/></svg>
+      </button>
+    </div>
+    <div id="chapter-list"></div>
+    <div id="sidebar-footer">
+      <span id="progress-label">0 / 0 complete</span>
+      <div id="progress-bar-track"><div id="progress-bar-fill"></div></div>
+    </div>
+  </aside>
+
+  <!-- Sidebar collapsed: floating re-open tab -->
+  <button id="sidebarExpandTab" class="sidebar-expand-tab" aria-label="Open sidebar">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 2l5 5-5 5"/></svg>
+    <span>Lessons</span>
+  </button>
+
+  <!-- ── Main area ── -->
+  <main id="main">
+
+    <!-- Top strip -->
+    <div id="topstrip">
+      <div id="lesson-meta">
+        <div id="lesson-meta-left">
+          <span id="lesson-chapter">Chapter 1</span>
+          <span id="lesson-type-badge" class="lesson-badge"></span>
+        </div>
+        <h1 id="lesson-title">Box Model</h1>
+      </div>
+      <div id="nav-btns">
+        <button id="prevBtn" class="nav-btn" disabled>← Prev</button>
+        <button id="nextBtn" class="nav-btn">Next →</button>
+      </div>
+    </div>
+
+    <!-- Three-column workspace -->
+    <div id="workspace">
+
+      <!-- Col 1: controls pane -->
+      <div id="controls-pane">
+        <div class="pane-header">
+          <span class="pane-tag">CONTROLS</span>
+          <button class="pane-collapse-btn" id="controlsCollapseBtn" data-tip="Collapse controls">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 1L3 6l5 5"/></svg>
+          </button>
+        </div>
+        <div id="controls-body">
+          <p id="lesson-desc"></p>
+          <div id="concept-tags"></div>
+          <div id="knobs-area"></div>
+          <div id="lesson-callout" class="callout"></div>
+        </div>
+      </div>
+
+      <!-- Col 2: preview -->
+      <div id="preview-pane">
+        <div id="preview-label">
+          <span class="pane-tag">PREVIEW</span>
+          <div id="preview-actions">
+            <button id="resetBtn" class="small-btn" data-tip="Reset to defaults">↺ Reset</button>
+          </div>
+        </div>
+        <div id="preview-frame-wrap">
+          <iframe
+            id="preview-frame"
+            sandbox="allow-scripts"
+            title="Live preview"
+            scrolling="auto"
+          ></iframe>
+        </div>
+      </div>
+
+      <!-- Col 3: code pane (view + optional editor) -->
+      <div id="code-pane">
+        <div id="code-label">
+          <span class="pane-tag">CODE</span>
+          <div id="code-pane-right">
+            <div id="code-tabs">
+              <button class="code-tab active" data-tab="css">CSS</button>
+              <button class="code-tab" data-tab="html">HTML</button>
+            </div>
+            <button class="pane-collapse-btn" id="codeCollapseBtn" data-tip="Collapse code panel">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 1l5 5-5 5"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Read-only highlighted view (knob-driven lessons) -->
+        <div id="code-scroll">
+          <pre id="code-css"  class="code-block active"></pre>
+          <pre id="code-html" class="code-block"></pre>
+        </div>
+
+        <!-- Editable mode (editor lessons) — hidden by default -->
+        <div id="editor-area" style="display:none">
+          <div id="editor-tabs">
+            <button class="editor-tab active" data-etab="css">CSS</button>
+            <button class="editor-tab" data-etab="html">HTML</button>
+          </div>
+          <div id="editor-wrap">
+            <textarea id="editor-css"  class="code-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+            <textarea id="editor-html" class="code-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" style="display:none"></textarea>
+          </div>
+          <div id="editor-footer">
+            <span id="editor-error" class="editor-error"></span>
+            <button id="applyBtn" class="apply-btn">▶ Apply</button>
+          </div>
+          <div id="editor-hint" class="editor-hint"></div>
+        </div>
+      </div>
+
+    </div><!-- /workspace -->
+  </main>
+
+  <!-- Mobile sheet -->
+  <div id="mobile-knobs-sheet">
+    <div id="mobile-sheet-handle"></div>
+    <div id="mobile-knobs-inner"></div>
+  </div>
+  <div id="mobile-sheet-backdrop"></div>
+  <button id="mobile-knobs-btn">⚙ Controls</button>
+
+  <!-- Tooltip -->
+  <div id="tooltip"></div>
+
+  <script src="lessons.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
