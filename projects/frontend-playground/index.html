@@ -23,10 +23,12 @@
       <span id="progress-label">0 / 0 complete</span>
       <div id="progress-bar-track"><div id="progress-bar-fill"></div></div>
     </div>
+    <!-- Sidebar resize handle -->
+    <div id="sidebar-resize-handle" aria-hidden="true"></div>
   </aside>
 
   <!-- Sidebar collapsed: floating re-open tab -->
-  <button id="sidebarExpandTab" class="sidebar-expand-tab" aria-label="Open sidebar">
+  <button id="sidebarExpandTab" aria-label="Open sidebar">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 2l5 5-5 5"/></svg>
     <span>Lessons</span>
   </button>
@@ -49,14 +51,14 @@
       </div>
     </div>
 
-    <!-- Three-column workspace -->
+    <!-- Three-column workspace (flex row) -->
     <div id="workspace">
 
       <!-- Col 1: controls pane -->
       <div id="controls-pane">
         <div class="pane-header">
           <span class="pane-tag">CONTROLS</span>
-          <button class="pane-collapse-btn" id="controlsCollapseBtn" data-tip="Collapse controls">
+          <button class="pane-collapse-btn" id="controlsCollapseBtn" data-tip="Collapse controls" aria-label="Collapse controls">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 1L3 6l5 5"/></svg>
           </button>
         </div>
@@ -68,8 +70,17 @@
         </div>
       </div>
 
+      <!-- Resize handle: controls ↔ preview -->
+      <div class="col-resize-handle" id="resize-handle-controls" aria-hidden="true"></div>
+
       <!-- Col 2: preview -->
       <div id="preview-pane">
+        <!-- Controls pane collapsed: floating re-open button (lives in preview so it's always visible) -->
+        <button id="controls-open-btn" aria-label="Open controls panel">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 1l5 5-5 5"/></svg>
+          <span>Controls</span>
+        </button>
+
         <div id="preview-label">
           <span class="pane-tag">PREVIEW</span>
           <div id="preview-actions">
@@ -86,6 +97,9 @@
         </div>
       </div>
 
+      <!-- Resize handle: preview ↔ code -->
+      <div class="col-resize-handle" id="resize-handle-code" aria-hidden="true"></div>
+
       <!-- Col 3: code pane (view + optional editor) -->
       <div id="code-pane">
         <div id="code-label">
@@ -95,7 +109,7 @@
               <button class="code-tab active" data-tab="css">CSS</button>
               <button class="code-tab" data-tab="html">HTML</button>
             </div>
-            <button class="pane-collapse-btn" id="codeCollapseBtn" data-tip="Collapse code panel">
+            <button class="pane-collapse-btn" id="codeCollapseBtn" data-tip="Collapse code panel" aria-label="Collapse code panel">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 1l5 5-5 5"/></svg>
             </button>
           </div>
@@ -123,6 +137,12 @@
           </div>
           <div id="editor-hint" class="editor-hint"></div>
         </div>
+
+        <!-- Code pane collapsed: floating re-open button -->
+        <button id="code-open-btn" aria-label="Open code panel">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 1L3 6l5 5"/></svg>
+          <span>Code</span>
+        </button>
       </div>
 
     </div><!-- /workspace -->
@@ -137,7 +157,7 @@
   <button id="mobile-knobs-btn">⚙ Controls</button>
 
   <!-- Tooltip -->
-  <div id="tooltip"></div>
+  <div id="tooltip" role="tooltip"></div>
 
   <script src="lessons.js"></script>
   <script src="script.js"></script>
