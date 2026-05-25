@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Portfolio</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
 
-  <header>
+  <header id="site-header">
     <a href="index.html" class="header-logo">folio<span>.</span></a>
     <nav>
       <a href="index.html" class="active">Home</a>
@@ -17,79 +17,235 @@
     </nav>
   </header>
 
-  <!-- Hero -->
-  <section class="hero">
-    <p class="hero-eyebrow fade-up fade-up-1">Personal Projects</p>
-    <h1 class="fade-up fade-up-2">
-      Building things<br><em>just to see</em><br>what happens.
-    </h1>
-    <p class="hero-description fade-up fade-up-3">
-      A collection of JavaScript experiments, Arabic learning tools, and interactive simulations — built out of curiosity and kept out of stubbornness.
-    </p>
-    <div class="hero-actions fade-up fade-up-4">
-      <a href="projects.html" class="btn-primary">
-        Browse Projects
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </a>
+  <section class="hero-dark" id="hero">
+    <canvas id="particle-canvas"></canvas>
+
+    <div class="hero-dark-inner">
+      <p class="hero-eyebrow fade-up fade-up-1">Personal Projects</p>
+      <h1 class="fade-up fade-up-2" aria-label="Building things just to see what happens.">
+        Building things<br><em id="scramble-em">just to see</em><br>what happens.
+      </h1>
+      <p class="hero-description fade-up fade-up-3">
+        A collection of JavaScript experiments, Arabic learning tools, and interactive simulations built out of curiosity and kept out of stubbornness.
+      </p>
+      <div class="hero-actions fade-up fade-up-4">
+        <a href="projects.html" class="btn-primary" data-magnetic>
+          Browse Projects
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a href="#featured" class="btn-outline-dark">See featured</a>
+      </div>
+
+      <div class="hero-stats fade-up fade-up-5">
+        <div class="stat-item">
+          <span class="stat-number" data-count="10">0</span>
+          <span class="stat-label">Projects</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number" data-count="3">0</span>
+          <span class="stat-label">Categories</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">JS</span>
+          <span class="stat-label">Primary Stack</span>
+        </div>
+      </div>
     </div>
 
-    <div class="hero-stats fade-up fade-up-5">
-      <div class="stat-item">
-        <span class="stat-number">7</span>
-        <span class="stat-label">Projects</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">2</span>
-        <span class="stat-label">Categories</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">JS</span>
-        <span class="stat-label">Primary Stack</span>
-      </div>
+    <div class="scroll-indicator">
+      <span class="scroll-line"></span>
+      Scroll
     </div>
   </section>
 
-  <div class="hero-rule"></div>
-
-  <!-- Featured Projects Teaser -->
-  <section class="project-teaser">
+  <section class="project-teaser" id="featured">
     <div class="section-header">
       <h2>Featured</h2>
-      <a href="projects.html" class="teaser-see-all">
-        All projects →
-      </a>
+      <a href="projects.html" class="teaser-see-all">All projects</a>
     </div>
-
     <div class="teaser-grid" id="teaserGrid"></div>
   </section>
 
   <footer>
     <p>Built with vanilla JS &amp; curiosity.</p>
-    <p><a href="projects.html" style="color: var(--ink-muted); text-decoration:none;">View all projects →</a></p>
+    <p><a href="projects.html" style="color: var(--ink-muted); text-decoration:none;">View all projects</a></p>
   </footer>
 
   <script src="script.js"></script>
   <script>
-    // Populate teaser with first 4 projects
-    document.addEventListener("DOMContentLoaded", () => {
-      const grid = document.getElementById("teaserGrid");
-      if (!grid) return;
-      const featured = projects.slice(0, 4);
-      featured.forEach((p, i) => {
-        const el = document.createElement("a");
-        el.className = "teaser-item";
-        el.href = p.path;
-        el.innerHTML = `
-          <span class="teaser-num">${String(i + 1).padStart(2, '0')}</span>
-          <div class="teaser-info">
-            <div class="teaser-name">${p.name}</div>
-            <div class="teaser-cat">${p.category === 'arabic' ? 'Arabic Learning' : 'Simulation'}</div>
-          </div>
-          <span class="teaser-arrow">→</span>
-        `;
-        grid.appendChild(el);
-      });
+  (function() {
+
+    /* ── Header scroll state ── */
+    var header = document.getElementById('site-header');
+    var heroEl = document.getElementById('hero');
+    function updateHeader() {
+      var heroBottom = heroEl.offsetTop + heroEl.offsetHeight;
+      var y = window.scrollY;
+      if (y > heroBottom - 80) { header.className = 'light'; }
+      else if (y > 20)         { header.className = 'scrolled'; }
+      else                     { header.className = ''; }
+    }
+    window.addEventListener('scroll', updateHeader, { passive: true });
+    updateHeader();
+
+    /* ── Particle canvas ── */
+    var canvas = document.getElementById('particle-canvas');
+    var ctx    = canvas.getContext('2d');
+    var W, H, particles;
+    var mouse  = { x: -9999, y: -9999 };
+    var COUNT  = 85;
+    var LINK   = 130;
+    var SPEED  = 0.35;
+    var REPEL  = 110;
+
+    function resize() {
+      W = canvas.width  = heroEl.offsetWidth;
+      H = canvas.height = heroEl.offsetHeight;
+    }
+    function mkParticle() {
+      var a = Math.random() * Math.PI * 2;
+      var s = SPEED * (0.4 + Math.random() * 0.6);
+      return { x: Math.random() * W, y: Math.random() * H,
+               vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+               r: 1.2 + Math.random() * 1.2 };
+    }
+    function init() { resize(); particles = []; for (var k=0;k<COUNT;k++) particles.push(mkParticle()); }
+
+    function tick() {
+      ctx.clearRect(0, 0, W, H);
+      for (var i = 0; i < particles.length; i++) {
+        var p  = particles[i];
+        var dx = p.x - mouse.x, dy = p.y - mouse.y;
+        var d  = Math.sqrt(dx*dx + dy*dy);
+        if (d < REPEL && d > 0) {
+          var f = (REPEL - d) / REPEL * 0.55;
+          p.vx += (dx/d)*f; p.vy += (dy/d)*f;
+        }
+        var spd = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+        if (spd > SPEED*3) { p.vx *= 0.96; p.vy *= 0.96; }
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+        if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(232,84,26,0.6)';
+        ctx.fill();
+
+        for (var j = i+1; j < particles.length; j++) {
+          var q  = particles[j];
+          var ex = p.x-q.x, ey = p.y-q.y;
+          var ld = Math.sqrt(ex*ex+ey*ey);
+          if (ld < LINK) {
+            ctx.beginPath();
+            ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y);
+            ctx.strokeStyle = 'rgba(232,84,26,'+ ((1-ld/LINK)*0.18) +')';
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+          }
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+
+    heroEl.addEventListener('mousemove', function(e) {
+      var r = canvas.getBoundingClientRect();
+      mouse.x = e.clientX-r.left; mouse.y = e.clientY-r.top;
     });
+    heroEl.addEventListener('mouseleave', function() { mouse.x=-9999; mouse.y=-9999; });
+    window.addEventListener('resize', resize, { passive: true });
+    init(); tick();
+
+    /* ── Text scramble on italic phrase ── */
+    var CHARS  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#';
+    var emEl   = document.getElementById('scramble-em');
+    var emOrig = emEl ? emEl.textContent : '';
+    var sf = 0, SF_TOTAL = 30;
+    function scramble() {
+      if (!emEl) return;
+      if (sf >= SF_TOTAL) { emEl.textContent = emOrig; return; }
+      var p = sf / SF_TOTAL, out = '';
+      for (var i=0; i<emOrig.length; i++) {
+        if (emOrig[i] === ' ') { out += ' '; continue; }
+        out += i/emOrig.length < p ? emOrig[i] : CHARS[Math.floor(Math.random()*CHARS.length)];
+      }
+      emEl.textContent = out; sf++;
+      setTimeout(scramble, 40);
+    }
+    setTimeout(scramble, 650);
+
+    /* ── Counter animation ── */
+    function animCount(el) {
+      var target = parseInt(el.getAttribute('data-count'));
+      var t0 = performance.now(), dur = 1200;
+      function step(now) {
+        var t = Math.min((now-t0)/dur, 1);
+        el.textContent = Math.round((1-Math.pow(1-t,3))*target);
+        if (t<1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+    var cObs = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (e.isIntersecting) {
+          var els = e.target.querySelectorAll('[data-count]');
+          for (var i=0;i<els.length;i++) animCount(els[i]);
+          cObs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.5 });
+    var statsEl = document.querySelector('.hero-stats');
+    if (statsEl) cObs.observe(statsEl);
+
+    /* ── Magnetic button ── */
+    var magnets = document.querySelectorAll('[data-magnetic]');
+    for (var m=0; m<magnets.length; m++) {
+      (function(btn) {
+        btn.addEventListener('mousemove', function(e) {
+          var r  = btn.getBoundingClientRect();
+          var dx = (e.clientX - r.left - r.width/2)  * 0.28;
+          var dy = (e.clientY - r.top  - r.height/2) * 0.28;
+          btn.style.transform = 'translate('+dx+'px,'+dy+'px)';
+        });
+        btn.addEventListener('mouseleave', function() { btn.style.transform = ''; });
+      })(magnets[m]);
+    }
+
+    /* ── Scroll-reveal for teaser rows ── */
+    var rObs = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (e.isIntersecting) { e.target.classList.add('revealed'); rObs.unobserve(e.target); }
+      });
+    }, { threshold: 0.12 });
+
+    /* ── Populate teaser ── */
+    var grid = document.getElementById('teaserGrid');
+    if (grid && typeof projects !== 'undefined') {
+      function label(c) {
+        return c === 'arabic' ? 'Arabic Learning' : c === 'simulation' ? 'Simulation' : 'Programming';
+      }
+      var featured = projects.slice(0, 4);
+      for (var i=0; i<featured.length; i++) {
+        var p  = featured[i];
+        var el = document.createElement('a');
+        el.className = 'teaser-item scroll-reveal';
+        el.href = p.path;
+        el.style.transitionDelay = (i*0.07)+'s';
+        el.innerHTML =
+          '<span class="teaser-num">' + String(i+1).padStart(2,'0') + '</span>' +
+          '<div class="teaser-info">' +
+            '<div class="teaser-name">' + p.name + '</div>' +
+            '<div class="teaser-cat">'  + label(p.category) + '</div>' +
+          '</div>' +
+          '<span class="teaser-arrow">&#8594;</span>';
+        grid.appendChild(el);
+        rObs.observe(el);
+      }
+    }
+
+  })();
   </script>
 </body>
 </html>

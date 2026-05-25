@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Projects — My Portfolio</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
 
-  <header>
+  <header id="site-header" class="scrolled">
     <a href="index.html" class="header-logo">folio<span>.</span></a>
     <nav>
       <a href="index.html">Home</a>
@@ -17,25 +17,26 @@
     </nav>
   </header>
 
-  <section class="hero" style="padding-bottom: 48px;">
-    <p class="hero-eyebrow fade-up fade-up-1">The Collection</p>
-    <h1 class="fade-up fade-up-2" style="font-size: clamp(2.5rem, 6vw, 4.5rem);">
-      All <em>projects.</em>
-    </h1>
-    <p class="hero-description fade-up fade-up-3" style="margin-bottom: 28px;">
-      From physics simulations to Quranic Arabic tools — everything I've built and actually shipped.
-    </p>
-
-    <div class="hero-actions fade-up fade-up-4">
-      <div class="category-tags" id="filterTags">
-        <button class="tag active" data-filter="all">All</button>
-        <button class="tag" data-filter="simulation">Simulation</button>
-        <button class="tag" data-filter="arabic">Arabic Learning</button>
+  <section class="hero-light" id="hero-light">
+    <canvas id="particle-canvas-sm"></canvas>
+    <div class="hero-light-inner">
+      <p class="hero-eyebrow fade-up fade-up-1">The Collection</p>
+      <h1 class="fade-up fade-up-2">All <em id="scramble-em-p">projects.</em></h1>
+      <p class="hero-description fade-up fade-up-3">
+        From physics simulations to Quranic Arabic tools — everything I've built and actually shipped.
+      </p>
+      <div class="hero-actions fade-up fade-up-4">
+        <div class="category-tags" id="filterTags">
+          <button class="tag active" data-filter="all">All</button>
+          <button class="tag" data-filter="simulation">Simulation</button>
+          <button class="tag" data-filter="arabic">Arabic Learning</button>
+          <button class="tag" data-filter="programming">Programming</button>
+        </div>
       </div>
     </div>
   </section>
 
-  <div class="hero-rule"></div>
+  <div class="section-divider"></div>
 
   <main id="projects-section">
     <div class="grid-container" id="projectsGrid"></div>
@@ -47,58 +48,165 @@
 
   <script src="script.js"></script>
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const grid = document.getElementById("projectsGrid");
-      const tags = document.querySelectorAll(".tag");
-      let activeFilter = "all";
+  (function() {
 
-      function renderGrid(filter) {
-        grid.innerHTML = "";
-        const filtered = filter === "all"
-          ? projects
-          : projects.filter(p => p.category === filter);
+    /* ── Header ── */
+    var header  = document.getElementById('site-header');
+    var heroSm  = document.getElementById('hero-light');
+    window.addEventListener('scroll', function() {
+      var heroBottom = heroSm.offsetTop + heroSm.offsetHeight;
+      var y = window.scrollY;
+      if (y > heroBottom - 60) { header.className = 'light'; }
+      else                     { header.className = 'scrolled'; }
+    }, { passive: true });
 
-        if (filtered.length === 0) {
-          grid.innerHTML = `<div class="empty-state">No projects in this category yet.</div>`;
-          return;
+    /* ── Particle canvas (compact hero) ── */
+    var canvas = document.getElementById('particle-canvas-sm');
+    var ctx    = canvas.getContext('2d');
+    var W, H, particles;
+    var mouse  = { x: -9999, y: -9999 };
+    var COUNT  = 55, LINK = 120, SPEED = 0.3, REPEL = 100;
+
+    function resize() {
+      W = canvas.width  = heroSm.offsetWidth;
+      H = canvas.height = heroSm.offsetHeight;
+    }
+    function mkParticle() {
+      var a = Math.random() * Math.PI * 2;
+      var s = SPEED * (0.4 + Math.random() * 0.6);
+      return { x: Math.random()*W, y: Math.random()*H,
+               vx: Math.cos(a)*s,  vy: Math.sin(a)*s,
+               r: 1.1 + Math.random()*1.0 };
+    }
+    function init() { resize(); particles = []; for (var k=0;k<COUNT;k++) particles.push(mkParticle()); }
+
+    function tick() {
+      ctx.clearRect(0,0,W,H);
+      for (var i=0; i<particles.length; i++) {
+        var p  = particles[i];
+        var dx = p.x-mouse.x, dy = p.y-mouse.y;
+        var d  = Math.sqrt(dx*dx+dy*dy);
+        if (d < REPEL && d > 0) {
+          var f = (REPEL-d)/REPEL*0.5;
+          p.vx += (dx/d)*f; p.vy += (dy/d)*f;
         }
+        var spd = Math.sqrt(p.vx*p.vx+p.vy*p.vy);
+        if (spd > SPEED*3) { p.vx *= 0.96; p.vy *= 0.96; }
+        p.x += p.vx; p.y += p.vy;
+        if (p.x<0) p.x=W; if (p.x>W) p.x=0;
+        if (p.y<0) p.y=H; if (p.y>H) p.y=0;
 
-        filtered.forEach((project, i) => {
-          const div = document.createElement("div");
-          div.className = "grid-item";
-          div.style.animationDelay = `${i * 0.06}s`;
-          div.innerHTML = `
-            <a href="${project.path}">
-              <div class="card-image-wrap">
-                <img src="${project.image}" alt="${project.name}" loading="lazy">
-                <div class="card-image-overlay"></div>
-                <div class="card-arrow">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <path d="M1 7h12M7 1l6 6-6 6" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-              <div class="card-body">
-                <span class="card-tag ${project.category}">${project.category === 'arabic' ? 'Arabic Learning' : 'Simulation'}</span>
-                <span class="card-name">${project.name}</span>
-              </div>
-            </a>
-          `;
-          grid.appendChild(div);
-        });
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(232,84,26,0.55)';
+        ctx.fill();
+
+        for (var j=i+1; j<particles.length; j++) {
+          var q  = particles[j];
+          var ex = p.x-q.x, ey = p.y-q.y;
+          var ld = Math.sqrt(ex*ex+ey*ey);
+          if (ld < LINK) {
+            ctx.beginPath();
+            ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y);
+            ctx.strokeStyle = 'rgba(232,84,26,'+ ((1-ld/LINK)*0.16) +')';
+            ctx.lineWidth = 0.7;
+            ctx.stroke();
+          }
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+
+    heroSm.addEventListener('mousemove', function(e) {
+      var r = canvas.getBoundingClientRect();
+      mouse.x = e.clientX-r.left; mouse.y = e.clientY-r.top;
+    });
+    heroSm.addEventListener('mouseleave', function() { mouse.x=-9999; mouse.y=-9999; });
+    window.addEventListener('resize', resize, { passive: true });
+    init(); tick();
+
+    /* ── Text scramble ── */
+    var CHARS  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#';
+    var emEl   = document.getElementById('scramble-em-p');
+    var emOrig = emEl ? emEl.textContent : '';
+    var sf = 0, SF_TOTAL = 28;
+    function scramble() {
+      if (!emEl) return;
+      if (sf >= SF_TOTAL) { emEl.textContent = emOrig; return; }
+      var p = sf/SF_TOTAL, out = '';
+      for (var i=0; i<emOrig.length; i++) {
+        if (emOrig[i] === ' ') { out += ' '; continue; }
+        out += i/emOrig.length < p ? emOrig[i] : CHARS[Math.floor(Math.random()*CHARS.length)];
+      }
+      emEl.textContent = out; sf++;
+      setTimeout(scramble, 40);
+    }
+    setTimeout(scramble, 500);
+
+    /* ── Scroll-reveal for grid cards ── */
+    var rObs = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (e.isIntersecting) { e.target.classList.add('revealed'); rObs.unobserve(e.target); }
+      });
+    }, { threshold: 0.08 });
+
+    /* ── Grid render ── */
+    var grid        = document.getElementById('projectsGrid');
+    var tags        = document.querySelectorAll('.tag');
+    var activeFilter = 'all';
+
+    function catLabel(c) {
+      return c === 'arabic' ? 'Arabic Learning' : c === 'simulation' ? 'Simulation' : 'Programming';
+    }
+
+    function renderGrid(filter) {
+      grid.innerHTML = '';
+      var filtered = filter === 'all' ? projects : projects.filter(function(p) { return p.category === filter; });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div class="empty-state">No projects in this category yet.</div>';
+        return;
       }
 
-      tags.forEach(tag => {
-        tag.addEventListener("click", () => {
-          tags.forEach(t => t.classList.remove("active"));
-          tag.classList.add("active");
-          activeFilter = tag.dataset.filter;
+      filtered.forEach(function(project, i) {
+        var div = document.createElement('div');
+        div.className = 'grid-item scroll-reveal';
+        div.style.transitionDelay = (i * 0.055) + 's';
+        div.innerHTML =
+          '<a href="' + project.path + '">' +
+            '<div class="card-image-wrap">' +
+              '<img src="' + project.image + '" alt="' + project.name + '" loading="lazy">' +
+              '<div class="card-image-overlay"></div>' +
+              '<div class="card-arrow">' +
+                '<svg width="14" height="14" viewBox="0 0 14 14" fill="none">' +
+                  '<path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+                '</svg>' +
+              '</div>' +
+            '</div>' +
+            '<div class="card-body">' +
+              '<span class="card-tag ' + project.category + '">' + catLabel(project.category) + '</span>' +
+              '<span class="card-name">' + project.name + '</span>' +
+            '</div>' +
+          '</a>';
+        grid.appendChild(div);
+        rObs.observe(div);
+      });
+    }
+
+    for (var t=0; t<tags.length; t++) {
+      (function(tag) {
+        tag.addEventListener('click', function() {
+          for (var i=0;i<tags.length;i++) tags[i].classList.remove('active');
+          tag.classList.add('active');
+          activeFilter = tag.getAttribute('data-filter');
           renderGrid(activeFilter);
         });
-      });
+      })(tags[t]);
+    }
 
-      renderGrid("all");
-    });
+    if (typeof projects !== 'undefined') renderGrid('all');
+
+  })();
   </script>
 </body>
 </html>
