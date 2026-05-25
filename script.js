@@ -17,12 +17,6 @@ const projects = [
     category: "programming"
   },
   {
-    name: "C Playground",
-    image: "screenshots/placeholder.png",
-    path: "./projects/c-playground/index.html",
-    category: "programming"
-  },
-  {
     name: "Boid Simulator",
     image: "screenshots/boid-simulator.png",
     path: "./projects/boid-simulator/index.html",
