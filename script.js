@@ -12,8 +12,14 @@ const projects = [
   },
   {
     name: "Frontend Playground",
-    image: "screenshots/placeholder.png",
+    image: "screenshots/css-playground.png",
     path: "./projects/frontend-playground/index.html",
+    category: "programming"
+  },
+  {
+    name: "Noosphere",
+    image: "screenshots/noosphere.png",
+    path: "./projects/noosphere/index.html",
     category: "programming"
   },
   {
@@ -24,7 +30,7 @@ const projects = [
   },
   {
     name: "Conway's Game of Life",
-    image: "screenshots/placeholder.png",
+    image: "screenshots/game-of-life.png",
     path: "./projects/game-of-life/index.html",
     category: "simulation"
   },
@@ -54,7 +60,7 @@ const projects = [
   },
   {
     name: "Surah Quiz",
-    image: "screenshots/placeholder.png",
+    image: "screenshots/surah-quiz.png",
     path: "./projects/surah-quiz/index.html",
     category: "arabic"
   },

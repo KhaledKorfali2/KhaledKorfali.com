@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Noosphere</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <canvas id="c"></canvas>
+  <div id="cursor"></div>
+  <div id="cursor-ring"></div>
+
+  <div id="hint"><p>Move your mouse to begin</p></div>
+  <div id="title"><h1>Noosphere</h1></div>
+
+  <!-- Mode switcher -->
+  <div id="mode-bar">
+    <button class="mode-btn active" data-mode="text"><span class="dot"></span>Text</button>
+    <button class="mode-btn"        data-mode="sandbox"><span class="dot"></span>Sandbox</button>
+  </div>
+
+  <!-- Live stats -->
+  <div id="status">
+    <div class="stat-line">particles <span id="s-count">0</span></div>
+    <div class="stat-line">fps <span id="s-fps">0</span></div>
+    <div class="stat-line">mode <span id="s-mode">text</span></div>
+  </div>
+
+  <!-- Control panel -->
+  <div id="panel">
+
+    <!-- SANDBOX -->
+    <div class="panel-section" id="sec-sandbox">
+      <div class="sliders-grid">
+        <div class="slider-row">
+          <label>Particles</label>
+          <input type="range" id="sl-count" min="50" max="800" value="400" step="10">
+          <span class="val" id="v-count">400</span>
+        </div>
+        <div class="slider-row">
+          <label>Repel</label>
+          <input type="range" id="sl-repel" min="20" max="250" value="120">
+          <span class="val" id="v-repel">120</span>
+        </div>
+        <div class="slider-row">
+          <label>Link dist</label>
+          <input type="range" id="sl-link" min="20" max="250" value="100">
+          <span class="val" id="v-link">100</span>
+        </div>
+        <div class="slider-row">
+          <label>Speed</label>
+          <input type="range" id="sl-speed" min="1" max="30" value="8">
+          <span class="val" id="v-speed">8</span>
+        </div>
+        <div class="slider-row">
+          <label>Gravity</label>
+          <input type="range" id="sl-grav" min="-10" max="10" value="0">
+          <span class="val" id="v-grav">0</span>
+        </div>
+        <div class="slider-row">
+          <label>Damping</label>
+          <input type="range" id="sl-damp" min="50" max="99" value="88">
+          <span class="val" id="v-damp">88</span>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="panel-btn ghost" id="btn-explode">Explode</button>
+        <button class="panel-btn ghost" id="btn-vortex">Vortex</button>
+        <button class="panel-btn ghost" id="btn-reset">Reset</button>
+        <div class="swatch-row" id="swatches-sandbox">
+          <div class="swatch active" data-color="orange" style="background:#e8541a"></div>
+          <div class="swatch"        data-color="blue"   style="background:#3a8ff5"></div>
+          <div class="swatch"        data-color="teal"   style="background:#1db885"></div>
+          <div class="swatch"        data-color="violet" style="background:#9b6dff"></div>
+          <div class="swatch"        data-color="white"  style="background:#c8c4be"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEXT -->
+    <div class="panel-section visible" id="sec-text">
+      <div class="word-row">
+        <input id="word-input" type="text" maxlength="11" value="Hello World" placeholder="Type a word…" autocomplete="off" spellcheck="false">
+        <button class="panel-btn" id="btn-form">Form →</button>
+        <button class="panel-btn ghost" id="btn-scatter">Scatter</button>
+      </div>
+      <div class="btn-row">
+        <span class="hint-label">Hover to repel · Click to attract</span>
+        <div class="swatch-row" id="swatches-text">
+          <div class="swatch active" data-color="orange" style="background:#e8541a"></div>
+          <div class="swatch"        data-color="blue"   style="background:#3a8ff5"></div>
+          <div class="swatch"        data-color="teal"   style="background:#1db885"></div>
+          <div class="swatch"        data-color="violet" style="background:#9b6dff"></div>
+          <div class="swatch"        data-color="white"  style="background:#c8c4be"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

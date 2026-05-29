@@ -1,0 +1,268 @@
+/* ── Reset & variables ── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg:       #080808;
+  --surface:  rgba(15, 15, 15, 0.85);
+  --border:   rgba(255, 255, 255, 0.07);
+  --text:     #e8e4dc;
+  --muted:    rgba(232, 228, 220, 0.4);
+  --accent:   #e8541a;
+  --accent2:  #3a8ff5;
+  --ease:     cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: var(--text);
+}
+
+canvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+  cursor: none;
+}
+
+/* ── Custom cursor ── */
+#cursor {
+  position: fixed;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 1000;
+  transform: translate(-50%, -50%);
+  transition: width 0.2s, height 0.2s, background 0.2s;
+}
+#cursor-ring {
+  position: fixed;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(232, 84, 26, 0.35);
+  pointer-events: none;
+  z-index: 999;
+  transform: translate(-50%, -50%);
+  transition: width 0.25s, height 0.25s, border-color 0.2s;
+}
+#cursor.attract   { background: var(--accent2); width: 12px; height: 12px; }
+#cursor-ring.attract { border-color: rgba(58, 143, 245, 0.5); width: 44px; height: 44px; }
+
+/* ── Mode bar ── */
+#mode-bar {
+  position: fixed;
+  top: 28px; left: 50%; transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 4px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 100;
+}
+.mode-btn {
+  background: transparent;
+  border: none;
+  border-radius: 100px;
+  padding: 7px 22px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+  white-space: nowrap;
+}
+.mode-btn:hover  { color: var(--text); }
+.mode-btn.active { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+.mode-btn .dot {
+  display: inline-block;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-right: 6px;
+  vertical-align: middle;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.mode-btn.active .dot { opacity: 1; }
+
+/* ── Panel ── */
+#panel {
+  position: fixed;
+  bottom: 32px; left: 50%; transform: translateX(-50%);
+  width: min(560px, calc(100vw - 32px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px 20px 16px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 100;
+}
+.panel-section { display: none; flex-direction: column; gap: 12px; }
+.panel-section.visible { display: flex; }
+
+/* Sliders */
+.sliders-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 20px;
+}
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.slider-row label {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  min-width: 90px;
+}
+.slider-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+  height: 2px;
+  cursor: pointer;
+}
+.slider-row .val {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--accent);
+  min-width: 34px;
+  text-align: right;
+}
+
+/* Word input */
+.word-row { display: flex; gap: 8px; }
+#word-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 9px 16px;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.9rem;
+  color: var(--text);
+  outline: none;
+  caret-color: var(--accent);
+  transition: border-color 0.2s;
+}
+#word-input::placeholder { color: var(--muted); }
+#word-input:focus { border-color: rgba(232, 84, 26, 0.4); }
+
+/* Buttons */
+.btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.panel-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 100px;
+  padding: 9px 18px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  white-space: nowrap;
+}
+.panel-btn:hover { background: #d44615; transform: translateY(-1px); }
+.panel-btn:active { transform: scale(0.97); }
+.panel-btn.ghost {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+}
+.panel-btn.ghost:hover { background: rgba(255, 255, 255, 0.13); }
+
+/* Swatches */
+.swatch-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.swatch {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.swatch:hover  { transform: scale(1.2); }
+.swatch.active { border-color: rgba(255, 255, 255, 0.55); }
+
+/* Hint label */
+.hint-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ── Status ── */
+#status {
+  position: fixed;
+  right: 28px; top: 50%; transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 100;
+}
+.stat-line {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.stat-line span { color: var(--accent); }
+
+/* ── Hint overlay ── */
+#hint {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 50;
+  transition: opacity 0.8s;
+}
+#hint p {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+#hint.gone { opacity: 0; }
+
+/* ── Title ── */
+#title {
+  position: fixed;
+  left: 28px; top: 50%; transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 100;
+}
+#title h1 {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.12);
+}
