@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sortvis — Sorting Algorithm Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header id="hdr">
+    <div id="hdr-left">
+      <span id="logo">SORTVIS</span>
+      <span id="tagline">algorithm visualizer</span>
+    </div>
+    <div id="hdr-stats">
+      <div class="stat"><span class="stat-val" id="st-comps">0</span><span class="stat-lbl">comparisons</span></div>
+      <div class="stat"><span class="stat-val" id="st-swaps">0</span><span class="stat-lbl">swaps</span></div>
+      <div class="stat"><span class="stat-val" id="st-writes">0</span><span class="stat-lbl">writes</span></div>
+    </div>
+  </header>
+
+  <!-- Algorithm picker -->
+  <nav id="algo-nav">
+    <button class="algo-btn active" data-algo="bubble">Bubble</button>
+    <button class="algo-btn" data-algo="selection">Selection</button>
+    <button class="algo-btn" data-algo="insertion">Insertion</button>
+    <button class="algo-btn" data-algo="shell">Shell</button>
+    <button class="algo-btn" data-algo="merge">Merge</button>
+    <button class="algo-btn" data-algo="quick">Quick</button>
+    <button class="algo-btn" data-algo="heap">Heap</button>
+    <button class="algo-btn" data-algo="radix">Radix</button>
+    <button class="algo-btn" data-algo="counting">Counting</button>
+    <button class="algo-btn" data-algo="cocktail">Cocktail</button>
+    <button class="algo-btn" data-algo="gnome">Gnome</button>
+    <button class="algo-btn" data-algo="comb">Comb</button>
+  </nav>
+
+  <!-- Main area -->
+  <main id="main">
+
+    <!-- Visualizer canvas -->
+    <section id="vis-wrap">
+      <canvas id="vis"></canvas>
+      <!-- Done banner -->
+      <div id="done-banner" class="hidden">
+        <span id="done-text">Sorted!</span>
+      </div>
+    </section>
+
+    <!-- Info panel -->
+    <aside id="info-panel">
+      <div id="algo-name-wrap">
+        <h2 id="algo-title">Bubble Sort</h2>
+        <div id="complexity-row">
+          <span class="badge" id="badge-best"></span>
+          <span class="badge" id="badge-avg"></span>
+          <span class="badge" id="badge-worst"></span>
+          <span class="badge space" id="badge-space"></span>
+        </div>
+      </div>
+      <p id="algo-desc"></p>
+      <div id="step-log-wrap">
+        <div id="step-log-label">CURRENT STEP</div>
+        <div id="step-log"></div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- Controls -->
+  <footer id="controls">
+
+    <div id="ctrl-left">
+      <div class="ctrl-group">
+        <label class="ctrl-label">SIZE</label>
+        <input type="range" id="sl-size" min="8" max="120" value="40" step="1">
+        <span class="ctrl-val" id="v-size">40</span>
+      </div>
+      <div class="ctrl-group">
+        <label class="ctrl-label">SPEED</label>
+        <input type="range" id="sl-speed" min="1" max="10" value="5" step="1">
+        <span class="ctrl-val" id="v-speed">5</span>
+      </div>
+    </div>
+
+    <div id="ctrl-center">
+      <button class="ctrl-btn" id="btn-reset" title="New array">&#8635;</button>
+      <button class="ctrl-btn" id="btn-step-back" title="Step back">&#9664;&#9664;</button>
+      <button class="ctrl-btn primary" id="btn-play" title="Play/Pause">&#9654;</button>
+      <button class="ctrl-btn" id="btn-step-fwd" title="Step forward">&#9654;&#9654;</button>
+      <button class="ctrl-btn" id="btn-end" title="Jump to end">&#9654;|</button>
+    </div>
+
+    <div id="ctrl-right">
+      <div class="ctrl-group">
+        <label class="ctrl-label">INPUT</label>
+        <select id="sel-input">
+          <option value="random">Random</option>
+          <option value="nearly">Nearly sorted</option>
+          <option value="reversed">Reversed</option>
+          <option value="few">Few unique</option>
+        </select>
+      </div>
+      <div id="progress-wrap">
+        <div id="progress-bar"><div id="progress-fill"></div></div>
+        <span id="progress-text">0 / 0</span>
+      </div>
+    </div>
+
+  </footer>
+
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

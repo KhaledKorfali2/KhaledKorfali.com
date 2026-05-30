@@ -16,6 +16,12 @@ const projects = [
     path: "./projects/frontend-playground/index.html",
     category: "programming"
   },
+   {
+    name: "Sorting Algorithm Simulator",
+    image: "screenshots/sorting-alg.png",
+    path: "./projects/sorting-simulator/index.html",
+    category: "programming"
+  },
   {
     name: "Noosphere",
     image: "screenshots/noosphere.png",
