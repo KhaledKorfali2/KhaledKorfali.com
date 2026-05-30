@@ -19,16 +19,21 @@ html, body {
   font-family: 'DM Sans', sans-serif;
   -webkit-font-smoothing: antialiased;
   color: var(--text);
+  /* Prevent elastic scroll bouncing on iOS which fights the canvas */
+  overscroll-behavior: none;
 }
 
 canvas {
   position: fixed;
   inset: 0;
   display: block;
+  /* Only hide cursor on true pointer devices */
   cursor: none;
+  /* Allow JS touch handlers to work without browser interference */
+  touch-action: none;
 }
 
-/* ── Custom cursor ── */
+/* ── Custom cursor (hidden on touch devices) ── */
 #cursor {
   position: fixed;
   width: 8px; height: 8px;
@@ -52,6 +57,12 @@ canvas {
 #cursor.attract   { background: var(--accent2); width: 12px; height: 12px; }
 #cursor-ring.attract { border-color: rgba(58, 143, 245, 0.5); width: 44px; height: 44px; }
 
+/* Hide custom cursor dot/ring on touch-primary devices */
+@media (hover: none) and (pointer: coarse) {
+  #cursor, #cursor-ring { display: none; }
+  canvas { cursor: default; }
+}
+
 /* ── Mode bar ── */
 #mode-bar {
   position: fixed;
@@ -65,6 +76,8 @@ canvas {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   z-index: 100;
+  /* Allow taps to pass through normally */
+  touch-action: manipulation;
 }
 .mode-btn {
   background: transparent;
@@ -80,6 +93,9 @@ canvas {
   cursor: pointer;
   transition: all 0.2s var(--ease);
   white-space: nowrap;
+  /* Minimum tap target */
+  min-height: 44px;
+  touch-action: manipulation;
 }
 .mode-btn:hover  { color: var(--text); }
 .mode-btn.active { background: rgba(255, 255, 255, 0.1); color: var(--text); }
@@ -107,7 +123,15 @@ canvas {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   z-index: 100;
+  touch-action: manipulation;
 }
+
+/* On very small screens, tighten the bottom gap */
+@media (max-height: 600px) {
+  #panel { bottom: 12px; padding: 12px 14px 10px; }
+  #mode-bar { top: 14px; }
+}
+
 .panel-section { display: none; flex-direction: column; gap: 12px; }
 .panel-section.visible { display: flex; }
 
@@ -117,6 +141,12 @@ canvas {
   grid-template-columns: 1fr 1fr;
   gap: 8px 20px;
 }
+
+/* Single-column layout on narrow screens */
+@media (max-width: 420px) {
+  .sliders-grid { grid-template-columns: 1fr; }
+}
+
 .slider-row {
   display: flex;
   align-items: center;
@@ -127,13 +157,30 @@ canvas {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
-  min-width: 90px;
+  min-width: 72px;
 }
 .slider-row input[type="range"] {
   flex: 1;
   accent-color: var(--accent);
   height: 2px;
   cursor: pointer;
+  /* Tall touch target without changing visual size */
+  -webkit-appearance: none;
+  appearance: none;
+  touch-action: pan-x;
+}
+/* Taller thumb for touch */
+.slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.slider-row input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
 }
 .slider-row .val {
   font-family: 'Space Mono', monospace;
@@ -157,6 +204,8 @@ canvas {
   outline: none;
   caret-color: var(--accent);
   transition: border-color 0.2s;
+  /* Minimum touch target height */
+  min-height: 44px;
 }
 #word-input::placeholder { color: var(--muted); }
 #word-input:focus { border-color: rgba(232, 84, 26, 0.4); }
@@ -180,6 +229,9 @@ canvas {
   cursor: pointer;
   transition: background 0.2s, transform 0.15s;
   white-space: nowrap;
+  /* Minimum tap target */
+  min-height: 44px;
+  touch-action: manipulation;
 }
 .panel-btn:hover { background: #d44615; transform: translateY(-1px); }
 .panel-btn:active { transform: scale(0.97); }
@@ -197,11 +249,20 @@ canvas {
   margin-left: auto;
 }
 .swatch {
+  /* Larger visual + invisible hit-area padding for touch */
   width: 16px; height: 16px;
   border-radius: 50%;
   cursor: pointer;
   border: 2px solid transparent;
   transition: transform 0.15s, border-color 0.15s;
+  position: relative;
+  touch-action: manipulation;
+}
+/* Expand tap target without changing visual size */
+.swatch::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
 }
 .swatch:hover  { transform: scale(1.2); }
 .swatch.active { border-color: rgba(255, 255, 255, 0.55); }
@@ -225,6 +286,12 @@ canvas {
   pointer-events: none;
   z-index: 100;
 }
+
+/* Hide stats on very narrow screens to save space */
+@media (max-width: 360px) {
+  #status { display: none; }
+}
+
 .stat-line {
   font-family: 'Space Mono', monospace;
   font-size: 0.68rem;

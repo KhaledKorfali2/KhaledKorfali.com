@@ -15,6 +15,11 @@
   var modeBtns = document.querySelectorAll('.mode-btn');
 
   /* ═══════════════════════════════════════════════
+     Touch / pointer detection
+  ═══════════════════════════════════════════════ */
+  var isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+  /* ═══════════════════════════════════════════════
      Canvas
   ═══════════════════════════════════════════════ */
   var W, H;
@@ -55,9 +60,78 @@
   });
 
   /* ═══════════════════════════════════════════════
+     Touch
+     - Single touch  = repel (same as mouse hover)
+     - Hold / second touch = attract (same as mouse down)
+     We detect "hold" via a 350 ms timer on touchstart.
+     Multi-touch: if a second finger lands, flip to attract.
+  ═══════════════════════════════════════════════ */
+  var holdTimer   = null;
+  var holdActive  = false;
+
+  function onTouchStart(e) {
+    hintEl.classList.add('gone');
+
+    // If any touch lands on a UI element (panel, mode-bar, etc.) let it bubble
+    // but don't activate the canvas interaction.
+    var t = e.touches[0];
+    mouse.x = t.clientX;
+    mouse.y = t.clientY;
+
+    // Second finger = instant attract
+    if (e.touches.length >= 2) {
+      clearTimeout(holdTimer);
+      holdActive = true;
+      setAttract(true);
+      return;
+    }
+
+    // Start hold timer — 350 ms turns repel into attract
+    holdActive = false;
+    setAttract(false);
+    holdTimer = setTimeout(function () {
+      holdActive = true;
+      setAttract(true);
+    }, 350);
+  }
+
+  function onTouchMove(e) {
+    if (e.cancelable) e.preventDefault();   // block scroll while interacting with canvas
+    var t = e.touches[0];
+    mouse.x = t.clientX;
+    mouse.y = t.clientY;
+  }
+
+  function onTouchEnd(e) {
+    clearTimeout(holdTimer);
+    holdActive = false;
+    if (e.touches.length === 0) {
+      mouse.x = -9999;
+      mouse.y = -9999;
+      setAttract(false);
+    }
+  }
+
+  function setAttract(on) {
+    mouse.down = on;
+    if (on) {
+      curEl.classList.add('attract');
+      ringEl.classList.add('attract');
+    } else {
+      curEl.classList.remove('attract');
+      ringEl.classList.remove('attract');
+    }
+  }
+
+  // Attach touch listeners to canvas only (not document) so UI controls remain tappable.
+  // passive: false on touchmove lets us call preventDefault to block scroll.
+  canvas.addEventListener('touchstart',  onTouchStart, { passive: true });
+  canvas.addEventListener('touchmove',   onTouchMove,  { passive: false });
+  canvas.addEventListener('touchend',    onTouchEnd,   { passive: true });
+  canvas.addEventListener('touchcancel', onTouchEnd,   { passive: true });
+
+  /* ═══════════════════════════════════════════════
      Colour palette
-     Pre-build the rgba prefix string once on colour
-     change, then append only the alpha per draw.
   ═══════════════════════════════════════════════ */
   var PALETTE = {
     orange: { r: 232, g: 84,  b: 26  },
@@ -67,9 +141,7 @@
     white:  { r: 200, g: 196, b: 190 }
   };
   var rgb        = PALETTE.orange;
-  var rgbStr     = '';   // "232,84,26"  — rebuilt on colour change
-  // 32-slot alpha lookup: avoids string-building inside the hot loop.
-  // Slot k → alpha = k/32.  Links use alpha ≤ 0.15 so slots 0-5 are active.
+  var rgbStr     = '';
   var ALPHA_LUT  = [];
   var ALPHA_SLOTS = 32;
 
@@ -79,7 +151,6 @@
     for (var k = 0; k < ALPHA_SLOTS; k++) {
       ALPHA_LUT[k] = 'rgba(' + rgbStr + ',' + (k / ALPHA_SLOTS).toFixed(3) + ')';
     }
-    // Precompute dot styles for each particle (stored on the particle)
     for (var i = 0; i < particles.length; i++) {
       particles[i].fillStyle = 'rgba(' + rgbStr + ',' + particles[i].alpha.toFixed(3) + ')';
     }
@@ -103,23 +174,17 @@
 
   /* ═══════════════════════════════════════════════
      Particles
-     Use flat typed arrays for x/y/vx/vy — much
-     better cache locality than an array of objects.
-     Object properties (r, alpha, tx, ty) change
-     rarely so they stay on small companion objects.
   ═══════════════════════════════════════════════ */
   var MAX_PARTICLES = 800;
 
-  // Hot per-frame data in typed arrays
-  var px  = new Float32Array(MAX_PARTICLES);  // position x
-  var py  = new Float32Array(MAX_PARTICLES);  // position y
-  var pvx = new Float32Array(MAX_PARTICLES);  // velocity x
-  var pvy = new Float32Array(MAX_PARTICLES);  // velocity y
-  var ptx = new Float32Array(MAX_PARTICLES);  // spring target x
-  var pty = new Float32Array(MAX_PARTICLES);  // spring target y
+  var px  = new Float32Array(MAX_PARTICLES);
+  var py  = new Float32Array(MAX_PARTICLES);
+  var pvx = new Float32Array(MAX_PARTICLES);
+  var pvy = new Float32Array(MAX_PARTICLES);
+  var ptx = new Float32Array(MAX_PARTICLES);
+  var pty = new Float32Array(MAX_PARTICLES);
 
-  // Cold data (seldom changes)
-  var particles = [];   // companion objects: { r, alpha, fillStyle, hasTgt }
+  var particles = [];
   var MODE = 'text';
 
   function mkParticle(i) {
@@ -135,7 +200,7 @@
     return {
       r:         0.9 + Math.random() * 1.4,
       alpha:     alpha,
-      fillStyle: '',   // filled by buildColorCache
+      fillStyle: '',
       hasTgt:    false
     };
   }
@@ -151,12 +216,6 @@
 
   /* ═══════════════════════════════════════════════
      Spatial grid
-     Uses a flat Int32Array instead of a string-keyed
-     object.  Layout:
-       buckets[cell]  = index of first entry in `chain`
-       chain[i]       = index of next particle in same cell (-1 = end)
-     This gives O(1) insert and O(k) traversal with
-     zero string allocation.
   ═══════════════════════════════════════════════ */
   var COLS, ROWS;
   var buckets, chain;
@@ -175,16 +234,14 @@
     if (gridDirty) initGrid();
     var cellSize = Math.max(P.link, 1);
     var n = particles.length;
-    // clear only used buckets (faster than fill(-1) on large grids)
     buckets.fill(-1);
     for (var i = 0; i < n; i++) {
       var cx  = (px[i] / cellSize) | 0;
       var cy  = (py[i] / cellSize) | 0;
-      // clamp to grid bounds
       if (cx < 0) cx = 0; else if (cx >= COLS) cx = COLS - 1;
       if (cy < 0) cy = 0; else if (cy >= ROWS) cy = ROWS - 1;
       var idx = cy * COLS + cx;
-      chain[i]    = buckets[idx];   // prepend to linked list
+      chain[i]    = buckets[idx];
       buckets[idx] = i;
     }
   }
@@ -202,8 +259,6 @@
     ofc.height = H;
     ofx.clearRect(0, 0, W, H);
 
-    // Binary-search for the largest font size that fits within 90% of canvas width
-    // using measureText — handles spaces, wide chars, and multi-word strings correctly.
     var maxW  = W * 0.90;
     var maxH  = H * 0.60;
     var lo = 10, hi = Math.floor(maxH), fs = lo;
@@ -233,7 +288,6 @@
         if (data[(y * W + x) * 4 + 3] > 128) pts.push(x, y);
       }
     }
-    // Fisher-Yates on flat pairs
     var len = pts.length / 2;
     for (var i = len - 1; i > 0; i--) {
       var j  = (Math.random() * (i + 1)) | 0;
@@ -258,8 +312,6 @@
         pty[i] = pts[i * 2 + 1];
         particles[i].hasTgt = true;
       } else {
-        // Reset target to current position — prevents stale off-screen
-        // coordinates from launching the particle if hasTgt is set later.
         ptx[i] = px[i];
         pty[i] = py[i];
         particles[i].hasTgt = false;
@@ -299,7 +351,6 @@
     requestAnimationFrame(tick);
     ctx.clearRect(0, 0, W, H);
 
-    // FPS
     fpsCount++;
     var now = performance.now();
     if (now - fpsLast > 600) {
@@ -321,15 +372,13 @@
     var damp      = P.damp;
     var isSandbox = MODE === 'sandbox';
 
-    // Rebuild spatial grid
     rebuildGrid();
 
-    /* ── Phase 1: update physics (no drawing) ── */
+    /* ── Phase 1: physics ── */
     for (var i = 0; i < n; i++) {
       var xi = px[i], yi = py[i];
       var vxi = pvx[i], vyi = pvy[i];
 
-      // Mouse — squared distance check first, sqrt only if inside radius
       var mdx = xi - mouse.x;
       var mdy = yi - mouse.y;
       var md2 = mdx * mdx + mdy * mdy;
@@ -362,16 +411,14 @@
 
         vxi *= damp;
         vyi *= damp;
-        // Only sqrt when we know we're over the cap
         var spdSq = vxi * vxi + vyi * vyi;
         if (spdSq > capSq) {
-          var inv = Math.sqrt(capSq / spdSq);   // = cap/spd, no division
+          var inv = Math.sqrt(capSq / spdSq);
           vxi *= inv;
           vyi *= inv;
         }
 
       } else {
-        // Text mode spring
         if (textForming && particles[i].hasTgt) {
           vxi += (ptx[i] - xi) * 0.065;
           vyi += (pty[i] - yi) * 0.065;
@@ -379,7 +426,7 @@
         vxi *= 0.80;
         vyi *= 0.80;
         var spdSq = vxi * vxi + vyi * vyi;
-        if (spdSq > 400) {   // 400 = 20²
+        if (spdSq > 400) {
           var inv = Math.sqrt(400 / spdSq);
           vxi *= inv;
           vyi *= inv;
@@ -389,7 +436,6 @@
       xi += vxi;
       yi += vyi;
 
-      // wrap
       if (xi < -10) xi = W + 10; else if (xi > W + 10) xi = -10;
       if (yi < -10) yi = H + 10; else if (yi > H + 10) yi = -10;
 
@@ -399,20 +445,12 @@
       pvy[i] = vyi;
     }
 
-    /* ── Phase 2: draw links (batched by alpha bucket) ──
-       Instead of one beginPath/stroke per line, we group
-       lines into ALPHA_SLOTS buckets and draw each bucket
-       as one single path → vastly fewer canvas state changes.
-    ──────────────────────────────────────────────────────── */
-
-    // Each bucket holds a flat array of line coords [x0,y0,x1,y1,...]
-    // We reuse these across frames to avoid allocation.
+    /* ── Phase 2: links ── */
     if (!tick.lineBufs) {
       tick.lineBufs = [];
       for (var k = 0; k < ALPHA_SLOTS; k++) tick.lineBufs[k] = [];
     }
     var lineBufs = tick.lineBufs;
-    // Clear buckets (just reset length, no allocation)
     for (var k = 0; k < ALPHA_SLOTS; k++) lineBufs[k].length = 0;
 
     for (var i = 0; i < n; i++) {
@@ -422,7 +460,6 @@
       if (cxi < 0) cxi = 0; else if (cxi >= COLS) cxi = COLS - 1;
       if (cyi < 0) cyi = 0; else if (cyi >= ROWS) cyi = ROWS - 1;
 
-      // Walk the 3×3 neighbourhood via the linked-list grid
       for (var dx = -1; dx <= 1; dx++) {
         var nx = cxi + dx;
         if (nx < 0 || nx >= COLS) continue;
@@ -431,12 +468,11 @@
           if (ny < 0 || ny >= ROWS) continue;
           var j = buckets[ny * COLS + nx];
           while (j !== -1) {
-            if (j > i) {   // each pair once
+            if (j > i) {
               var ex = xi - px[j];
               var ey = yi - py[j];
               var d2 = ex * ex + ey * ey;
               if (d2 < linkSq) {
-                // Map distance → alpha bucket (integer, no string)
                 var slot = ((1 - Math.sqrt(d2) / P.link) * 0.15 * ALPHA_SLOTS) | 0;
                 if (slot >= ALPHA_SLOTS) slot = ALPHA_SLOTS - 1;
                 var buf = lineBufs[slot];
@@ -449,7 +485,6 @@
       }
     }
 
-    // Flush each non-empty bucket as one path
     ctx.lineWidth = 0.6;
     for (var k = 0; k < ALPHA_SLOTS; k++) {
       var buf = lineBufs[k];
@@ -463,11 +498,7 @@
       ctx.stroke();
     }
 
-    /* ── Phase 3: draw dots (batched by fill style) ──
-       All dots share the same rgb; only alpha differs.
-       Pre-built fillStyle strings on each particle mean
-       no string work in the hot loop.
-    ──────────────────────────────────────────────────── */
+    /* ── Phase 3: dots ── */
     for (var i = 0; i < n; i++) {
       ctx.fillStyle = particles[i].fillStyle;
       ctx.beginPath();
@@ -521,7 +552,7 @@
         buildColorCache();
         sCount.textContent = particles.length;
       }
-      if (key === 'link') gridDirty = true;  // cell size changed → rebuild grid dims
+      if (key === 'link') gridDirty = true;
     });
   }
 
