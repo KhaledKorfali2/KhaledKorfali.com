@@ -23,6 +23,12 @@ const projects = [
     category: "programming"
   },
   {
+    name: "Graph Algorithm Simulator",
+    image: "screenshots/sorting-alg.png",
+    path: "./projects/graph-simulator/index.html",
+    category: "programming"
+  },
+  {
     name: "Noosphere",
     image: "screenshots/noosphere.png",
     path: "./projects/noosphere/index.html",

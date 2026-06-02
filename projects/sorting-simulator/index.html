@@ -17,7 +17,7 @@
       <span id="tagline">algorithm visualizer</span>
     </div>
     <div id="hdr-stats">
-      <div class="stat"><span class="stat-val" id="st-comps">0</span><span class="stat-lbl">comparisons</span></div>
+      <div class="stat"><span class="stat-val" id="st-comps">0</span><span class="stat-lbl">comps</span></div>
       <div class="stat"><span class="stat-val" id="st-swaps">0</span><span class="stat-lbl">swaps</span></div>
       <div class="stat"><span class="stat-val" id="st-writes">0</span><span class="stat-lbl">writes</span></div>
     </div>
@@ -45,21 +45,22 @@
     <!-- Visualizer canvas -->
     <section id="vis-wrap">
       <canvas id="vis"></canvas>
-      <!-- Done banner -->
       <div id="done-banner" class="hidden">
         <span id="done-text">Sorted!</span>
       </div>
     </section>
 
-    <!-- Info panel -->
+    <!-- Info panel (desktop sidebar / mobile bottom sheet) -->
     <aside id="info-panel">
+      <!-- Mobile drag handle -->
+      <div id="panel-handle"><div id="panel-handle-bar"></div></div>
       <div id="algo-name-wrap">
         <h2 id="algo-title">Bubble Sort</h2>
         <div id="complexity-row">
           <span class="badge" id="badge-best"></span>
           <span class="badge" id="badge-avg"></span>
           <span class="badge" id="badge-worst"></span>
-          <span class="badge space" id="badge-space"></span>
+          <span class="badge" id="badge-space"></span>
         </div>
       </div>
       <p id="algo-desc"></p>
@@ -77,7 +78,7 @@
     <div id="ctrl-left">
       <div class="ctrl-group">
         <label class="ctrl-label">SIZE</label>
-        <input type="range" id="sl-size" min="8" max="120" value="40" step="1">
+        <input type="range" id="sl-size" min="8" max="80" value="40" step="1">
         <span class="ctrl-val" id="v-size">40</span>
       </div>
       <div class="ctrl-group">
@@ -88,11 +89,11 @@
     </div>
 
     <div id="ctrl-center">
-      <button class="ctrl-btn" id="btn-reset" title="New array">&#8635;</button>
-      <button class="ctrl-btn" id="btn-step-back" title="Step back">&#9664;&#9664;</button>
-      <button class="ctrl-btn primary" id="btn-play" title="Play/Pause">&#9654;</button>
-      <button class="ctrl-btn" id="btn-step-fwd" title="Step forward">&#9654;&#9654;</button>
-      <button class="ctrl-btn" id="btn-end" title="Jump to end">&#9654;|</button>
+      <button class="ctrl-btn" id="btn-reset" title="New array" aria-label="New array">&#8635;</button>
+      <button class="ctrl-btn" id="btn-step-back" title="Step back" aria-label="Step back">&#9664;&#9664;</button>
+      <button class="ctrl-btn primary" id="btn-play" title="Play/Pause" aria-label="Play">&#9654;</button>
+      <button class="ctrl-btn" id="btn-step-fwd" title="Step forward" aria-label="Step forward">&#9654;&#9654;</button>
+      <button class="ctrl-btn" id="btn-end" title="Jump to end" aria-label="Jump to end">&#9654;|</button>
     </div>
 
     <div id="ctrl-right">
@@ -109,6 +110,21 @@
         <div id="progress-bar"><div id="progress-fill"></div></div>
         <span id="progress-text">0 / 0</span>
       </div>
+    </div>
+
+    <!-- Mobile-only bottom row: size + input type -->
+    <div id="ctrl-mobile-extra">
+      <div class="ctrl-group">
+        <label class="ctrl-label">SIZE</label>
+        <input type="range" id="sl-size-m" min="8" max="50" value="30" step="1">
+        <span class="ctrl-val" id="v-size-m">30</span>
+      </div>
+      <div class="ctrl-group">
+        <label class="ctrl-label">SPEED</label>
+        <input type="range" id="sl-speed-m" min="1" max="10" value="5" step="1">
+        <span class="ctrl-val" id="v-speed-m">5</span>
+      </div>
+      <button class="ctrl-btn ghost" id="btn-info" title="Algorithm info" aria-label="Info">&#9432;</button>
     </div>
 
   </footer>
