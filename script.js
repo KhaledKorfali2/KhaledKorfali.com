@@ -24,7 +24,7 @@ const projects = [
   },
   {
     name: "Graph Algorithm Simulator",
-    image: "screenshots/sorting-alg.png",
+    image: "screenshots/graph-sim.png",
     path: "./projects/graph-simulator/index.html",
     category: "programming"
   },
