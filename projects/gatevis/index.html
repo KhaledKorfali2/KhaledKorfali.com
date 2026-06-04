@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>GateVis — Logic Gate Playground</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="tutorial.css">
+</head>
+<body>
+
+  <!-- Scanline overlay -->
+  <div id="scanlines" aria-hidden="true"></div>
+
+  <!-- Header -->
+  <header id="hdr">
+    <div id="hdr-left">
+      <span id="logo">GATE<span class="logo-accent">VIS</span></span>
+      <span id="tagline">logic gate playground</span>
+    </div>
+    <div id="hdr-center">
+      <span class="circuit-stat"><span class="cstat-val" id="st-gates">0</span><span class="cstat-lbl">gates</span></span>
+      <span class="circuit-stat"><span class="cstat-val" id="st-wires">0</span><span class="cstat-lbl">wires</span></span>
+      <span class="circuit-stat"><span class="cstat-val" id="st-inputs">0</span><span class="cstat-lbl">inputs</span></span>
+      <span class="circuit-stat"><span class="cstat-val" id="st-outputs">0</span><span class="cstat-lbl">outputs</span></span>
+    </div>
+    <div id="hdr-right">
+      <button class="hdr-btn" id="btn-truth-table" title="Truth table">TT</button>
+      <button class="hdr-btn" id="btn-clear-all" title="Clear canvas">CLR</button>
+    </div>
+  </header>
+
+  <!-- Main layout -->
+  <main id="main">
+
+    <!-- Left palette -->
+    <aside id="palette">
+      <div class="palette-section">
+        <div class="palette-label">INPUTS</div>
+        <div class="palette-item" data-type="INPUT"  draggable="true" title="Toggle input (0/1)">
+          <div class="palette-icon input-icon">IN</div>
+          <span>Input</span>
+        </div>
+        <div class="palette-item" data-type="CLOCK" draggable="true" title="Clock signal (auto-toggles)">
+          <div class="palette-icon clock-icon">CLK</div>
+          <span>Clock</span>
+        </div>
+      </div>
+
+      <div class="palette-section">
+        <div class="palette-label">GATES</div>
+        <div class="palette-item" data-type="AND"  draggable="true"><div class="palette-icon gate-icon">AND</div><span>AND</span></div>
+        <div class="palette-item" data-type="OR"   draggable="true"><div class="palette-icon gate-icon">OR</div><span>OR</span></div>
+        <div class="palette-item" data-type="NOT"  draggable="true"><div class="palette-icon gate-icon not-icon">NOT</div><span>NOT</span></div>
+        <div class="palette-item" data-type="NAND" draggable="true"><div class="palette-icon gate-icon nand-icon">NAND</div><span>NAND</span></div>
+        <div class="palette-item" data-type="NOR"  draggable="true"><div class="palette-icon gate-icon nor-icon">NOR</div><span>NOR</span></div>
+        <div class="palette-item" data-type="XOR"  draggable="true"><div class="palette-icon gate-icon xor-icon">XOR</div><span>XOR</span></div>
+        <div class="palette-item" data-type="XNOR" draggable="true"><div class="palette-icon gate-icon xnor-icon">XNOR</div><span>XNOR</span></div>
+        <div class="palette-item" data-type="BUFFER" draggable="true"><div class="palette-icon gate-icon buf-icon">BUF</div><span>Buffer</span></div>
+      </div>
+
+      <div class="palette-section">
+        <div class="palette-label">OUTPUTS</div>
+        <div class="palette-item" data-type="OUTPUT" draggable="true">
+          <div class="palette-icon output-icon">OUT</div>
+          <span>Output</span>
+        </div>
+        <div class="palette-item" data-type="LED" draggable="true">
+          <div class="palette-icon led-icon">LED</div>
+          <span>LED</span>
+        </div>
+      </div>
+
+      <div class="palette-section">
+        <div class="palette-label">PRESETS</div>
+        <button class="preset-btn" data-preset="half-adder">Half Adder</button>
+        <button class="preset-btn" data-preset="full-adder">Full Adder</button>
+        <button class="preset-btn" data-preset="sr-latch">SR Latch</button>
+        <button class="preset-btn" data-preset="mux">2:1 MUX</button>
+        <button class="preset-btn" data-preset="decoder">2:4 Decoder</button>
+      </div>
+    </aside>
+
+    <!-- Canvas -->
+    <section id="canvas-wrap">
+      <canvas id="cv"></canvas>
+
+      <!-- Floating toolbar -->
+      <div id="canvas-toolbar">
+        <button class="ctool active" id="ct-select" title="Select / move (V)">
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 2l5 12 2-4 4-2z" fill="currentColor"/></svg>
+        </button>
+        <button class="ctool" id="ct-wire" title="Draw wire (W)">
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 8h4v-4h4v4h4" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+        </button>
+        <button class="ctool" id="ct-delete" title="Delete (D / Del)">
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <div class="ctool-sep"></div>
+        <button class="ctool" id="ct-zoom-in"  title="Zoom in (+)">+</button>
+        <button class="ctool" id="ct-zoom-out" title="Zoom out (-)">−</button>
+        <button class="ctool" id="ct-zoom-fit" title="Fit to screen (F)">⊡</button>
+        <div class="ctool-sep"></div>
+        <button class="ctool" id="ct-undo" title="Undo (Ctrl+Z)">↩</button>
+        <button class="ctool" id="ct-redo" title="Redo (Ctrl+Y)">↪</button>
+      </div>
+
+      <!-- Mode label -->
+      <div id="mode-label">SELECT</div>
+
+      <!-- Truth table overlay -->
+      <div id="truth-table-panel" class="hidden">
+        <div id="tt-header">
+          <span id="tt-title">TRUTH TABLE</span>
+          <button id="tt-close">✕</button>
+        </div>
+        <div id="tt-content"></div>
+      </div>
+
+      <!-- Mobile add-gate button -->
+      <button id="btn-add-mobile" title="Add component">+</button>
+    </section>
+
+    <!-- Right info panel -->
+    <aside id="info-panel">
+      <div id="panel-handle"><div id="panel-handle-bar"></div></div>
+
+      <div id="selected-info">
+        <div id="sel-title">SELECT A GATE</div>
+        <div id="sel-body">Click any gate on the canvas to see its truth table, Boolean expression, and description.</div>
+      </div>
+
+      <div id="gate-detail" class="hidden">
+        <div id="gd-name"></div>
+        <div id="gd-symbol"></div>
+        <div id="gd-expr"></div>
+        <div id="gd-desc"></div>
+        <div id="gd-table-wrap">
+          <div class="gd-table-label">GATE TRUTH TABLE</div>
+          <table id="gd-table"></table>
+        </div>
+      </div>
+
+      <div id="info-divider"></div>
+
+      <div id="info-static">
+        <div class="info-section-label">SIGNAL LEGEND</div>
+        <div class="legend-row"><span class="leg-dot high"></span><span class="leg-val">HIGH (1)</span></div>
+        <div class="legend-row"><span class="leg-dot low"></span><span class="leg-val">LOW (0)</span></div>
+        <div class="legend-row"><span class="leg-dot float"></span><span class="leg-val">FLOATING</span></div>
+        <div class="info-section-label" style="margin-top:14px">HOW TO USE</div>
+        <div class="how-item">Drag gates from the palette onto the canvas</div>
+        <div class="how-item">Use <strong>W</strong> (Wire) to connect pins</div>
+        <div class="how-item">Click an <strong>Input</strong> to toggle 0/1</div>
+        <div class="how-item">Signals propagate instantly</div>
+        <div class="how-item">Select a gate to see its truth table</div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- Mobile palette sheet -->
+  <div id="mobile-palette-sheet" class="hidden">
+    <div id="mps-handle"><div id="mps-handle-bar"></div></div>
+    <div id="mps-title">ADD COMPONENT</div>
+    <div id="mps-grid"></div>
+  </div>
+  <div id="mobile-palette-backdrop" class="hidden"></div>
+
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+  <script src="tutorial.js"></script>
+  <script src="gatevis-tutorial.js"></script>
+</body>
+</html>

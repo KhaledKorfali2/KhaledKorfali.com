@@ -11,6 +11,12 @@ const projects = [
     category: "simulation"
   },
   {
+    name: "Boid Simulator",
+    image: "screenshots/boid-simulator.png",
+    path: "./projects/boid-simulator/index.html",
+    category: "simulation"
+  },
+  {
     name: "Frontend Playground",
     image: "screenshots/css-playground.png",
     path: "./projects/frontend-playground/index.html",
@@ -29,16 +35,16 @@ const projects = [
     category: "programming"
   },
   {
+    name: "Logic Gate Simulator",
+    image: "screenshots/gatevis.png",
+    path: "./projects/gatevis/index.html",
+    category: "programming"
+  },
+  {
     name: "Noosphere",
     image: "screenshots/noosphere.png",
     path: "./projects/noosphere/index.html",
     category: "programming"
-  },
-  {
-    name: "Boid Simulator",
-    image: "screenshots/boid-simulator.png",
-    path: "./projects/boid-simulator/index.html",
-    category: "simulation"
   },
   {
     name: "Conway's Game of Life",

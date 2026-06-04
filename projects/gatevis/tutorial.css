@@ -1,0 +1,247 @@
+/* ══════════════════════════════════════════════════════
+   TUTORIAL OVERLAY — shared by Sortvis & Graphvis
+   Works by:
+   1. A full-screen dark backdrop with a cut-out "spotlight"
+      that tracks the highlighted element via clip-path.
+   2. A floating tooltip card anchored near the spotlight.
+   3. Progress dots + Prev / Next / Skip controls inside the card.
+══════════════════════════════════════════════════════ */
+
+/* ── Backdrop ── */
+#tut-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: all;
+  /* The spotlight hole is punched via clip-path in JS */
+  background: rgba(0, 0, 0, 0.72);
+  transition: clip-path 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.25s ease;
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+}
+#tut-backdrop.tut-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Spotlight ring — a separate absolutely-positioned element that
+   draws a glowing border around the highlighted region */
+#tut-ring {
+  position: fixed;
+  z-index: 9001;
+  border: 2px solid rgba(56, 189, 248, 0.7);
+  border-radius: 8px;
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15),
+              0 0 24px 4px rgba(56, 189, 248, 0.2);
+  pointer-events: none;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+}
+#tut-ring.visible { opacity: 1; }
+
+/* ── Tooltip card ── */
+#tut-card {
+  position: fixed;
+  z-index: 9100;
+  width: clamp(260px, 88vw, 360px);
+  background: #0d1525;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 12px;
+  padding: 20px 20px 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6),
+              0 0 0 1px rgba(56, 189, 248, 0.1);
+  transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              top  0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.2s ease;
+  pointer-events: all;
+  user-select: none;
+}
+#tut-card.tut-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Step counter badge */
+#tut-step-badge {
+  display: inline-block;
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: rgba(56, 189, 248, 0.6);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+/* Title */
+#tut-title {
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #38bdf8;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+/* Body text */
+#tut-body {
+  font-family: 'IBM Plex Sans', 'Inter', sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  color: #7a9abf;
+  margin-bottom: 16px;
+}
+#tut-body strong {
+  color: #c8d8f0;
+  font-weight: 500;
+}
+#tut-body code {
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* Progress dots */
+#tut-dots {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.tut-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #1e3a5f;
+  border: 1px solid #2a4a6a;
+  transition: background 0.2s, transform 0.2s;
+  flex-shrink: 0;
+}
+.tut-dot.active {
+  background: #38bdf8;
+  border-color: #38bdf8;
+  transform: scale(1.3);
+}
+.tut-dot.done {
+  background: #1d4a3a;
+  border-color: #34d399;
+}
+
+/* ── Controls row ── */
+#tut-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+#tut-skip {
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  color: #3a5070;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  text-transform: uppercase;
+  transition: color 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+#tut-skip:hover { color: #5a7090; }
+
+#tut-nav {
+  display: flex;
+  gap: 6px;
+}
+.tut-nav-btn {
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 7px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  border: 1px solid #1e3a5f;
+  background: #0e1e30;
+  color: #4a7090;
+  transition: all 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 36px;
+}
+.tut-nav-btn:hover { border-color: #2a5070; color: #8ab0d0; }
+.tut-nav-btn.tut-next {
+  background: #38bdf8;
+  border-color: #38bdf8;
+  color: #040c18;
+}
+.tut-nav-btn.tut-next:hover { background: #7dd3fc; border-color: #7dd3fc; }
+.tut-nav-btn.tut-finish {
+  background: #34d399;
+  border-color: #34d399;
+  color: #040c18;
+}
+.tut-nav-btn.tut-finish:hover { background: #6ee7b7; }
+
+/* ── Connector arrow from card to spotlight ── */
+#tut-arrow {
+  position: fixed;
+  z-index: 9050;
+  pointer-events: none;
+  width: 0; height: 0;
+  border: 8px solid transparent;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+}
+#tut-arrow.visible { opacity: 1; }
+#tut-arrow.arr-top    { border-bottom-color: rgba(56,189,248,0.35); }
+#tut-arrow.arr-bottom { border-top-color:    rgba(56,189,248,0.35); }
+#tut-arrow.arr-left   { border-right-color:  rgba(56,189,248,0.35); }
+#tut-arrow.arr-right  { border-left-color:   rgba(56,189,248,0.35); }
+
+/* ── Re-open button (always visible in header after tutorial completes) ── */
+#tut-reopen-btn {
+  background: transparent;
+  border: 1px solid rgba(56,189,248,0.25);
+  border-radius: 4px;
+  width: 28px; height: 28px;
+  color: rgba(56,189,248,0.5);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+}
+#tut-reopen-btn:hover {
+  border-color: #38bdf8;
+  color: #38bdf8;
+  background: rgba(56,189,248,0.08);
+}
+
+/* ── Welcome screen (step 0 — no spotlight, centered card) ── */
+#tut-card.tut-welcome {
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  transition: none;
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+  #tut-card {
+    width: calc(100vw - 24px);
+    padding: 16px 16px 12px;
+  }
+  #tut-title { font-size: 0.82rem; }
+  #tut-body  { font-size: 0.76rem; }
+  .tut-nav-btn { padding: 7px 12px; font-size: 0.68rem; }
+}
