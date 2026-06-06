@@ -1,22 +1,22 @@
 // boid.js
 import { Vector } from "../vector/vector.js";
 
-const SEGMENTS    = 8;
-const SEG_LEN     = 5.5;
-const SWIM_FREQ   = 0.08;
-const SWIM_AMP    = 1.15;
+const SEGMENTS = 8;
+const SEG_LEN = 5.5;
+const SWIM_FREQ = 0.08;
+const SWIM_AMP = 1.15;
 const SPEED_SCALE = 0.22;
 
 export class Boid {
   constructor(x = 0, y = 0, _z = 0) {
-    this.position     = new Vector(x, y, 0);
-    this.velocity     = Vector.random();
+    this.position = new Vector(x, y, 0);
+    this.velocity = Vector.random();
     this.acceleration = new Vector();
-    this.maxForce     = 0.25;
-    this.maxSpeed     = 5;
+    this.maxForce = 0.25;
+    this.maxSpeed = 5;
 
-    this.alignFactor      = 1;
-    this.cohesionFactor   = 1;
+    this.alignFactor = 1;
+    this.cohesionFactor = 1;
     this.separationFactor = 1;
 
     // Pre-allocated spine (Float32Array — no per-frame heap allocation)
@@ -28,31 +28,56 @@ export class Boid {
     }
 
     // Pre-allocated edge scratch buffers (written by drawFish)
-    this.leftX  = new Float32Array(SEGMENTS);
-    this.leftY  = new Float32Array(SEGMENTS);
+    this.leftX = new Float32Array(SEGMENTS);
+    this.leftY = new Float32Array(SEGMENTS);
     this.rightX = new Float32Array(SEGMENTS);
     this.rightY = new Float32Array(SEGMENTS);
 
-    this._phase  = Math.random() * Math.PI * 2;
-    this.colorT  = 0;   // 0-1 speed ratio → LUT index
+    this._phase = Math.random() * Math.PI * 2;
+    this.colorT = 0;   // 0-1 speed ratio → LUT index
 
     // Cached heading trig — computed once in update(), read many times in drawFish()
     this.headCos = 1;
     this.headSin = 0;
-    this.perpX   = 0;   // perpendicular to heading (left side)
-    this.perpY   = 1;
+    this.perpX = 0;   // perpendicular to heading (left side)
+    this.perpY = 1;
 
     // Scratch fields for _steer (avoids returning objects)
     this._steerX = 0;
     this._steerY = 0;
   }
 
+  seekFood(foods) {
+    if (foods.length === 0) return;
+    let nearest = null, bestD2 = 120 * 120; // only notice food within 120px
+    for (let i = 0; i < foods.length; i++) {
+      const dx = foods[i].x - this.position.x;
+      const dy = foods[i].y - this.position.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD2) { bestD2 = d2; nearest = foods[i]; }
+    }
+    if (!nearest) return;
+
+    // Steer toward nearest food
+    const dx = nearest.x - this.position.x;
+    const dy = nearest.y - this.position.y;
+    const mag = Math.sqrt(dx * dx + dy * dy) || 1;
+    const desiredX = (dx / mag) * this.maxSpeed;
+    const desiredY = (dy / mag) * this.maxSpeed;
+    let fx = desiredX - this.velocity.x;
+    let fy = desiredY - this.velocity.y;
+    const fmag = Math.sqrt(fx * fx + fy * fy);
+    if (fmag > this.maxForce) { const inv = this.maxForce / fmag; fx *= inv; fy *= inv; }
+    this.acceleration.x += fx * 1.8; // food attraction weight
+    this.acceleration.y += fy * 1.8;
+  }
+
   edges() {
     const w = window.innerWidth, h = window.innerHeight;
-    if (this.position.x >  w) this.position.x = 0;
-    if (this.position.x <  0) this.position.x = w;
-    if (this.position.y >  h) this.position.y = 0;
-    if (this.position.y <  0) this.position.y = h;
+    if (this.position.x > w) this.position.x = 0;
+    if (this.position.x < 0) this.position.x = w;
+    if (this.position.y > h) this.position.y = 0;
+    if (this.position.y < 0) this.position.y = h;
   }
 
   // type: 0=align  1=cohesion  2=separation
@@ -104,8 +129,8 @@ export class Boid {
 
   flock(candidates) {
     let ax = 0, ay = 0;
-    if (this._steer(candidates, 75, 0)) { ax += this._steerX * this.alignFactor;      ay += this._steerY * this.alignFactor; }
-    if (this._steer(candidates, 75, 1)) { ax += this._steerX * this.cohesionFactor;   ay += this._steerY * this.cohesionFactor; }
+    if (this._steer(candidates, 75, 0)) { ax += this._steerX * this.alignFactor; ay += this._steerY * this.alignFactor; }
+    if (this._steer(candidates, 75, 1)) { ax += this._steerX * this.cohesionFactor; ay += this._steerY * this.cohesionFactor; }
     if (this._steer(candidates, 30, 2)) { ax += this._steerX * this.separationFactor; ay += this._steerY * this.separationFactor; }
     this.acceleration.x += ax;
     this.acceleration.y += ay;
@@ -127,14 +152,14 @@ export class Boid {
     this.acceleration.y = 0;
 
     // ── Cache trig once per update — drawFish reads these, never recomputes ──
-    const angle    = Math.atan2(this.velocity.y, this.velocity.x);
-    this.headCos   = Math.cos(angle);
-    this.headSin   = Math.sin(angle);
-    this.perpX     = -this.headSin;   // left perpendicular
-    this.perpY     =  this.headCos;
+    const angle = Math.atan2(this.velocity.y, this.velocity.x);
+    this.headCos = Math.cos(angle);
+    this.headSin = Math.sin(angle);
+    this.perpX = -this.headSin;   // left perpendicular
+    this.perpY = this.headCos;
 
-    this._phase   += SWIM_FREQ * (0.5 + spd / this.maxSpeed);
-    this.colorT    = spd / this.maxSpeed; // naturally ≤ 1 since spd ≤ maxSpeed
+    this._phase += SWIM_FREQ * (0.5 + spd / this.maxSpeed);
+    this.colorT = spd / this.maxSpeed; // naturally ≤ 1 since spd ≤ maxSpeed
 
     this._updateSpine();
   }

@@ -33,6 +33,12 @@ let isDrawing  = false;
 // ── Trail ─────────────────────────────────────────────────────────────────────
 let useTrail = trailToggle ? trailToggle.checked : false;
 
+// ── Food particles ────────────────────────────────────────────────────────────
+const foodParticles = [];          // { x, y, life }
+const FOOD_RADIUS   = 4;
+const FOOD_EAT_R2   = 10 * 10;    // fish eats food within 10px
+const FOOD_LIFETIME = 600;         // frames before it dissolves on its own
+
 // ══════════════════════════════════════════════════════════════════════════════
 // COLOUR PALETTE SYSTEM
 // ══════════════════════════════════════════════════════════════════════════════
@@ -64,7 +70,7 @@ const PALETTES = [
 ];
 
 let activePaletteId = "ocean";
-let bodyLUT  = new Array(256);   // pre-baked "rgb(...)" strings
+let bodyLUT  = new Array(256);
 let finLUT   = new Array(256);
 let bgColor  = "#05080f";
 let _trailColor = "rgba(5,8,15,0.18)";
@@ -92,7 +98,6 @@ function buildLUT(palette) {
     finLUT[i]  = `rgba(${c.r*.75|0},${c.g*.75|0},${c.b*.75|0},0.82)`;
   }
 
-  // Rebuild eye canvases with new palette (eye tint from slow-colour)
   buildEyeSprites();
   renderPaletteUI();
 }
@@ -116,13 +121,11 @@ function toHex(r,g,b) { return "#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")
 
 // ══════════════════════════════════════════════════════════════════════════════
 // OFFSCREEN EYE SPRITES
-// Pre-render sclera+pupil once; stamp with drawImage() — eliminates arc() per fish
 // ══════════════════════════════════════════════════════════════════════════════
-// EYE_R: the sclera radius in world px. We render at 2× for crisp subpixel look.
-const EYE_R   = 1.7;
-const EYE_SCALE = 3;          // offscreen canvas multiplier
-const EYE_SIZE  = Math.ceil(EYE_R * 2 * EYE_SCALE) + 4;  // canvas side in px
-let eyeSprite;                 // ImageBitmap or OffscreenCanvas fallback
+const EYE_R     = 1.7;
+const EYE_SCALE = 3;
+const EYE_SIZE  = Math.ceil(EYE_R * 2 * EYE_SCALE) + 4;
+let eyeSprite;
 
 function buildEyeSprites() {
   const oc  = new OffscreenCanvas(EYE_SIZE, EYE_SIZE);
@@ -131,13 +134,11 @@ function buildEyeSprites() {
 
   oct.clearRect(0, 0, EYE_SIZE, EYE_SIZE);
 
-  // Sclera
   oct.beginPath();
   oct.arc(cx, cy, EYE_R * EYE_SCALE, 0, 6.2832);
   oct.fillStyle = "rgba(255,255,255,0.9)";
   oct.fill();
 
-  // Pupil
   oct.beginPath();
   oct.arc(cx, cy, 0.85 * EYE_SCALE, 0, 6.2832);
   oct.fillStyle = "#0a0a0f";
@@ -148,15 +149,10 @@ function buildEyeSprites() {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // DRAW-CALL BATCHER
-// Instead of fill()-ing each part of each fish separately, we sort fish into
-// LUT buckets and draw all fins then all bodies in colour-grouped passes.
-// This halves the number of fillStyle assignments and path submissions.
 // ══════════════════════════════════════════════════════════════════════════════
-// We use a 32-bucket quantisation (256/8) so nearby-colour fish share a path.
-const BATCH_BITS  = 3;           // 256 >> 3 = 32 colour buckets
+const BATCH_BITS  = 3;
 const BATCH_COUNT = 256 >> BATCH_BITS;
 
-// Each bucket holds an array of boid references; reset each frame
 const finBatches  = Array.from({ length: BATCH_COUNT }, () => []);
 const bodyBatches = Array.from({ length: BATCH_COUNT }, () => []);
 
@@ -230,7 +226,7 @@ function applySlidersToBoids() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// FISH GEOMETRY — writes edges into boid's own Float32Arrays
+// FISH GEOMETRY
 // ══════════════════════════════════════════════════════════════════════════════
 const BODY_WIDTHS = [2.2, 4.5, 6.2, 6.8, 6.0, 4.5, 2.8, 0.6];
 const N_SEGS      = 8;
@@ -253,20 +249,16 @@ function computeEdges(boid) {
   }
 }
 
-// ── Draw fins for one boid (no fillStyle change here — set outside) ───────────
 function drawFins(boid) {
   const sx=boid.spineX, sy=boid.spineY;
   const lx=boid.leftX,  ly=boid.leftY;
   const rx=boid.rightX, ry=boid.rightY;
 
-  // ── Tail — uses precomputed perpendicular from boid ────────────────────────
-  // Tail direction: from second-to-last to last spine node
   const tdx = sx[N_SEGS-1]-sx[N_SEGS-2], tdy = sy[N_SEGS-1]-sy[N_SEGS-2];
   const tInv = 1/(Math.sqrt(tdx*tdx+tdy*tdy)||1);
   const tCos = tdx*tInv, tSin = tdy*tInv;
   const tPerpX = -tSin, tPerpY = tCos;
   const LOBE_LEN = 9, SPREAD_ALONG = 0.83, SPREAD_PERP = 0.55;
-  // lobe tips via axis-angle decomposition — avoids atan2+cos+sin
   const tx1 = sx[N_SEGS-1] + tCos*SPREAD_ALONG*LOBE_LEN + tPerpX*SPREAD_PERP*LOBE_LEN;
   const ty1 = sy[N_SEGS-1] + tSin*SPREAD_ALONG*LOBE_LEN + tPerpY*SPREAD_PERP*LOBE_LEN;
   const tx2 = sx[N_SEGS-1] + tCos*SPREAD_ALONG*LOBE_LEN - tPerpX*SPREAD_PERP*LOBE_LEN;
@@ -277,20 +269,14 @@ function drawFins(boid) {
   ctx.quadraticCurveTo(sx[N_SEGS-1], sy[N_SEGS-1], tx2, ty2);
   ctx.quadraticCurveTo(sx[N_SEGS-1], sy[N_SEGS-1], rx[N_SEGS-2], ry[N_SEGS-2]);
 
-  // ── Pectoral fins — use boid's cached heading trig ─────────────────────────
-  // Fin direction = spine direction at node 2, derived from spine delta
   const FIN_IDX = 2;
   const fdx = sx[FIN_IDX]-sx[FIN_IDX-1], fdy = sy[FIN_IDX]-sy[FIN_IDX-1];
   const fInv = 1/(Math.sqrt(fdx*fdx+fdy*fdy)||1);
   const fCos = fdx*fInv, fSin = fdy*fInv;
-  // perpendicular + slight backward sweep (FIN_BACK ~0.6 rad baked in as ratio)
-  // cos(π/2+0.6)≈-0.565, sin(π/2+0.6)≈0.825 — approximate as constant
   const FIN_LEN = 7;
-  const FB_C = -0.565, FB_S = 0.825; // cos/sin of (90°+34°)
-  // left fin tip: rotate (FB_C, FB_S) by fin heading
+  const FB_C = -0.565, FB_S = 0.825;
   const lfx = lx[FIN_IDX] + (fCos*FB_C - fSin*FB_S)*FIN_LEN;
   const lfy = ly[FIN_IDX] + (fSin*FB_C + fCos*FB_S)*FIN_LEN;
-  // right fin tip: mirror (FB_C, -FB_S)
   const rfx = rx[FIN_IDX] + (fCos*FB_C + fSin*FB_S)*FIN_LEN;
   const rfy = ry[FIN_IDX] + (fSin*FB_C - fCos*FB_S)*FIN_LEN;
 
@@ -302,19 +288,17 @@ function drawFins(boid) {
   ctx.quadraticCurveTo(sx[FIN_IDX], sy[FIN_IDX], rfx, rfy);
   ctx.quadraticCurveTo(sx[FIN_IDX+1], sy[FIN_IDX+1], rx[FIN_IDX], ry[FIN_IDX]);
 
-  // ── Dorsal fin ─────────────────────────────────────────────────────────────
   const ddx = sx[1]-sx[2], ddy = sy[1]-sy[2];
   const dInv = 1/(Math.sqrt(ddx*ddx+ddy*ddy)||1);
-  const dPerpX = ddy*dInv, dPerpY = -ddx*dInv; // left-perp of dorsal segment
+  const dPerpX = ddy*dInv, dPerpY = -ddx*dInv;
   const DORSAL_H = 5.5;
-  const dtx = sx[2] - dPerpX*DORSAL_H; // note: dorsal is on left side
+  const dtx = sx[2] - dPerpX*DORSAL_H;
   const dty = sy[2] - dPerpY*DORSAL_H;
 
   ctx.moveTo(lx[1], ly[1]);
   ctx.quadraticCurveTo(dtx, dty, lx[3], ly[3]);
 }
 
-// ── Draw body outline for one boid ────────────────────────────────────────────
 function drawBody(boid) {
   const lx=boid.leftX, ly=boid.leftY, rx=boid.rightX, ry=boid.rightY;
   ctx.moveTo(lx[0], ly[0]);
@@ -342,7 +326,7 @@ function drawBarriers() {
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN LOOP
 // ══════════════════════════════════════════════════════════════════════════════
-const EYE_HALF = EYE_SIZE / EYE_SCALE / 2;   // world-space half-size for drawImage
+const EYE_HALF = EYE_SIZE / EYE_SCALE / 2;
 
 function draw() {
   const w = canvas.width, h = canvas.height;
@@ -351,15 +335,43 @@ function draw() {
   ctx.fillRect(0, 0, w, h);
 
   drawBarriers();
+
+  // ── Age & draw food ───────────────────────────────────────────────────────
+  for (let i = foodParticles.length - 1; i >= 0; i--) {
+    const f = foodParticles[i];
+    f.life--;
+    if (f.life <= 0) { foodParticles.splice(i, 1); continue; }
+    const alpha = Math.min(1, f.life / 40);
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, FOOD_RADIUS, 0, 6.2832);
+    ctx.fillStyle = `rgba(255,220,80,${alpha * 0.9})`;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, FOOD_RADIUS + 2, 0, 6.2832);
+    ctx.strokeStyle = `rgba(255,200,50,${alpha * 0.3})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
   buildSpatialGrid();
   clearBatches();
 
-  // ── Physics pass — update all boids, compute edges, bucket by colour ──────
+  // ── Physics pass ─────────────────────────────────────────────────────────
   for (let i = 0, len = flock.length; i < len; i++) {
     const boid       = flock[i];
     const candidates = getCandidates(boid);
 
     boid.flock(candidates);
+
+    // Food seeking
+    boid.seekFood(foodParticles);
+
+    // Eat nearby food
+    for (let fi = foodParticles.length - 1; fi >= 0; fi--) {
+      const fd = foodParticles[fi];
+      const edx = boid.position.x - fd.x, edy = boid.position.y - fd.y;
+      if (edx * edx + edy * edy < FOOD_EAT_R2) { foodParticles.splice(fi, 1); break; }
+    }
 
     const hits = getBarrierNeighbours(boid);
     const hl   = hits.length;
@@ -381,25 +393,24 @@ function draw() {
     boid.update();
     computeEdges(boid);
 
-    // Bucket by quantised colour index
     const ci     = Math.min(255, boid.colorT * 255 | 0);
     const bucket = ci >> BATCH_BITS;
     finBatches[bucket].push(boid);
     bodyBatches[bucket].push(boid);
   }
 
-  // ── Render pass 1: all fins, grouped by colour bucket ─────────────────────
+  // ── Render pass 1: fins ───────────────────────────────────────────────────
   for (let b = 0; b < BATCH_COUNT; b++) {
     const batch = finBatches[b];
     if (batch.length === 0) continue;
-    const ci = (b << BATCH_BITS) + (1 << (BATCH_BITS-1)); // mid-bucket index
+    const ci = (b << BATCH_BITS) + (1 << (BATCH_BITS-1));
     ctx.fillStyle = finLUT[Math.min(255, ci)];
     ctx.beginPath();
     for (let i = 0; i < batch.length; i++) drawFins(batch[i]);
     ctx.fill();
   }
 
-  // ── Render pass 2: all bodies, grouped by colour bucket ───────────────────
+  // ── Render pass 2: bodies ─────────────────────────────────────────────────
   for (let b = 0; b < BATCH_COUNT; b++) {
     const batch = bodyBatches[b];
     if (batch.length === 0) continue;
@@ -410,7 +421,7 @@ function draw() {
     ctx.fill();
   }
 
-  // ── Render pass 3: eyes — drawImage stamp (no arc() calls) ────────────────
+  // ── Render pass 3: eyes ───────────────────────────────────────────────────
   if (eyeSprite) {
     for (let i = 0, len = flock.length; i < len; i++) {
       const boid = flock[i];
@@ -505,23 +516,68 @@ function pointerPos(e) {
   const rect = canvas.getBoundingClientRect(), pt = e.touches ? e.touches[0] : e;
   return { x: pt.clientX-rect.left, y: pt.clientY-rect.top };
 }
-canvas.addEventListener("mousedown",  e => { if (!drawMode||drawMode==="none") return; isDrawing=true;  const p=pointerPos(e); paintBarrier(p.x,p.y,drawMode==="eraser"); });
-canvas.addEventListener("mousemove",  e => { if (!isDrawing) return; const p=pointerPos(e); paintBarrier(p.x,p.y,drawMode==="eraser"); });
-canvas.addEventListener("mouseup",    () => { isDrawing=false; });
-canvas.addEventListener("mouseleave", () => { isDrawing=false; });
-canvas.addEventListener("touchstart", e => { if (!drawMode||drawMode==="none") return; e.preventDefault(); isDrawing=true; const p=pointerPos(e); paintBarrier(p.x,p.y,drawMode==="eraser"); }, {passive:false});
-canvas.addEventListener("touchmove",  e => { if (!isDrawing) return; e.preventDefault(); const p=pointerPos(e); paintBarrier(p.x,p.y,drawMode==="eraser"); }, {passive:false});
-canvas.addEventListener("touchend",   () => { isDrawing=false; });
 
-document.getElementById("resetBtn").addEventListener("click", resetFlock);
+// ── Canvas pointer: drop food OR draw/erase barriers ─────────────────────────
+canvas.addEventListener("mousedown", e => {
+  if (drawMode === "barrier" || drawMode === "eraser") {
+    isDrawing = true;
+    const p = pointerPos(e); paintBarrier(p.x, p.y, drawMode === "eraser");
+  } else {
+    const p = pointerPos(e);
+    foodParticles.push({ x: p.x, y: p.y, life: FOOD_LIFETIME });
+  }
+});
+canvas.addEventListener("mousemove", e => {
+  if (!isDrawing) return;
+  const p = pointerPos(e); paintBarrier(p.x, p.y, drawMode === "eraser");
+});
+canvas.addEventListener("mouseup",    () => { isDrawing = false; });
+canvas.addEventListener("mouseleave", () => { isDrawing = false; });
 
+canvas.addEventListener("touchstart", e => {
+  if (drawMode === "barrier" || drawMode === "eraser") {
+    e.preventDefault(); isDrawing = true;
+    const p = pointerPos(e); paintBarrier(p.x, p.y, drawMode === "eraser");
+  } else {
+    e.preventDefault();
+    const p = pointerPos(e);
+    foodParticles.push({ x: p.x, y: p.y, life: FOOD_LIFETIME });
+  }
+}, { passive: false });
+canvas.addEventListener("touchmove", e => {
+  if (!isDrawing) return;
+  e.preventDefault();
+  const p = pointerPos(e); paintBarrier(p.x, p.y, drawMode === "eraser");
+}, { passive: false });
+canvas.addEventListener("touchend", () => { isDrawing = false; });
+
+// ── Settings toggle + close on outside click/touch ───────────────────────────
 const settingsBtn     = document.getElementById("settingsBtn");
 const settingsContent = document.getElementById("settingsContent");
 const arrowEl         = settingsBtn.querySelector(".arrow");
+
 settingsBtn.addEventListener("click", () => {
   const open = settingsContent.classList.toggle("open");
   arrowEl.style.transform = open ? "rotate(180deg)" : "rotate(0deg)";
 });
+
+document.addEventListener("mousedown", e => {
+  const dropdown = document.getElementById("settingsDropdown");
+  if (settingsContent.classList.contains("open") && !dropdown.contains(e.target)) {
+    settingsContent.classList.remove("open");
+    arrowEl.style.transform = "rotate(0deg)";
+  }
+});
+
+document.addEventListener("touchstart", e => {
+  const dropdown = document.getElementById("settingsDropdown");
+  if (settingsContent.classList.contains("open") && !dropdown.contains(e.target)) {
+    settingsContent.classList.remove("open");
+    arrowEl.style.transform = "rotate(0deg)";
+  }
+}, { passive: true });
+
+document.getElementById("resetBtn").addEventListener("click", resetFlock);
 
 const modeIndicator = document.getElementById("modeIndicator");
 function updateModeIndicator() {
@@ -535,7 +591,7 @@ function setup() {
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
   resetFlock();
-  applyPalette("ocean");   // also calls buildEyeSprites via buildLUT
+  applyPalette("ocean");
   buildPaletteUI();
   alignValue.textContent      = alignSlider.value;
   cohesionValue.textContent   = cohesionSlider.value;
