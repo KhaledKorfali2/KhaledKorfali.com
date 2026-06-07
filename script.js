@@ -41,6 +41,12 @@ const projects = [
     category: "programming"
   },
   {
+    name: "Facepaint",
+    image: "screenshots/placeholder.png",
+    path: "./projects/facepaint/index.html",
+    category: "simulation"
+  },
+  {
     name: "Noosphere",
     image: "screenshots/noosphere.png",
     path: "./projects/noosphere/index.html",

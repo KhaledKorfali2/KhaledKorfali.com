@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FacePaint</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <!-- ── Startup overlay ───────────────────────────────────────── -->
+  <div id="startup">
+    <div>
+      <div id="logo-big">Face<span>Paint</span></div>
+      <div id="tagline">HANDS-FREE DRAWING</div>
+    </div>
+    <p>Draw with your face. Open your mouth to draw, close it to stop.<br>Wink left for previous color, wink right for next.</p>
+    <button id="startBtn">Enable Camera →</button>
+    <div class="spinner" id="spinner"></div>
+    <div id="loading-msg"></div>
+  </div>
+
+  <!-- ── Main app ──────────────────────────────────────────────── -->
+  <div id="app">
+
+    <!-- Header / HUD -->
+    <header id="header">
+      <div id="logo">Face<span class="dot">Paint</span></div>
+      <div id="hud">
+        <div class="hud-pill draw-off" id="hud-draw">
+          <span class="label">Draw</span>
+          <span class="value" id="hud-draw-val">OFF</span>
+        </div>
+        <div class="hud-pill" id="hud-color">
+          <span class="label">Color</span>
+          <div class="color-swatch" id="hud-swatch"></div>
+          <span class="value" id="hud-color-name">White</span>
+        </div>
+        <div class="hud-pill tracking-off" id="hud-track">
+          <span class="label">Track</span>
+          <span class="value" id="hud-track-val">—</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Canvas area -->
+    <div id="canvas-area">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="mesh-canvas"></canvas>
+      <canvas id="draw-canvas"></canvas>
+      <div id="cursor"></div>
+      <div id="gesture-flash"></div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar">
+
+      <div class="sidebar-section">
+        <div class="section-title">Colors</div>
+        <div id="palette"></div>
+        <div id="brush-row">
+          <label>Size</label>
+          <input type="range" id="brushSize" min="1" max="40" value="6">
+          <span id="brushSizeVal">6</span>
+        </div>
+        <div id="brushPreview">
+          <div id="brushDot"></div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-title">Controls</div>
+        <div class="control-list">
+          <div class="control-item">
+            <span class="gesture-tag">😮 Open</span>
+            <span class="desc">Start drawing</span>
+          </div>
+          <div class="control-item">
+            <span class="gesture-tag">😐 Close</span>
+            <span class="desc">Stop drawing</span>
+          </div>
+          <div class="control-item">
+            <span class="gesture-tag">😉 Left</span>
+            <span class="desc">Prev color</span>
+          </div>
+          <div class="control-item">
+            <span class="gesture-tag">😉 Right</span>
+            <span class="desc">Next color</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-title">Sensitivity</div>
+        <div class="thresh-row">
+          <div class="thresh-item">
+            <label>Mouth open <span id="mouthThreshVal">0.060</span></label>
+            <input type="range" id="mouthThresh" min="0.02" max="0.15" step="0.005" value="0.06">
+          </div>
+          <div class="thresh-item">
+            <label>Wink <span id="winkThreshVal">0.20</span></label>
+            <input type="range" id="winkThresh" min="0.05" max="0.40" step="0.01" value="0.20">
+          </div>
+          <div class="thresh-item">
+            <label>Smoothing <span id="smoothVal">0.20</span></label>
+            <input type="range" id="smoothSlider" min="0.05" max="0.60" step="0.05" value="0.20">
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- Toolbar -->
+    <div id="toolbar">
+      <button class="tool-btn danger" id="clearBtn">🗑 Clear</button>
+      <button class="tool-btn" id="saveBtn">💾 Save PNG</button>
+      <button class="tool-btn active" id="meshToggle">🔲 Mesh</button>
+      <button class="tool-btn active" id="camToggle">📷 Camera</button>
+      <button class="tool-btn" id="undoBtn">↩ Undo</button>
+    </div>
+
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
