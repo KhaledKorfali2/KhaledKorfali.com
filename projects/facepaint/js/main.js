@@ -24,23 +24,17 @@ const loadingMsg = document.getElementById("loading-msg");
 const startupEl  = document.getElementById("startup");
 
 startBtn.addEventListener("click", async () => {
-  startBtn.style.display   = "none";
+  startBtn.style.display  = "none";
   spinner.classList.add("active");
-  loadingMsg.textContent   = "Requesting camera…";
+  loadingMsg.textContent  = "Loading face model…";
 
   try {
-    // Trigger browser permission prompt before MediaPipe loads
-    await navigator.mediaDevices.getUserMedia({ video: true });
-
-    loadingMsg.textContent = "Loading face model…";
     await initFaceMesh();
-
-    // All good — hide the overlay
     startupEl.style.display = "none";
   } catch (err) {
     spinner.classList.remove("active");
-    startBtn.style.display = "block";
-    loadingMsg.textContent = "Error: " + err.message;
+    startBtn.style.display  = "block";
+    loadingMsg.textContent  = "Error: " + err.message;
     loadingMsg.classList.add("error");
     console.error("FacePaint init error:", err);
   }
