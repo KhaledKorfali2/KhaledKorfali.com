@@ -1,7 +1,5 @@
 // js/cursor.js
 // Nose-tip cursor: smoothed position tracking and visual update
-
-import { LM } from "./mesh.js";
 import { currentColor } from "./colors.js";
 import { LM, getCoverTransform } from "./mesh.js";
 
