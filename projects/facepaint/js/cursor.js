@@ -3,6 +3,7 @@
 
 import { LM } from "./mesh.js";
 import { currentColor } from "./colors.js";
+import { LM, getCoverTransform } from "./mesh.js";
 
 const cursorEl = document.getElementById("cursor");
 const canvasArea = document.getElementById("canvas-area");
@@ -25,17 +26,7 @@ export function updateCursorFromLandmark(landmarks) {
     const rect = canvasArea.getBoundingClientRect();
     const W = rect.width;
     const H = rect.height;
-    const camAspect = 640 / 480;
-    const canvasAspect = W / H;
-
-    let scaleW, scaleH, offsetX, offsetY;
-    if (canvasAspect > camAspect) {
-        scaleW = W; scaleH = W / camAspect;
-        offsetX = 0; offsetY = (H - scaleH) / 2;
-    } else {
-        scaleH = H; scaleW = H * camAspect;
-        offsetX = (W - scaleW) / 2; offsetY = 0;
-    }
+    const { scaleW, scaleH, offsetX, offsetY } = getCoverTransform(W, H);
 
     const rawX = (1 - nose.x) * scaleW + offsetX;
     const rawY = nose.y * scaleH + offsetY;

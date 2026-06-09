@@ -4,6 +4,25 @@
 const meshCanvas = document.getElementById("mesh-canvas");
 const meshCtx = meshCanvas.getContext("2d");
 const canvasArea = document.getElementById("canvas-area");
+const videoEl = document.getElementById("video");
+
+export function getCoverTransform(W, H) {
+    // Use actual video dimensions once available, fall back to 4:3
+    const vW = videoEl.videoWidth || 640;
+    const vH = videoEl.videoHeight || 480;
+    const camAspect = vW / vH;
+    const canvasAspect = W / H;
+
+    let scaleW, scaleH, offsetX, offsetY;
+    if (canvasAspect > camAspect) {
+        scaleW = W; scaleH = W / camAspect;
+        offsetX = 0; offsetY = (H - scaleH) / 2;
+    } else {
+        scaleH = H; scaleW = H * camAspect;
+        offsetX = (W - scaleW) / 2; offsetY = 0;
+    }
+    return { scaleW, scaleH, offsetX, offsetY };
+}
 
 // Landmark indices used for gesture detection
 export const LM = {
@@ -62,35 +81,17 @@ export function drawMesh(landmarks) {
     const W = rect.width;
     const H = rect.height;
 
-    // Camera feed is 640×480; object-fit:cover scales it to fill W×H
-    // We need to know the actual rendered size and offset of the video
-    const camAspect = 640 / 480;
-    const canvasAspect = W / H;
-
-    let scaleW, scaleH, offsetX, offsetY;
-    if (canvasAspect > camAspect) {
-        // Canvas is wider — video is pillarboxed vertically (top/bottom cropped)
-        scaleW = W;
-        scaleH = W / camAspect;
-        offsetX = 0;
-        offsetY = (H - scaleH) / 2;
-    } else {
-        // Canvas is taller — video is letterboxed horizontally (sides cropped)
-        scaleH = H;
-        scaleW = H * camAspect;
-        offsetX = (W - scaleW) / 2;
-        offsetY = 0;
-    }
+    const { scaleW, scaleH, offsetX, offsetY } = getCoverTransform(W, H);
 
     meshCtx.clearRect(0, 0, meshCanvas.width, meshCanvas.height);
 
-    // Mirror x to match flipped video, then apply cover offset
     function px(l) {
         return [
             (1 - l.x) * scaleW + offsetX,
             l.y * scaleH + offsetY,
         ];
     }
+
 
     // ── Tesselation (fine triangulation) ─────────────────────
     const tess = window.FACEMESH_TESSELATION || [];
