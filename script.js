@@ -42,7 +42,7 @@ const projects = [
   },
   {
     name: "Facepaint",
-    image: "screenshots/placeholder.png",
+    image: "screenshots/facepaint.png",
     path: "./projects/facepaint/index.html",
     category: "simulation"
   },
@@ -57,6 +57,12 @@ const projects = [
     image: "screenshots/game-of-life.png",
     path: "./projects/game-of-life/index.html",
     category: "simulation"
+  },
+  {
+    name: "Web Protocals",
+    image: "screenshots/web-protocal-comparer.png",
+    path: "./projects/web-protocal-comparer/index.html",
+    category: "programming"
   },
   {
     name: "Arabic Flashcards",

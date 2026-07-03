@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Wire — TCP, UDP, WebSockets, QUIC & IPv4 in Motion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-eyebrow">interactive simulation</div>
+  <h1 class="hero-title">Same wire.<br><span class="glow">Different promises.</span></h1>
+  <p class="hero-sub">Every protocol here moves bytes between a client and a server. What separates them is what each one promises about those bytes — delivery, order, speed, and who pays for the difference. Switch protocols, edit the actual packet fields, send it, even break the connection, and watch each one handle it on its own terms.</p>
+</header>
+
+<nav class="proto-tabs" id="protoTabs">
+  <button class="tab active" data-proto="tcp">TCP</button>
+  <button class="tab" data-proto="udp">UDP</button>
+  <button class="tab" data-proto="ws">WebSocket</button>
+  <button class="tab" data-proto="quic">QUIC</button>
+  <button class="tab" data-proto="ip">IPv4</button>
+</nav>
+
+<main class="stage">
+
+  <section class="panel panel-stage">
+    <div class="proto-header">
+      <h2 id="protoTitle">TCP — Transmission Control Protocol</h2>
+      <p id="protoTagline">Reliable, ordered, connection-based. Every byte arrives, or the sender knows it didn't.</p>
+    </div>
+
+    <svg id="flowSvg" viewBox="0 0 900 320"></svg>
+
+    <div class="flow-steps" id="flowSteps">
+      <span class="flow-step" data-step="1"><i>1</i>Connect</span>
+      <span class="flow-step-arrow">→</span>
+      <span class="flow-step" data-step="2"><i>2</i>Send</span>
+      <span class="flow-step-arrow">→</span>
+      <span class="flow-step" data-step="3"><i>3</i>Disconnect</span>
+    </div>
+
+    <div class="controls-row">
+      <button id="connectBtn" class="btn-primary">Connect</button>
+      <button id="sendBtn" class="btn-secondary" disabled>Send packet</button>
+      <button id="dropBtn" class="btn-ghost" disabled>Simulate packet loss</button>
+      <button id="disconnectBtn" class="btn-ghost" disabled>Disconnect</button>
+    </div>
+
+    <div class="event-log mono" id="eventLog"></div>
+  </section>
+
+  <aside class="panel panel-why">
+    <div class="aside-tabs">
+      <button class="aside-tab active" data-aside="why">Why it works</button>
+      <button class="aside-tab" data-aside="packet">Packet inspector</button>
+    </div>
+
+    <div id="whyPane" class="aside-pane">
+      <div id="whyContent"></div>
+    </div>
+
+    <div id="packetPane" class="aside-pane hidden">
+      <div class="mode-toggle" id="modeToggle">
+        <button class="mode-btn active" data-mode="general" title="Named fields, guided defaults">Field mode</button>
+        <button class="mode-btn" data-mode="advanced" title="Raw bytes, real checksums &amp; masking">Bit mode</button>
+      </div>
+
+      <div class="packet-toolbar">
+        <span class="field-hint" id="packetHint">Edit the fields below, then hit "Send packet" — your edits travel on the wire.</span>
+        <button id="resetPacketBtn" class="btn-ghost btn-tiny">Reset</button>
+      </div>
+
+      <div class="byte-view" id="byteView"></div>
+      <div class="byte-legend mono" id="byteLegend"></div>
+
+      <form class="packet-form" id="packetForm"></form>
+
+      <div id="wireBlock" class="wire-block hidden"></div>
+
+      <div class="hexdump-block">
+        <div class="wire-block-title">Bytes on the wire <span class="hexdump-tip">hover a byte, or a field, to connect the two</span></div>
+        <div id="hexDump" class="hex-dump"></div>
+      </div>
+
+      <label class="corrupt-row" id="corruptRow">
+        <input type="checkbox" id="corruptToggle">
+        <span id="corruptLabel">Corrupt this packet before sending</span>
+      </label>
+    </div>
+  </aside>
+
+</main>
+
+<section class="compare-section">
+  <div class="panel-label compare-label">side by side</div>
+  <div class="compare-table-wrap">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>TCP</th>
+          <th>UDP</th>
+          <th>WebSocket</th>
+          <th>QUIC</th>
+        </tr>
+      </thead>
+      <tbody id="compareBody"></tbody>
+    </table>
+  </div>
+  <p class="compare-footnote">IPv4 isn't in this table because it isn't a peer of the other four — it's the addressing/routing layer underneath all of them. See its own tab for what it actually promises.</p>
+</section>
+
+<section class="panel capture-section">
+  <div class="capture-header">
+    <div class="panel-label capture-label">packet capture</div>
+    <div class="capture-actions">
+      <button id="compareCaptureBtn" class="btn-secondary btn-tiny" disabled>Compare selected (0/2)</button>
+      <button id="clearCaptureBtn" class="btn-ghost btn-tiny">Clear</button>
+    </div>
+  </div>
+  <p class="capture-hint">Every packet you send gets logged here, byte for byte, like a live capture tool would show it. Check two rows to compare them side by side.</p>
+  <div id="captureList" class="capture-list">
+    <div class="capture-empty" id="captureEmpty">No packets sent yet — hit "Send packet" above to start capturing.</div>
+  </div>
+  <div id="captureCompare" class="capture-compare hidden"></div>
+</section>
+
+<footer class="footnote">
+  <p>WebSocket isn't a rival to TCP — it's built on top of it. A WebSocket connection starts as a normal HTTP request, asks to "upgrade," and then keeps that same TCP connection open indefinitely so both sides can push messages without re-handshaking every time. UDP skips the handshake and the guarantees entirely, which is exactly why video calls and game state use it — a late packet is more useless than a missing one. QUIC takes a third path: it runs over UDP, but re-implements reliability and ordering itself, per-stream, with encryption baked in from the very first packet — so one lost packet on one stream no longer stalls every other stream sharing the connection. IPv4 sits underneath all of them, responsible only for getting a packet from one address to another, hop by hop, with no promise it will arrive at all.</p>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
