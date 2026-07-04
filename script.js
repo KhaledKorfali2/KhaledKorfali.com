@@ -17,9 +17,9 @@ const projects = [
     category: "simulation"
   },
   {
-    name: "Frontend Playground",
-    image: "screenshots/css-playground.png",
-    path: "./projects/frontend-playground/index.html",
+    name: "Linux File System",
+    image: "screenshots/linux-filesystem.png",
+    path: "./projects/linux-filesystem/index.html",
     category: "programming"
   },
    {
@@ -32,6 +32,12 @@ const projects = [
     name: "Graph Algorithm Simulator",
     image: "screenshots/graph-sim.png",
     path: "./projects/graph-simulator/index.html",
+    category: "programming"
+  },
+  {
+    name: "Frontend Playground",
+    image: "screenshots/css-playground.png",
+    path: "./projects/frontend-playground/index.html",
     category: "programming"
   },
   {
