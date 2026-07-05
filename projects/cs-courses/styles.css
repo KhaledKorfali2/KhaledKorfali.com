@@ -293,3 +293,7 @@
   .lesson-sidebar { position: static; max-height: none; }
   .fd-grid { grid-template-columns: 1fr; }
 }
+
+/* progress persistence footer control */
+.reset-link { background: none; border: none; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-decoration: underline; cursor: pointer; padding: 0; }
+.reset-link:hover { color: var(--coral); }

@@ -19,7 +19,7 @@ const projects = [
   {
     name: "Linux File System",
     image: "screenshots/linux-filesystem.png",
-    path: "./projects/linux-filesystem/index.html",
+    path: "./projects/cs-courses/index.html",
     category: "programming"
   },
    {
