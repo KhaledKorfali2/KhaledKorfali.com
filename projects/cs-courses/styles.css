@@ -297,3 +297,24 @@
 /* progress persistence footer control */
 .reset-link { background: none; border: none; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-decoration: underline; cursor: pointer; padding: 0; }
 .reset-link:hover { color: var(--coral); }
+
+/* ============================ git-sim widget additions ============================ */
+.graph-scroll { overflow-x: auto; padding: 16px; }
+.graph-scroll svg { display: block; }
+
+.stage-flow { display: flex; align-items: flex-start; gap: 10px; }
+.stage-col { flex: 1; min-width: 0; background: var(--bg-raised); border: 1px solid var(--border-soft); border-radius: 8px; padding: 10px; }
+.stage-col-title { font-size: 11px; color: var(--text-dim); margin-bottom: 8px; }
+.stage-file { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; padding: 5px 8px; border-radius: 5px; background: var(--bg-raised-2); margin-bottom: 6px; }
+.stage-file button { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; padding: 3px 7px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); border: 1px solid transparent; cursor: pointer; }
+.stage-empty { font-size: 11px; color: var(--text-dim); font-style: italic; }
+.stage-arrow { display: flex; align-items: center; padding-top: 24px; color: var(--text-dim); flex-shrink: 0; }
+
+.conflict-file { padding: 12px; border-radius: 8px; background: var(--bg-raised); border: 1px solid var(--border-soft); margin-bottom: 10px; }
+.conflict-file-name { display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin-bottom: 8px; }
+.conflict-options { display: flex; gap: 8px; flex-wrap: wrap; }
+
+@media (max-width: 700px) {
+  .stage-flow { flex-direction: column; }
+  .stage-arrow { display: none; }
+}
