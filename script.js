@@ -28,6 +28,12 @@ const projects = [
     path: "./projects/cs-courses/git-sim-index.html",
     category: "programming"
   },
+  {
+    name: "Vim System",
+    image: "screenshots/linux-filesystem.png",
+    path: "./projects/cs-courses/vim-sim-index.html",
+    category: "programming"
+  },
    {
     name: "Sorting Algorithm Simulator",
     image: "screenshots/sorting-alg.png",
