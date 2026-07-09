@@ -13,6 +13,7 @@
 
   const SANDBOX_NAV = [
     { key: "editor", label: "editor", icon: "keyboard" },
+    { key: "grammar", label: "grammar lab", icon: "keyboard" },
     { key: "games-menu", label: "games", icon: "trophy" }
   ];
 

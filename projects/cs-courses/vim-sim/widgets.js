@@ -14,6 +14,58 @@ window.VimWidgets = (function () {
     return Math.abs(h);
   }
 
+  /* --------------------------------- grammar breakdown labels (Module 3) --------------------------------- */
+  const OPERATOR_LABELS = {
+    d: "delete", c: "change", y: "yank (copy)",
+    ">": "indent", "<": "unindent",
+    "g~": "toggle case", gu: "lowercase", gU: "uppercase"
+  };
+  const MOTION_LABELS = {
+    h: "one character left", l: "one character right", j: "one line down", k: "one line up",
+    w: "start of next word", b: "start of previous word", e: "end of word", ge: "end of previous word",
+    0: "start of line", "^": "first non-blank character", "$": "end of line",
+    gg: "first line of the file", G: "last line of the file",
+    H: "top of the screen", M: "middle of the screen", L: "bottom of the screen",
+    "%": "matching bracket", "{": "previous paragraph", "}": "next paragraph",
+    f: "next occurrence of a character", F: "previous occurrence of a character",
+    t: "just before the next occurrence", T: "just before the previous occurrence",
+    ";": "repeat the last f/F/t/T", ",": "repeat the last f/F/t/T, reversed",
+    LINEWISE_SELF: "the whole current line"
+  };
+  const TEXTOBJ_LABELS = {
+    w: "word", '"': "double-quoted text", "'": "single-quoted text",
+    "(": "the parentheses", ")": "the parentheses", "[": "the brackets", "]": "the brackets",
+    "{": "the braces", "}": "the braces", p: "paragraph", t: "the surrounding tag"
+  };
+  const AWAITING_LABELS = {
+    register: "a register letter (a\u2013z)",
+    find: "the character to find",
+    textobject: "a text-object key (w, \", ', (, [, {, p, t)",
+    "mark-set": "a letter to name this mark",
+    "mark-jump-line": "a mark letter to jump to",
+    "mark-jump-exact": "a mark letter to jump to (exact position)",
+    "macro-record": "a register letter to record into",
+    "macro-replay": "a register letter to replay",
+    "g-prefix": "the key after g (g, e, ~, u, or U)"
+  };
+
+  function describeCount(p) {
+    const c1 = p.count1 ? parseInt(p.count1, 10) : null;
+    const c2 = p.count2 ? parseInt(p.count2, 10) : null;
+    if (!c1 && !c2) return null;
+    if (c1 && c2) return `${c1} \u00d7 ${c2} = ${c1 * c2}`;
+    return String(c1 || c2);
+  }
+  function describeTarget(p) {
+    if (p.textObjectKind) {
+      const scope = p.textObjectKind === "i" ? "inside" : "around";
+      const what = p.textObjectChar ? (TEXTOBJ_LABELS[p.textObjectChar] || p.textObjectChar) : null;
+      return what ? `${scope} ${what}` : null;
+    }
+    if (p.motion) return MOTION_LABELS[p.motion] || p.motion;
+    return null;
+  }
+
   /* --------------------------------- shared char-grid renderer --------------------------------- */
   function renderCharGrid(lines, cursor, selRange, targetPos, cursorClass) {
     const B = window.VimBuffer;
@@ -71,6 +123,90 @@ window.VimWidgets = (function () {
     </div>`;
   }
 
+  /* --------------------------------- grammar breakdown widget (Module 3) --------------------------------- */
+  function slot(label, value, filled) {
+    return `<div class="grammar-slot${filled ? " filled" : ""}">
+      <div class="grammar-slot-label mono">${esc(label)}</div>
+      <div class="grammar-slot-value mono">${value ? esc(value) : "&mdash;"}</div>
+    </div>`;
+  }
+
+  function renderGrammarBreakdown() {
+    const ed = ENGINE.state.editor;
+    const p = ed.parse;
+    const editorHtml = renderVimEditor();
+
+    let body;
+    if (ed.mode !== "normal") {
+      const modeNote = {
+        insert: "You're in INSERT mode &mdash; every key just types a character. Grammar composition (counts, operators, motions, text objects) only happens in Normal mode. Press <code>Escape</code> to go back.",
+        visual: "You're in VISUAL mode &mdash; you've already selected a range with a motion or text object. The next operator key (d, c, y, &gt;, &lt;, ~, u, U) will act on exactly what's highlighted.",
+        "visual-line": "You're in VISUAL LINE mode &mdash; whole lines are selected. The next operator key will act on all of them.",
+        "visual-block": "You're in VISUAL BLOCK mode &mdash; a rectangular block is selected.",
+        command: "You're in COMMAND-LINE mode &mdash; you're typing a whole <code>:</code> instruction rather than composing a Normal-mode grammar sequence."
+      }[ed.mode] || "";
+      body = `<div class="grammar-modenote mono">${modeNote}</div>`;
+    } else {
+      const count = p ? describeCount(p) : null;
+      const register = p && p.register ? p.register : null;
+      const operator = p && p.operator ? (OPERATOR_LABELS[p.operator] || p.operator) : null;
+      const target = p ? describeTarget(p) : null;
+
+      const slots = `<div class="grammar-slots">
+        ${slot("count", count, !!count)}
+        ${slot("register", register ? `"${register}` : null, !!register)}
+        ${slot("operator", operator, !!operator)}
+        ${slot("motion / object", target, !!target)}
+      </div>`;
+
+      let sentence;
+      if (!p) {
+        sentence = "Nothing composing yet &mdash; press a key to start building a command.";
+      } else if (operator && target) {
+        sentence = `This will <b>${esc(operator)}</b> ${esc(target)}${count ? `, count ${esc(count)}` : ""}.`;
+      } else if (!operator && target) {
+        sentence = `This will move the cursor to ${esc(target)}${count ? ` (count ${esc(count)})` : ""} &mdash; no operator yet, so it's just a move.`;
+      } else if (operator && !target) {
+        sentence = `Operator <b>${esc(operator)}</b> is waiting for a motion or text object to act on.`;
+      } else {
+        sentence = "Building a command&hellip;";
+      }
+
+      const awaiting = p && p.awaitingChar
+        ? `<div class="grammar-awaiting mono">&rarr; waiting for: ${esc(AWAITING_LABELS[p.awaitingChar] || p.awaitingChar)}</div>`
+        : "";
+
+      body = `${slots}<div class="grammar-sentence">${sentence}</div>${awaiting}`;
+    }
+
+    const legend = `<div class="grammar-legend">
+      <div class="grammar-legend-col">
+        <div class="grammar-legend-title mono">operators</div>
+        <div class="grammar-legend-row mono"><span>d</span><span>delete</span></div>
+        <div class="grammar-legend-row mono"><span>c</span><span>change</span></div>
+        <div class="grammar-legend-row mono"><span>y</span><span>yank</span></div>
+        <div class="grammar-legend-row mono"><span>&gt; / &lt;</span><span>indent / unindent</span></div>
+        <div class="grammar-legend-row mono"><span>g~ / gu / gU</span><span>toggle / lower / upper case</span></div>
+      </div>
+      <div class="grammar-legend-col">
+        <div class="grammar-legend-title mono">text objects</div>
+        <div class="grammar-legend-row mono"><span>iw / aw</span><span>inside / around word</span></div>
+        <div class="grammar-legend-row mono"><span>i&quot; / a&quot;</span><span>inside / around quotes</span></div>
+        <div class="grammar-legend-row mono"><span>i( / a(</span><span>inside / around parens</span></div>
+        <div class="grammar-legend-row mono"><span>ip / ap</span><span>inside / around paragraph</span></div>
+        <div class="grammar-legend-row mono"><span>it / at</span><span>inside / around tag</span></div>
+      </div>
+    </div>`;
+
+    return `${editorHtml}<div class="panel grammar-panel">
+      <div class="panel-header"><span class="title mono">${icon("keyboard", 15)} grammar breakdown</span><span class="pill">count? register? operator? {motion|object}</span></div>
+      <div class="panel-body">
+        ${body}
+        ${legend}
+      </div>
+    </div>`;
+  }
+
   /* --------------------------------- game widget --------------------------------- */
   function renderGameWidget(gameId) {
     const Games = window.VimGames;
@@ -123,6 +259,7 @@ window.VimWidgets = (function () {
   /* --------------------------------- widget dispatcher --------------------------------- */
   function renderLessonWidget(key) {
     if (key === "editor") return renderVimEditor();
+    if (key === "grammar") return renderGrammarBreakdown();
     if (key === "games-menu") return renderGamesMenu();
     if (key.indexOf("game-") === 0) return renderGameWidget(key.slice(5));
     return "";
@@ -148,18 +285,25 @@ window.VimWidgets = (function () {
       const target = el.getAttribute("data-vedinput");
       if (target === "main") window.VimGrammar.feedKey(ENGINE, token);
       else if (target === "game") window.VimGames.feedGameKey(ENGINE, token);
+      // Every render() rebuilds #app.innerHTML from scratch, which destroys and
+      // recreates this element — without this, focus is silently dropped after
+      // every single keystroke. Opt-in via _focusSelector, per the established
+      // core/curriculum.js pattern (see fs-sim's terminal / git-sim's console).
+      ENGINE.state._focusSelector = `[data-vedinput="${target}"]`;
       ENGINE.render();
     });
     Actions.register("click", "[data-vedinput]", (el) => { el.focus(); });
 
     Actions.register("click", "[data-gamerestart]", (el) => {
       window.VimGames.startGame(ENGINE, el.getAttribute("data-gamerestart"), Date.now() % 100000);
+      ENGINE.state._focusSelector = '[data-vedinput="game"]';
       ENGINE.render();
     });
     Actions.register("click", "[data-playgame]", (el) => {
       const id = el.getAttribute("data-playgame");
       ENGINE.state.sandboxActiveGame = id;
       window.VimGames.startGame(ENGINE, id, Date.now() % 100000);
+      ENGINE.state._focusSelector = '[data-vedinput="game"]';
       ENGINE.render();
     });
     Actions.register("click", "[data-backtogames]", () => { ENGINE.state.sandboxActiveGame = null; ENGINE.render(); });
