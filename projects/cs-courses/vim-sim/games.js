@@ -180,3 +180,92 @@ window.VimGames = (function () {
 
   return { GAMES, startGame, feedGameKey };
 })();
+
+/* ============================== vim-sim/games.js (VimGolf) ==============================
+   Vim Golf & Boss Battles — deliberately different from the motion-practice games above:
+   those intentionally restrict input to a tiny key vocabulary handled by hand. Golf
+   puzzles need the OPPOSITE — full operators, text objects, registers, macros, and
+   command-line commands, exactly like real Vim golf. So each puzzle gets its own genuine,
+   isolated VimGrammar.createEditorState() instance, and every keystroke is fed through
+   the real window.VimGrammar.feedKey — nothing here re-derives editing behavior.
+============================================================================================ */
+window.VimGolf = (function () {
+  const GOLF_PUZZLES = [
+    { id: "golf1", title: "Delete a word", tier: "golf",
+      startLines: ["quick brown fox"], targetLines: ["brown fox"], par: 3,
+      hint: "One operator, one motion." },
+    { id: "golf2", title: "Change a word", tier: "golf",
+      startLines: ["The cat sat"], targetLines: ["The dog sat"], par: 9,
+      hint: "Move to the word, then change what's inside it." },
+    { id: "golf3", title: "Empty the quotes", tier: "golf",
+      startLines: ['say "hello world" now'], targetLines: ['say "" now'], par: 4,
+      hint: "A text object gets you there without even moving the cursor first." },
+    { id: "golf4", title: "Duplicate a line", tier: "golf",
+      startLines: ["keep me"], targetLines: ["keep me", "keep me"], par: 4,
+      hint: "Yank the whole line, then put it back." },
+    { id: "golf5", title: "Replace every occurrence", tier: "golf",
+      startLines: ["foo foo foo"], targetLines: ["bar bar bar"], par: 14,
+      hint: "One command-line command handles all three at once." },
+    { id: "golf6", title: "Fix a whole list", tier: "golf",
+      startLines: ["- item one", "- item two", "- item three"], targetLines: ["* item one", "* item two", "* item three"], par: 15,
+      hint: "Record the fix once, then replay it on the rest." }
+  ];
+
+  const BOSS_BATTLES = [
+    { id: "bossA", title: "Word Swap", tier: "boss",
+      startLines: ["one two three"], targetLines: ["three two one"], par: 28,
+      hint: "You'll need two separate named registers to juggle both words at once." },
+    { id: "bossB", title: "Strip the Indentation", tier: "boss",
+      startLines: ["  let x = 1;", "  let y = 2;", "  let z = 3;"], targetLines: ["let x = 1;", "let y = 2;", "let z = 3;"], par: 12,
+      hint: "A search pattern anchored to the start of the line, applied to the whole buffer." },
+    { id: "bossC", title: "Quote and Comma", tier: "boss",
+      startLines: ["apple", "banana", "cherry"], targetLines: ['"apple",', '"banana",', '"cherry",'], par: 18,
+      hint: "Insert at the start, append at the end, then repeat it." }
+  ];
+
+  function findPuzzle(id) { return GOLF_PUZZLES.find((p) => p.id === id) || BOSS_BATTLES.find((p) => p.id === id); }
+
+  function computeGrade(keystrokes, par) {
+    const ratio = keystrokes / par;
+    if (ratio <= 0.8) return "SSS";
+    if (ratio <= 1.0) return "S";
+    if (ratio <= 1.3) return "A";
+    if (ratio <= 1.6) return "B";
+    if (ratio <= 2.0) return "C";
+    if (ratio <= 2.5) return "D";
+    return "E";
+  }
+
+  function startGolfGame(engine, puzzleId) {
+    const def = findPuzzle(puzzleId);
+    if (!def) return;
+    engine.state.golfGame = {
+      id: puzzleId,
+      editor: window.VimGrammar.createEditorState(def.startLines),
+      keystrokes: 0, keyLog: [],
+      startedAt: Date.now(), finished: false, resultMs: null, grade: null
+    };
+  }
+
+  function feedGolfKey(engine, key) {
+    const g = engine.state.golfGame;
+    if (!g || g.finished) return;
+    const def = findPuzzle(g.id);
+    if (!def) return;
+    window.VimGrammar.feedKey({ state: { editor: g.editor } }, key);
+    g.keystrokes++;
+    g.keyLog.push(key);
+    if (JSON.stringify(g.editor.lines) === JSON.stringify(def.targetLines)) {
+      g.finished = true;
+      g.resultMs = Date.now() - g.startedAt;
+      g.grade = computeGrade(g.keystrokes, def.par);
+      const scoreKey = "vim_" + g.id;
+      const best = engine.state.golfBestScores[scoreKey];
+      if (!best || g.keystrokes < best.keystrokes) {
+        engine.state.golfBestScores[scoreKey] = { keystrokes: g.keystrokes, grade: g.grade, timeMs: g.resultMs };
+      }
+    }
+  }
+
+  return { GOLF_PUZZLES, BOSS_BATTLES, findPuzzle, computeGrade, startGolfGame, feedGolfKey };
+})();

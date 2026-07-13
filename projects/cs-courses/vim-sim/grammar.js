@@ -23,16 +23,18 @@ window.VimGrammar = (function () {
       pending: "",
       parse: null,
       registers: { unnamed: { text: "", linewise: false } },
-      marks: {},
+      marks: {}, globalMarks: {},
       commandLine: "",
+      searchLine: "", searchDirection: "forward", lastSearch: null,
       lastFind: null,
       message: "",
-      undo: {
-        nodes: { 0: { id: 0, parentId: null, lines: lines.slice(), cursor: { line: 0, col: 0 }, childIds: [], lastChild: null, label: "initial" } },
-        currentId: 0, nextId: 1
-      },
+      undo: freshUndo(lines),
       macroRecording: null, macroKeys: [], macros: {}, lastMacroReg: null,
-      insertSnapshot: null
+      insertSnapshot: null,
+      buffers: { 1: { id: "1", name: "[No Name]" } },
+      activeBufferId: "1", nextBufferId: 2,
+      tabs: [{ id: "t1", windows: [{ id: "w1", bufferId: "1" }], activeWindowId: "w1", splitDirection: "horizontal" }],
+      activeTabId: "t1", nextWindowId: 2, nextTabId: 2
     };
   }
 
@@ -80,11 +82,38 @@ window.VimGrammar = (function () {
     ed.lines = child.lines.slice();
     ed.cursor = B.clampPos(ed.lines, child.cursor);
   }
+  // Jump directly to any node in the undo tree by id — unlike undo/redo, this
+  // isn't restricted to stepping one parent/child at a time, which is exactly
+  // what makes the tree genuinely explorable rather than just a linear stack
+  // with branches you can only reach by chance.
+  function jumpToUndoNode(engine, nodeId) {
+    const ed = engine.state.editor;
+    const u = ed.undo;
+    const node = u.nodes[nodeId];
+    if (!node) return false;
+    u.currentId = node.id;
+    ed.lines = node.lines.slice();
+    ed.cursor = B.clampPos(ed.lines, node.cursor);
+    return true;
+  }
 
   /* =============================== registers =============================== */
   function setRegister(engine, name, text, linewise) {
     const ed = engine.state.editor;
     if (name === "_") return; // black hole register: discard
+    if (name && /^[A-Z]$/.test(name)) {
+      // Uppercase register name -> append to the corresponding lowercase register,
+      // exactly like real Vim's "A / "B / ... convention.
+      const lower = name.toLowerCase();
+      const existing = ed.registers[lower];
+      if (existing && existing.text) {
+        const sep = existing.linewise || linewise ? "\n" : "";
+        ed.registers[lower] = { text: existing.text + sep + text, linewise: existing.linewise || linewise };
+      } else {
+        ed.registers[lower] = { text, linewise };
+      }
+      return;
+    }
     ed.registers[name || "unnamed"] = { text, linewise };
   }
   function setRegisterAfterDelete(engine, text, linewise, explicitName) {
@@ -96,12 +125,37 @@ window.VimGrammar = (function () {
   }
 
   /* =============================== marks =============================== */
-  function setMark(engine, letter) { engine.state.editor.marks[letter] = { ...engine.state.editor.cursor }; }
+  function setMark(engine, letter) {
+    const ed = engine.state.editor;
+    if (/^[A-Z]$/.test(letter)) {
+      ed.globalMarks[letter] = { bufferId: ed.activeBufferId, line: ed.cursor.line, col: ed.cursor.col };
+      return;
+    }
+    ed.marks[letter] = { ...ed.cursor };
+  }
   function jumpToMark(engine, letter, exact) {
     const ed = engine.state.editor;
+    if (/^[A-Z]$/.test(letter)) {
+      const gm = ed.globalMarks[letter];
+      if (!gm) { ed.message = `mark '${letter}' not set`; return; }
+      if (gm.bufferId !== ed.activeBufferId && !switchToBuffer(engine, gm.bufferId)) { ed.message = `mark '${letter}' not set`; return; }
+      const targetEd = engine.state.editor;
+      targetEd.cursor = exact ? B.clampPos(targetEd.lines, { line: gm.line, col: gm.col }) : { line: gm.line, col: B.firstNonBlankCol(targetEd.lines[gm.line] || "") };
+      return;
+    }
     const m = ed.marks[letter];
     if (!m) { ed.message = `mark '${letter}' not set`; return; }
     ed.cursor = exact ? B.clampPos(ed.lines, m) : { line: m.line, col: B.firstNonBlankCol(ed.lines[m.line] || "") };
+  }
+  // Read-only lookup for the widget/resolveMotion — returns {line,col} in the
+  // CURRENT buffer's coordinate space, or null if unset or in another buffer.
+  function resolveMarkPosition(ed, letter) {
+    if (/^[A-Z]$/.test(letter)) {
+      const gm = ed.globalMarks[letter];
+      if (!gm || gm.bufferId !== ed.activeBufferId) return null;
+      return { line: gm.line, col: gm.col };
+    }
+    return ed.marks[letter] || null;
   }
 
   /* =============================== range ordering =============================== */
@@ -143,6 +197,33 @@ window.VimGrammar = (function () {
     if (m === "LINEWISE_SELF") {
       const endLine = Math.min(ed.lines.length - 1, cur.line + count - 1);
       return { range: { start: { line: cur.line, col: 0 }, end: { line: endLine, col: B.lastCol(ed.lines, endLine) }, linewise: true }, newCursor: { line: cur.line, col: 0 } };
+    }
+    if (m === "search" && typeof p.searchTargetIdx === "number") {
+      // Search motions are exclusive: the range runs up to, but not including,
+      // the character the search landed on.
+      const curIdx = B.toIndex(ed.lines, cur);
+      const lo = Math.min(curIdx, p.searchTargetIdx);
+      const hi = Math.max(curIdx, p.searchTargetIdx);
+      const endIdx = Math.max(lo, hi - 1);
+      return {
+        range: { start: B.toPos(ed.lines, lo), end: B.toPos(ed.lines, endIdx), linewise: false },
+        newCursor: B.toPos(ed.lines, p.searchTargetIdx)
+      };
+    }
+    if ((m === "mark-line" || m === "mark-exact") && p.markLetter) {
+      const mark = resolveMarkPosition(ed, p.markLetter);
+      if (!mark) return null;
+      if (m === "mark-line") {
+        // ' motions are always linewise, spanning from the current line to the mark's line.
+        const lo = Math.min(cur.line, mark.line), hi = Math.max(cur.line, mark.line);
+        return { range: { start: { line: lo, col: 0 }, end: { line: hi, col: B.lastCol(ed.lines, hi) }, linewise: true }, newCursor: { line: mark.line, col: B.firstNonBlankCol(ed.lines[mark.line] || "") } };
+      }
+      // ` motions are always exclusive charwise, same rule as search: exclude the character at the higher index.
+      const curIdx = B.toIndex(ed.lines, cur);
+      const markIdx = B.toIndex(ed.lines, mark);
+      const lo = Math.min(curIdx, markIdx), hi = Math.max(curIdx, markIdx);
+      const endIdx = Math.max(lo, hi - 1);
+      return { range: { start: B.toPos(ed.lines, lo), end: B.toPos(ed.lines, endIdx), linewise: false }, newCursor: B.toPos(ed.lines, markIdx) };
     }
 
     let target = null, inclusive = false, linewise = false;
@@ -348,8 +429,48 @@ window.VimGrammar = (function () {
       return;
     }
     if (cmd === "w") { ed.message = '"buffer" written'; return; }
-    if (cmd === "q") { ed.message = "cannot close the only sandbox buffer"; return; }
+    if (cmd === "q") {
+      if (activeTab(ed).windows.length > 1) { closeWindow(engine); return; }
+      ed.message = "cannot close the only sandbox buffer"; return;
+    }
     if (cmd === "wq") { ed.message = '"buffer" written'; return; }
+
+    if (cmd === "enew") { switchToBuffer(engine, createBuffer(engine)); ed.message = ""; return; }
+    const eMatch = cmd.match(/^e\s+(\S+)$/);
+    if (eMatch) { switchToBuffer(engine, findBufferByName(ed, eMatch[1]) || createBuffer(engine, eMatch[1])); return; }
+    if (cmd === "bn" || cmd === "bnext") {
+      const ids = Object.keys(ed.buffers);
+      const idx = ids.indexOf(ed.activeBufferId);
+      switchToBuffer(engine, ids[(idx + 1) % ids.length]);
+      return;
+    }
+    if (cmd === "bp" || cmd === "bprev" || cmd === "bprevious") {
+      const ids = Object.keys(ed.buffers);
+      const idx = ids.indexOf(ed.activeBufferId);
+      switchToBuffer(engine, ids[(idx - 1 + ids.length) % ids.length]);
+      return;
+    }
+    const bMatch = cmd.match(/^b(\d+)$/);
+    if (bMatch) {
+      if (!switchToBuffer(engine, bMatch[1])) ed.message = "E86: Buffer " + bMatch[1] + " does not exist";
+      return;
+    }
+    if (cmd === "bd" || cmd === "bdelete") { deleteBuffer(engine, ed.activeBufferId); return; }
+    const bdMatch = cmd.match(/^bd(?:elete)?\s+(\S+)$/);
+    if (bdMatch) { deleteBuffer(engine, findBufferByName(ed, bdMatch[1]) || bdMatch[1]); return; }
+
+    if (cmd === "sp" || cmd === "split") { splitWindow(engine, "horizontal", null); return; }
+    if (cmd === "vsp" || cmd === "vsplit") { splitWindow(engine, "vertical", null); return; }
+    const spMatch = cmd.match(/^(sp|split|vsp|vsplit)\s+(\S+)$/);
+    if (spMatch) { splitWindow(engine, spMatch[1].startsWith("v") ? "vertical" : "horizontal", spMatch[2]); return; }
+    if (cmd === "only" || cmd === "on") { onlyWindow(engine); return; }
+    if (cmd === "close") { closeWindow(engine); return; }
+
+    if (cmd === "tabnew") { newTab(engine, null); return; }
+    const tabMatch = cmd.match(/^tabnew\s+(\S+)$/);
+    if (tabMatch) { newTab(engine, tabMatch[1]); return; }
+    if (cmd === "tabclose") { closeTab(engine); return; }
+
     ed.message = `E492: Not an editor command: ${cmd}`;
   }
   function feedCommandKey(engine, key) {
@@ -358,6 +479,137 @@ window.VimGrammar = (function () {
     if (key === "Enter") return executeCommandLine(engine);
     if (key === "Backspace") { ed.commandLine = ed.commandLine.slice(0, -1); return; }
     ed.commandLine += key;
+  }
+
+  /* =============================== search =============================== */
+  function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+  // Shared by performSearch and the widget-facing preview helpers below, so
+  // there's exactly one place that turns a pattern into match positions.
+  function findAllMatchIndices(lines, pattern) {
+    let re;
+    try { re = new RegExp(pattern, "g"); } catch (e) { return null; }
+    const text = B.flatten(lines);
+    const matches = [];
+    let m;
+    while ((m = re.exec(text))) {
+      matches.push(m.index);
+      if (m[0].length === 0) re.lastIndex++; // guard against infinite loop on a zero-width match
+    }
+    return matches;
+  }
+
+  function findSearchTargetIdx(lines, cursor, pattern, direction) {
+    const matches = findAllMatchIndices(lines, pattern);
+    if (matches === null || matches.length === 0) return null;
+    const curIdx = B.toIndex(lines, cursor);
+    let idx, wrapped = false;
+    if (direction === "forward") {
+      idx = matches.find((i) => i > curIdx);
+      if (idx === undefined) { idx = matches[0]; wrapped = true; }
+    } else {
+      const before = matches.filter((i) => i < curIdx);
+      idx = before.length ? before[before.length - 1] : matches[matches.length - 1];
+      wrapped = !before.length;
+    }
+    return { idx, wrapped };
+  }
+
+  // Shared by /, ?, n, N, *, # once a pattern+direction is already known: if an
+  // operator is pending, the search becomes that operator's motion (e.g.
+  // d/foo, cn, y*) via the exact same resolveMotion/executeParsed pipeline
+  // every other motion uses. Otherwise it's a plain cursor jump.
+  function applySearchAsMotionOrJump(engine, p, pattern, direction) {
+    const ed = engine.state.editor;
+    if (!pattern) { ed.message = "E35: No previous regular expression"; resetParse(ed); return; }
+    const found = findSearchTargetIdx(ed.lines, ed.cursor, pattern, direction);
+    if (!found) { ed.message = "E486: Pattern not found: " + pattern; resetParse(ed); return; }
+    if (p.operator) {
+      p.motion = "search";
+      p.searchTargetIdx = found.idx;
+      return executeParsed(engine, p);
+    }
+    ed.cursor = B.clampPos(ed.lines, B.toPos(ed.lines, found.idx));
+    ed.message = found.wrapped ? (direction === "forward" ? "search hit BOTTOM, continuing at TOP" : "search hit TOP, continuing at BOTTOM") : "";
+    resetParse(ed);
+  }
+
+  function enterSearch(engine, direction, operatorContext) {
+    const ed = engine.state.editor;
+    ed.mode = "search"; ed.searchDirection = direction; ed.searchLine = "";
+    ed.searchOperatorContext = operatorContext || null;
+    if (!operatorContext) resetParse(ed);
+  }
+
+  function executeSearchLine(engine) {
+    const ed = engine.state.editor;
+    const pattern = ed.searchLine;
+    const direction = ed.searchDirection;
+    const operatorContext = ed.searchOperatorContext;
+    ed.mode = "normal"; ed.searchLine = ""; ed.searchOperatorContext = null;
+    if (pattern) ed.lastSearch = { pattern, direction };
+    if (operatorContext) {
+      const p = ensureParse(ed);
+      p.operator = operatorContext.operator;
+      p.register = operatorContext.register;
+      p.count1 = operatorContext.count1;
+      p.count2 = operatorContext.count2;
+      applySearchAsMotionOrJump(engine, p, pattern, direction);
+      return;
+    }
+    applySearchAsMotionOrJump(engine, ensureParse(ed), pattern, direction);
+  }
+
+  function feedSearchKey(engine, key) {
+    const ed = engine.state.editor;
+    if (key === "Escape") { ed.mode = "normal"; ed.searchLine = ""; ed.searchOperatorContext = null; resetParse(ed); return; }
+    if (key === "Enter") return executeSearchLine(engine);
+    if (key === "Backspace") { ed.searchLine = ed.searchLine.slice(0, -1); return; }
+    ed.searchLine += key;
+  }
+
+  function repeatSearch(engine, p, reverse) {
+    const ed = engine.state.editor;
+    if (!ed.lastSearch) { ed.message = "E35: No previous regular expression"; resetParse(ed); return; }
+    const dir = reverse ? (ed.lastSearch.direction === "forward" ? "backward" : "forward") : ed.lastSearch.direction;
+    applySearchAsMotionOrJump(engine, p, ed.lastSearch.pattern, dir);
+  }
+
+  function searchWordUnderCursor(engine, p, direction) {
+    const ed = engine.state.editor;
+    const wordRange = B.textObjectWord(ed.lines, ed.cursor, false);
+    if (!wordRange) { ed.message = "E348: No string under cursor"; resetParse(ed); return; }
+    const word = B.rangeText(ed.lines, wordRange);
+    const pattern = "\\b" + escapeRegExp(word) + "\\b";
+    ed.lastSearch = { pattern, direction };
+    applySearchAsMotionOrJump(engine, p, pattern, direction);
+  }
+
+  // Read-only preview helpers for the Module 6 widget — no engine state is
+  // ever mutated here, they just report what would happen.
+  function previewSearchMatches(engine, pattern) {
+    const ed = engine.state.editor;
+    if (!pattern) return { count: 0, valid: true };
+    const matches = findAllMatchIndices(ed.lines, pattern);
+    if (matches === null) return { count: 0, valid: false };
+    return { count: matches.length, valid: true };
+  }
+
+  function previewSubstitute(engine, commandLine) {
+    const ed = engine.state.editor;
+    const m = commandLine.match(/^(%?)s\/(.*?)\/(.*?)\/([a-z]*)$/);
+    if (!m) return { valid: false };
+    const [, scopeFlag, pattern, replacement, flags] = m;
+    const global = flags.includes("g");
+    let re;
+    try { re = new RegExp(pattern, "g"); } catch (e) { return { valid: false, error: "bad pattern" }; }
+    const targetLines = scopeFlag === "%" ? ed.lines : [ed.lines[ed.cursor.line]];
+    let matchCount = 0, lineCount = 0;
+    targetLines.forEach((lineText) => {
+      const found = lineText.match(re);
+      if (found) { lineCount++; matchCount += global ? found.length : 1; }
+    });
+    return { valid: true, scope: scopeFlag === "%" ? "whole buffer" : "current line only", pattern, replacement, flags, global, matchCount, lineCount };
   }
 
   /* =============================== simple normal-mode commands =============================== */
@@ -420,13 +672,146 @@ window.VimGrammar = (function () {
   /* =============================== macros =============================== */
   function startMacroRecording(engine, reg) { const ed = engine.state.editor; ed.macroRecording = reg; ed.macroKeys = []; }
   function stopMacroRecording(engine) { const ed = engine.state.editor; if (ed.macroRecording) { ed.macros[ed.macroRecording] = ed.macroKeys.slice(); ed.macroRecording = null; } }
-  function replayMacro(engine, reg) {
+  function replayMacro(engine, reg, times) {
     const ed = engine.state.editor;
     const target = reg === "@" ? ed.lastMacroReg : reg;
     const keys = target ? ed.macros[target] : null;
     if (!keys) { ed.message = "macro not set"; return; }
     ed.lastMacroReg = target;
-    keys.forEach((k) => feedKey(engine, k));
+    const n = times && times > 0 ? times : 1;
+    for (let i = 0; i < n; i++) keys.forEach((k) => feedKey(engine, k));
+  }
+
+  /* =============================== buffers, windows, tabs =============================== */
+  // Design: ed.lines/ed.cursor/ed.undo/ed.marks always hold the CURRENTLY
+  // ACTIVE buffer's live state — every existing motion/operator/undo function
+  // keeps working exactly as before, completely unaware buffers even exist.
+  // ed.buffers[id] holds metadata for every buffer; for buffers OTHER than
+  // the active one, it also holds a saved snapshot of lines/cursor/undo/marks.
+  // Switching buffers is just "save active snapshot into the registry, load
+  // the target's snapshot into the live fields."
+  function freshUndo(lines) {
+    return { nodes: { 0: { id: 0, parentId: null, lines: lines.slice(), cursor: { line: 0, col: 0 }, childIds: [], lastChild: null, label: "initial" } }, currentId: 0, nextId: 1 };
+  }
+
+  function createBuffer(engine, name) {
+    const ed = engine.state.editor;
+    const id = String(ed.nextBufferId++);
+    ed.buffers[id] = { id, name: name || `[No Name ${id}]`, lines: [""], cursor: { line: 0, col: 0 }, undo: freshUndo([""]), marks: {} };
+    return id;
+  }
+
+  function findBufferByName(ed, name) {
+    return Object.keys(ed.buffers).find((k) => ed.buffers[k].name === name) || null;
+  }
+
+  function switchToBuffer(engine, targetId) {
+    const ed = engine.state.editor;
+    if (!ed.buffers[targetId]) return false;
+    if (targetId !== ed.activeBufferId) {
+      ed.buffers[ed.activeBufferId].lines = ed.lines;
+      ed.buffers[ed.activeBufferId].cursor = ed.cursor;
+      ed.buffers[ed.activeBufferId].undo = ed.undo;
+      ed.buffers[ed.activeBufferId].marks = ed.marks;
+      const target = ed.buffers[targetId];
+      ed.lines = target.lines ? target.lines : [""];
+      ed.cursor = target.cursor ? target.cursor : { line: 0, col: 0 };
+      ed.undo = target.undo ? target.undo : freshUndo(ed.lines);
+      ed.marks = target.marks ? target.marks : {};
+      ed.activeBufferId = targetId;
+    }
+    ed.mode = "normal";
+    resetParse(ed);
+    return true;
+  }
+
+  function deleteBuffer(engine, targetId) {
+    const ed = engine.state.editor;
+    if (!ed.buffers[targetId]) { ed.message = "E94: No matching buffer"; return; }
+    if (Object.keys(ed.buffers).length < 2) { ed.message = "E90: Cannot unload last buffer"; return; }
+    const openElsewhere = ed.tabs.some((t) => t.windows.some((w) => w.bufferId === targetId));
+    if (openElsewhere) { ed.message = "E89: buffer is open in a window (close that window first)"; return; }
+    delete ed.buffers[targetId];
+    Object.keys(ed.globalMarks).forEach((letter) => { if (ed.globalMarks[letter].bufferId === targetId) delete ed.globalMarks[letter]; });
+    ed.message = "buffer deleted";
+  }
+
+  function activeTab(ed) { return ed.tabs.find((t) => t.id === ed.activeTabId); }
+
+  function switchToWindow(engine, windowId) {
+    const ed = engine.state.editor;
+    const t = activeTab(ed);
+    const w = t.windows.find((x) => x.id === windowId);
+    if (!w) return;
+    t.activeWindowId = windowId;
+    switchToBuffer(engine, w.bufferId);
+  }
+
+  function cycleWindow(engine) {
+    const ed = engine.state.editor;
+    const t = activeTab(ed);
+    if (t.windows.length < 2) { ed.message = "only one window"; return; }
+    const idx = t.windows.findIndex((w) => w.id === t.activeWindowId);
+    switchToWindow(engine, t.windows[(idx + 1) % t.windows.length].id);
+  }
+
+  function splitWindow(engine, direction, bufferName) {
+    const ed = engine.state.editor;
+    const t = activeTab(ed);
+    const bufferId = bufferName ? (findBufferByName(ed, bufferName) || createBuffer(engine, bufferName)) : ed.activeBufferId;
+    const id = "w" + ed.nextWindowId++;
+    const activeIdx = t.windows.findIndex((w) => w.id === t.activeWindowId);
+    t.windows.splice(activeIdx + 1, 0, { id, bufferId });
+    t.splitDirection = direction;
+    switchToWindow(engine, id);
+  }
+
+  function closeWindow(engine) {
+    const ed = engine.state.editor;
+    const t = activeTab(ed);
+    if (t.windows.length < 2) { ed.message = "cannot close the only window in this tab"; return false; }
+    const idx = t.windows.findIndex((w) => w.id === t.activeWindowId);
+    t.windows.splice(idx, 1);
+    switchToWindow(engine, t.windows[Math.min(idx, t.windows.length - 1)].id);
+    return true;
+  }
+
+  function onlyWindow(engine) {
+    const ed = engine.state.editor;
+    const t = activeTab(ed);
+    t.windows = [{ id: t.activeWindowId, bufferId: ed.activeBufferId }];
+  }
+
+  function switchToTab(engine, tabId) {
+    const ed = engine.state.editor;
+    const t = ed.tabs.find((x) => x.id === tabId);
+    if (!t) return;
+    ed.activeTabId = tabId;
+    switchToWindow(engine, t.activeWindowId);
+  }
+
+  function newTab(engine, bufferName) {
+    const ed = engine.state.editor;
+    const bufferId = bufferName ? (findBufferByName(ed, bufferName) || createBuffer(engine, bufferName)) : createBuffer(engine);
+    const winId = "w" + ed.nextWindowId++;
+    const tabId = "t" + ed.nextTabId++;
+    ed.tabs.push({ id: tabId, windows: [{ id: winId, bufferId }], activeWindowId: winId, splitDirection: "horizontal" });
+    switchToTab(engine, tabId);
+  }
+
+  function cycleTab(engine, reverse) {
+    const ed = engine.state.editor;
+    const idx = ed.tabs.findIndex((t) => t.id === ed.activeTabId);
+    const next = ed.tabs[(idx + (reverse ? -1 : 1) + ed.tabs.length) % ed.tabs.length];
+    switchToTab(engine, next.id);
+  }
+
+  function closeTab(engine) {
+    const ed = engine.state.editor;
+    if (ed.tabs.length < 2) { ed.message = "cannot close the only tab"; return; }
+    const idx = ed.tabs.findIndex((t) => t.id === ed.activeTabId);
+    ed.tabs.splice(idx, 1);
+    switchToTab(engine, ed.tabs[Math.min(idx, ed.tabs.length - 1)].id);
   }
 
   /* =============================== normal mode dispatch =============================== */
@@ -444,14 +829,41 @@ window.VimGrammar = (function () {
       if (kind === "find") { p.findChar = key; return executeParsed(engine, p); }
       if (kind === "textobject") { p.textObjectChar = key; return executeParsed(engine, p); }
       if (kind === "mark-set") { setMark(engine, key); resetParse(ed); return; }
-      if (kind === "mark-jump-line") { jumpToMark(engine, key, false); resetParse(ed); return; }
-      if (kind === "mark-jump-exact") { jumpToMark(engine, key, true); resetParse(ed); return; }
+      if (kind === "mark-jump-line") {
+        if (p.operator) {
+          if (!resolveMarkPosition(ed, key)) { ed.message = `mark '${key}' not set`; resetParse(ed); return; }
+          p.motion = "mark-line"; p.markLetter = key; return executeParsed(engine, p);
+        }
+        jumpToMark(engine, key, false); resetParse(ed); return;
+      }
+      if (kind === "mark-jump-exact") {
+        if (p.operator) {
+          if (!resolveMarkPosition(ed, key)) { ed.message = `mark '${key}' not set`; resetParse(ed); return; }
+          p.motion = "mark-exact"; p.markLetter = key; return executeParsed(engine, p);
+        }
+        jumpToMark(engine, key, true); resetParse(ed); return;
+      }
       if (kind === "macro-record") { startMacroRecording(engine, key); resetParse(ed); return; }
-      if (kind === "macro-replay") { replayMacro(engine, key); resetParse(ed); return; }
+      if (kind === "macro-replay") {
+        const times = totalCount(p);
+        resetParse(ed); // clear BEFORE replay so leftover count/operator state can't leak into the macro's own first keystroke
+        replayMacro(engine, key, times);
+        return;
+      }
       if (kind === "g-prefix") {
         if (key === "g") { p.motion = "gg"; return executeParsed(engine, p); }
         if (key === "e") { p.motion = "ge"; return executeParsed(engine, p); }
+        if (key === "t") { cycleTab(engine, false); resetParse(ed); return; }
+        if (key === "T") { cycleTab(engine, true); resetParse(ed); return; }
         if ((key === "~" || key === "u" || key === "U") && !p.operator) { p.operator = "g" + key; ed.pending = "pending"; return; }
+        resetParse(ed); return;
+      }
+      if (kind === "ctrl-w-prefix") {
+        if (key === "w") cycleWindow(engine);
+        else if (key === "s") splitWindow(engine, "horizontal", null);
+        else if (key === "v") splitWindow(engine, "vertical", null);
+        else if (key === "c") closeWindow(engine);
+        else if (key === "o") onlyWindow(engine);
         resetParse(ed); return;
       }
       resetParse(ed); return;
@@ -463,9 +875,10 @@ window.VimGrammar = (function () {
     }
     if (key === '"' && !p.operator) { p.awaitingChar = "register"; ed.pending = "pending"; return; }
     if (key === "g" && !p.operator) { p.awaitingChar = "g-prefix"; ed.pending = "pending"; return; }
+    if (key === "ctrl-w" && !p.operator) { p.awaitingChar = "ctrl-w-prefix"; return; }
     if (key === "m" && !p.operator) { p.awaitingChar = "mark-set"; return; }
-    if (key === "'" && !p.operator) { p.awaitingChar = "mark-jump-line"; return; }
-    if (key === "`" && !p.operator) { p.awaitingChar = "mark-jump-exact"; return; }
+    if (key === "'") { p.awaitingChar = "mark-jump-line"; return; }
+    if (key === "`") { p.awaitingChar = "mark-jump-exact"; return; }
     if (key === "q" && !p.operator) {
       if (ed.macroRecording) { stopMacroRecording(engine); resetParse(ed); return; }
       p.awaitingChar = "macro-record"; return;
@@ -502,6 +915,17 @@ window.VimGrammar = (function () {
       if (key === "ctrl-v") return enterVisual(engine, "visual-block");
       if (key === ":") return enterCommand(engine);
     }
+
+    // Search motions work as bare cursor jumps OR, with an operator already
+    // pending, as that operator's motion (d/foo, cn, y*, ...) — both paths
+    // share applySearchAsMotionOrJump above.
+    if (key === "/") return enterSearch(engine, "forward", p.operator ? { operator: p.operator, register: p.register, count1: p.count1, count2: p.count2 } : null);
+    if (key === "?") return enterSearch(engine, "backward", p.operator ? { operator: p.operator, register: p.register, count1: p.count1, count2: p.count2 } : null);
+    if (key === "n") return repeatSearch(engine, p, false);
+    if (key === "N") return repeatSearch(engine, p, true);
+    if (key === "*") return searchWordUnderCursor(engine, p, "forward");
+    if (key === "#") return searchWordUnderCursor(engine, p, "backward");
+
     resetParse(ed);
   }
 
@@ -521,10 +945,16 @@ window.VimGrammar = (function () {
     if (ed.mode === "insert") return feedInsertKey(engine, key);
     if (ed.mode === "visual" || ed.mode === "visual-line" || ed.mode === "visual-block") return feedVisualKey(engine, key);
     if (ed.mode === "command") return feedCommandKey(engine, key);
+    if (ed.mode === "search") return feedSearchKey(engine, key);
   }
 
   return {
     createEditorState, feedKey,
-    undo, redo, totalCount, resolveMotion, orderRange
+    undo, redo, totalCount, resolveMotion, orderRange,
+    previewSearchMatches, previewSubstitute,
+    switchToBuffer, createBuffer, deleteBuffer, findBufferByName,
+    activeTab, switchToWindow, cycleWindow, splitWindow, closeWindow, onlyWindow,
+    switchToTab, newTab, cycleTab, closeTab,
+    setMark, jumpToMark, resolveMarkPosition, jumpToUndoNode
   };
 })();

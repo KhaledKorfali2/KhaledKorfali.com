@@ -14,6 +14,14 @@
   const SANDBOX_NAV = [
     { key: "editor", label: "editor", icon: "keyboard" },
     { key: "grammar", label: "grammar lab", icon: "keyboard" },
+    { key: "textobjects", label: "text objects", icon: "keyboard" },
+    { key: "registers", label: "registers", icon: "keyboard" },
+    { key: "macros", label: "macros", icon: "keyboard" },
+    { key: "search", label: "search", icon: "keyboard" },
+    { key: "buffers", label: "buffers", icon: "keyboard" },
+    { key: "marks", label: "marks", icon: "keyboard" },
+    { key: "undotree", label: "undo tree", icon: "keyboard" },
+    { key: "golf", label: "vim golf", icon: "trophy" },
     { key: "games-menu", label: "games", icon: "trophy" }
   ];
 
@@ -22,7 +30,10 @@
       editor: window.VimGrammar.createEditorState(SEED_LINES),
       game: null,
       gameBestScores: {},
-      sandboxActiveGame: null
+      sandboxActiveGame: null,
+      textObjectPreview: { kind: "w", around: false },
+      macroStepper: { reg: null, index: 0 },
+      golfGame: null, golfBestScores: {}, golfActivePuzzle: null
     };
   }
 
