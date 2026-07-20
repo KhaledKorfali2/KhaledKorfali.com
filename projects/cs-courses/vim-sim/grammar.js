@@ -31,6 +31,8 @@ window.VimGrammar = (function () {
       undo: freshUndo(lines),
       macroRecording: null, macroKeys: [], macros: {}, lastMacroReg: null,
       insertSnapshot: null,
+      lastChangeKeys: null,
+      wantCol: 0,
       buffers: { 1: { id: "1", name: "[No Name]" } },
       activeBufferId: "1", nextBufferId: 2,
       tabs: [{ id: "t1", windows: [{ id: "w1", bufferId: "1" }], activeWindowId: "w1", splitDirection: "horizontal" }],
@@ -98,7 +100,7 @@ window.VimGrammar = (function () {
   }
 
   /* =============================== registers =============================== */
-  function setRegister(engine, name, text, linewise) {
+  function setRegister(engine, name, text, linewise, blockwise) {
     const ed = engine.state.editor;
     if (name === "_") return; // black hole register: discard
     if (name && /^[A-Z]$/.test(name)) {
@@ -108,23 +110,56 @@ window.VimGrammar = (function () {
       const existing = ed.registers[lower];
       if (existing && existing.text) {
         const sep = existing.linewise || linewise ? "\n" : "";
-        ed.registers[lower] = { text: existing.text + sep + text, linewise: existing.linewise || linewise };
+        ed.registers[lower] = { text: existing.text + sep + text, linewise: existing.linewise || linewise, blockwise: existing.blockwise || !!blockwise };
       } else {
-        ed.registers[lower] = { text, linewise };
+        ed.registers[lower] = { text, linewise, blockwise: !!blockwise };
       }
       return;
     }
-    ed.registers[name || "unnamed"] = { text, linewise };
+    ed.registers[name || "unnamed"] = { text, linewise, blockwise: !!blockwise };
   }
-  function setRegisterAfterDelete(engine, text, linewise, explicitName) {
+  function setRegisterAfterDelete(engine, text, linewise, explicitName, blockwise) {
     const ed = engine.state.editor;
-    if (explicitName) { setRegister(engine, explicitName, text, linewise); return; }
+    if (explicitName) { setRegister(engine, explicitName, text, linewise, blockwise); return; }
     for (let n = 9; n >= 2; n--) { if (ed.registers[String(n - 1)]) ed.registers[String(n)] = ed.registers[String(n - 1)]; }
-    ed.registers["1"] = { text, linewise };
-    ed.registers.unnamed = { text, linewise };
+    ed.registers["1"] = { text, linewise, blockwise: !!blockwise };
+    ed.registers.unnamed = { text, linewise, blockwise: !!blockwise };
   }
 
   /* =============================== marks =============================== */
+  // Real Vim marks are anchored to the text they were set on, not to a raw
+  // line number — inserting or deleting lines above a mark shifts it so it
+  // keeps pointing at the same content. shiftMarksForSplice mirrors that:
+  // called with the same (start, oldCount, newCount) triple as whatever
+  // splice actually changed the buffer, it moves every mark that comes
+  // after the edit by the resulting line-count delta, and clamps any mark
+  // that was sitting inside a deleted/replaced region to the edit point
+  // rather than leaving it pointing at content that no longer exists there.
+  function shiftOneMark(m, spliceStart, spliceEnd, delta, newCount) {
+    if (!m) return;
+    if (m.line >= spliceEnd) m.line += delta;
+    else if (m.line >= spliceStart) m.line = Math.max(0, Math.min(spliceStart + Math.max(newCount - 1, 0), m.line));
+  }
+  function shiftMarksForSplice(ed, spliceStart, oldCount, newCount) {
+    const delta = newCount - oldCount;
+    if (delta === 0) return;
+    const spliceEnd = spliceStart + oldCount;
+    Object.keys(ed.marks).forEach((k) => shiftOneMark(ed.marks[k], spliceStart, spliceEnd, delta, newCount));
+    Object.keys(ed.globalMarks).forEach((k) => {
+      const gm = ed.globalMarks[k];
+      if (gm.bufferId === ed.activeBufferId) shiftOneMark(gm, spliceStart, spliceEnd, delta, newCount);
+    });
+  }
+  // Real Vim automatically drops a "'" mark at your position before any big
+  // jump (G, gg, search, %, jumping to another mark, ...), which is what
+  // makes "''" work as an instant "jump back to where I was" — without
+  // this, '' would have to be set manually every time to be useful at all.
+  function recordJumpMark(engine) {
+    const ed = engine.state.editor;
+    ed.marks["'"] = { ...ed.cursor };
+    ed.marks["`"] = { ...ed.cursor };
+  }
+
   function setMark(engine, letter) {
     const ed = engine.state.editor;
     if (/^[A-Z]$/.test(letter)) {
@@ -140,12 +175,16 @@ window.VimGrammar = (function () {
       if (!gm) { ed.message = `mark '${letter}' not set`; return; }
       if (gm.bufferId !== ed.activeBufferId && !switchToBuffer(engine, gm.bufferId)) { ed.message = `mark '${letter}' not set`; return; }
       const targetEd = engine.state.editor;
-      targetEd.cursor = exact ? B.clampPos(targetEd.lines, { line: gm.line, col: gm.col }) : { line: gm.line, col: B.firstNonBlankCol(targetEd.lines[gm.line] || "") };
+      const gmLine = Math.max(0, Math.min(targetEd.lines.length - 1, gm.line));
+      recordJumpMark(engine);
+      targetEd.cursor = exact ? B.clampPos(targetEd.lines, { line: gmLine, col: gm.col }) : { line: gmLine, col: B.firstNonBlankCol(targetEd.lines[gmLine] || "") };
       return;
     }
     const m = ed.marks[letter];
     if (!m) { ed.message = `mark '${letter}' not set`; return; }
-    ed.cursor = exact ? B.clampPos(ed.lines, m) : { line: m.line, col: B.firstNonBlankCol(ed.lines[m.line] || "") };
+    const mLine = Math.max(0, Math.min(ed.lines.length - 1, m.line));
+    recordJumpMark(engine);
+    ed.cursor = exact ? B.clampPos(ed.lines, { line: mLine, col: m.col }) : { line: mLine, col: B.firstNonBlankCol(ed.lines[mLine] || "") };
   }
   // Read-only lookup for the widget/resolveMotion — returns {line,col} in the
   // CURRENT buffer's coordinate space, or null if unset or in another buffer.
@@ -172,6 +211,24 @@ window.VimGrammar = (function () {
   }
 
   /* =============================== motion / text-object resolution =============================== */
+  /* --------------------------------- virtual column memory (for j/k) --------------------------------- */
+  // Real Vim remembers the column you were "aiming for" across consecutive
+  // j/k presses, so moving down through a short line and back onto a longer
+  // one returns you to the original column instead of getting stuck wherever
+  // the short line clamped you to. ed.wantCol holds that column, or the
+  // string "eol" (set by $) meaning "always the last column of whatever
+  // line I land on". Any motion other than j/k updates it to match where the
+  // cursor actually ends up; j/k themselves leave it untouched so it
+  // survives a whole chain of vertical moves.
+  function wantColFor(ed) {
+    if (ed.wantCol === "eol") return Infinity; // clampPos below pulls this back to each line's real last column
+    return ed.wantCol !== undefined && ed.wantCol !== null ? ed.wantCol : ed.cursor.col;
+  }
+  function updateWantCol(ed, motion) {
+    if (motion === "j" || motion === "k") return; // preserve across vertical chains
+    ed.wantCol = motion === "$" ? "eol" : ed.cursor.col;
+  }
+
   function resolveMotion(engine, p) {
     const ed = engine.state.editor;
     const count = totalCount(p);
@@ -229,12 +286,29 @@ window.VimGrammar = (function () {
     let target = null, inclusive = false, linewise = false;
     if (m === "h") target = { line: cur.line, col: Math.max(0, cur.col - count) };
     else if (m === "l") target = { line: cur.line, col: Math.min(B.lastCol(ed.lines, cur.line), cur.col + count) };
-    else if (m === "j") { linewise = true; target = { line: Math.min(ed.lines.length - 1, cur.line + count), col: cur.col }; }
-    else if (m === "k") { linewise = true; target = { line: Math.max(0, cur.line - count), col: cur.col }; }
+    else if (m === "j") { linewise = true; target = { line: Math.min(ed.lines.length - 1, cur.line + count), col: wantColFor(ed) }; }
+    else if (m === "k") { linewise = true; target = { line: Math.max(0, cur.line - count), col: wantColFor(ed) }; }
     else if (m === "0") target = { line: cur.line, col: 0 };
     else if (m === "^") target = { line: cur.line, col: B.firstNonBlankCol(ed.lines[cur.line]) };
     else if (m === "$") { inclusive = true; const l = Math.min(ed.lines.length - 1, cur.line + count - 1); target = { line: l, col: B.lastCol(ed.lines, l) }; }
-    else if (m === "w") { let t = cur; for (let i = 0; i < count; i++) t = B.wordForward(ed.lines, t); target = t; }
+    else if (m === "w") {
+      // Real Vim special case (:help cw): when the operator is "c" and the
+      // cursor is on a non-blank character, "cw"/"cW" behaves like "ce" —
+      // it changes to the end of the word, not up to the start of the next
+      // one — so it doesn't swallow the trailing whitespace after the word.
+      // If the cursor is on whitespace (or at end of line), "cw" behaves
+      // like a normal "w" motion, same as any other operator.
+      const atCursor = (ed.lines[cur.line] || "")[cur.col];
+      const onWordChar = atCursor !== undefined && B.charClass(atCursor) !== "space";
+      if (p.operator === "c" && onWordChar) {
+        inclusive = true;
+        let t = cur; for (let i = 0; i < count; i++) t = B.wordEnd(ed.lines, t);
+        target = t;
+      } else {
+        let t = cur; for (let i = 0; i < count; i++) t = B.wordForward(ed.lines, t);
+        target = t;
+      }
+    }
     else if (m === "b") { let t = cur; for (let i = 0; i < count; i++) t = B.wordBackward(ed.lines, t); target = t; }
     else if (m === "e") { inclusive = true; let t = cur; for (let i = 0; i < count; i++) t = B.wordEnd(ed.lines, t); target = t; }
     else if (m === "ge") { inclusive = true; let t = cur; for (let i = 0; i < count; i++) t = B.wordEndBackward(ed.lines, t); target = t; }
@@ -281,9 +355,46 @@ window.VimGrammar = (function () {
     const text = B.rangeText(ed.lines, range);
     if (op === "d" || op === "c") {
       setRegisterAfterDelete(engine, text, range.linewise, registerName);
+      if (op === "c" && range.linewise) {
+        // Real Vim's linewise change ("cc", "cip" on whole lines, etc.)
+        // replaces the affected lines with a single blank line to type into,
+        // preserving line count and position — it does not remove the lines
+        // outright the way "dd" does. Using the same deleteRange as "d"
+        // here (as this used to) left nothing behind to type into, so the
+        // typed text silently merged into whatever line happened to follow.
+        const newLines = ed.lines.slice();
+        const spliceOldCount = range.end.line - range.start.line + 1;
+        newLines.splice(range.start.line, spliceOldCount, "");
+        shiftMarksForSplice(ed, range.start.line, spliceOldCount, 1);
+        ed.lines = newLines;
+        pushUndoNode(engine, "change");
+        enterInsertAt(engine, { line: range.start.line, col: 0 });
+        return;
+      }
+      const oldLineCount = ed.lines.length;
       const newLines = B.deleteRange(ed.lines, range);
-      commitEdit(engine, newLines, range.start, op === "c" ? "change" : "delete");
-      if (op === "c") enterInsertAt(engine, ed.cursor);
+      {
+        const spliceOldCount = range.end.line - range.start.line + 1;
+        const spliceNewCount = spliceOldCount - (oldLineCount - newLines.length);
+        shiftMarksForSplice(ed, range.start.line, spliceOldCount, spliceNewCount);
+      }
+      if (op === "c") {
+        // The post-delete insert position can legitimately sit one column
+        // past the new line's last character (the "append" position) — e.g.
+        // deleting the last word on a line via cw/ce/ciw/C. commitEdit's
+        // cursor clamp uses Normal-mode semantics (max index = length-1,
+        // since Normal mode always sits ON a character), which would pull
+        // this one column too far left, landing the typed text on top of
+        // the previous character instead of after it. Compute the correct
+        // insert-mode position directly rather than reading it back through
+        // that clamp.
+        ed.lines = newLines;
+        pushUndoNode(engine, "change");
+        const line = newLines[range.start.line] || "";
+        enterInsertAt(engine, { line: range.start.line, col: Math.max(0, Math.min(line.length, range.start.col)) });
+      } else {
+        commitEdit(engine, newLines, range.start, "delete");
+      }
     } else if (op === "y") {
       const target = registerName || "0";
       setRegister(engine, target, text, range.linewise);
@@ -316,8 +427,8 @@ window.VimGrammar = (function () {
     if (kind === "a") ed.cursor = { line: ed.cursor.line, col: Math.min(ed.lines[ed.cursor.line].length, ed.cursor.col + 1) };
     else if (kind === "I") ed.cursor = { line: ed.cursor.line, col: B.firstNonBlankCol(ed.lines[ed.cursor.line]) };
     else if (kind === "A") ed.cursor = { line: ed.cursor.line, col: ed.lines[ed.cursor.line].length };
-    else if (kind === "o") { const nl = ed.lines.slice(); nl.splice(ed.cursor.line + 1, 0, ""); ed.lines = nl; ed.cursor = { line: ed.cursor.line + 1, col: 0 }; }
-    else if (kind === "O") { const nl = ed.lines.slice(); nl.splice(ed.cursor.line, 0, ""); ed.lines = nl; ed.cursor = { line: ed.cursor.line, col: 0 }; }
+    else if (kind === "o") { const nl = ed.lines.slice(); nl.splice(ed.cursor.line + 1, 0, ""); shiftMarksForSplice(ed, ed.cursor.line + 1, 0, 1); ed.lines = nl; ed.cursor = { line: ed.cursor.line + 1, col: 0 }; }
+    else if (kind === "O") { const nl = ed.lines.slice(); nl.splice(ed.cursor.line, 0, ""); shiftMarksForSplice(ed, ed.cursor.line, 0, 1); ed.lines = nl; ed.cursor = { line: ed.cursor.line, col: 0 }; }
     ed.mode = "insert";
     resetParse(ed);
   }
@@ -329,10 +440,34 @@ window.VimGrammar = (function () {
   }
   function feedInsertKey(engine, key) {
     const ed = engine.state.editor;
-    if (ed.macroRecording) ed.macroKeys.push(key);
     if (key === "Escape") {
+      const bi = ed._blockInsert;
+      ed._blockInsert = null;
+      if (bi && ed.cursor.line === bi.top) {
+        // Whatever got typed on the top line, from the block's column to
+        // wherever the cursor ended up, gets replayed at the same column on
+        // every other line in the block — this is what makes "I"/"A"/block-c
+        // feel like editing several lines at once instead of just one.
+        const topStartCol = bi.col === "eol" ? bi.topStartCol : bi.col;
+        const insertedText = (ed.lines[bi.top] || "").slice(topStartCol, ed.cursor.col);
+        if (insertedText) {
+          const newLines = ed.lines.slice();
+          for (let l = bi.top + 1; l <= bi.bottom; l++) {
+            let line = newLines[l];
+            if (line === undefined) continue;
+            const targetCol = bi.col === "eol" ? line.length : bi.col;
+            if (line.length < targetCol) {
+              if (!bi.pad) continue; // "I" and block-"c" skip lines that don't reach the block; "A" pads them
+              line = line + " ".repeat(targetCol - line.length);
+            }
+            newLines[l] = line.slice(0, targetCol) + insertedText + line.slice(targetCol);
+          }
+          ed.lines = newLines;
+        }
+      }
       ed.mode = "normal";
       ed.cursor = { line: ed.cursor.line, col: Math.max(0, ed.cursor.col - 1) };
+      ed.wantCol = ed.cursor.col;
       if (JSON.stringify(ed.lines) !== JSON.stringify(ed.insertSnapshot)) pushUndoNode(engine, "insert");
       ed.insertSnapshot = null;
       return;
@@ -348,11 +483,12 @@ window.VimGrammar = (function () {
         const nl = ed.lines.slice();
         nl[ed.cursor.line - 1] = nl[ed.cursor.line - 1] + nl[ed.cursor.line];
         nl.splice(ed.cursor.line, 1);
+        shiftMarksForSplice(ed, ed.cursor.line - 1, 2, 1);
         ed.lines = nl; ed.cursor = { line: ed.cursor.line - 1, col: prevLen };
       }
       return;
     }
-    if (key === "Enter") { const r = B.insertTextAt(ed.lines, ed.cursor, "\n"); ed.lines = r.lines; ed.cursor = r.end; return; }
+    if (key === "Enter") { const r = B.insertTextAt(ed.lines, ed.cursor, "\n"); shiftMarksForSplice(ed, ed.cursor.line, 1, 2); ed.lines = r.lines; ed.cursor = r.end; return; }
     const r = B.insertTextAt(ed.lines, ed.cursor, key);
     ed.lines = r.lines; ed.cursor = r.end;
   }
@@ -362,12 +498,13 @@ window.VimGrammar = (function () {
     const ed = engine.state.editor;
     ed.mode = kind;
     ed.visualAnchor = { ...ed.cursor };
+    ed.wantCol = ed.cursor.col;
     resetParse(ed);
   }
   function applyVisualMotion(engine, p) {
     const ed = engine.state.editor;
     const resolved = resolveMotion(engine, p);
-    if (resolved) ed.cursor = B.clampPos(ed.lines, resolved.newCursor || ed.cursor);
+    if (resolved) { ed.cursor = B.clampPos(ed.lines, resolved.newCursor || ed.cursor); updateWantCol(ed, p.motion); }
     resetParse(ed);
   }
   function applyVisualTextObject(engine, p) {
@@ -376,8 +513,117 @@ window.VimGrammar = (function () {
     if (resolved) { ed.visualAnchor = { ...resolved.range.start }; ed.cursor = { ...resolved.range.end }; }
     resetParse(ed);
   }
+
+  /* --------------------------------- visual-block: rectangular column range --------------------------------- */
+  // Unlike charwise/linewise visual mode, a block selection isn't a single
+  // contiguous range of the buffer — it's the same [left, right] column
+  // range repeated on every line from the anchor's line to the cursor's
+  // line. Every block operator below works from these four numbers rather
+  // than from resolveMotion's single {start,end} range shape.
+  function blockBounds(ed) {
+    const a = ed.visualAnchor, c = ed.cursor;
+    return {
+      top: Math.min(a.line, c.line), bottom: Math.max(a.line, c.line),
+      left: Math.min(a.col, c.col), right: Math.max(a.col, c.col),
+      // If $ was used to extend the selection, real Vim's block operates on
+      // each line's own actual end rather than a shared column — this is
+      // what lets "A" append at the true end of every line in a paragraph
+      // regardless of how long each one is, instead of a fixed column that
+      // would cut some lines short or pad others unnecessarily.
+      ragged: ed.wantCol === "eol"
+    };
+  }
+  function applyBlockOperator(engine, op) {
+    const ed = engine.state.editor;
+    const { top, bottom, left, right, ragged } = blockBounds(ed);
+    ed.mode = "normal";
+    ed.visualAnchor = null;
+    resetParse(ed);
+
+    if (op === "y" || op === "d" || op === "c") {
+      const texts = [];
+      const newLines = ed.lines.slice();
+      for (let l = top; l <= bottom; l++) {
+        const line = newLines[l] || "";
+        const lineRight = ragged ? B.lastCol(newLines, l) : right;
+        texts.push(line.slice(left, lineRight + 1));
+        if (op !== "y") newLines[l] = line.slice(0, left) + line.slice(lineRight + 1);
+      }
+      setRegisterAfterDelete(engine, texts.join("\n"), false, null, true);
+      if (op === "y") { ed.cursor = { line: top, col: Math.min(left, B.lastCol(ed.lines, top)) }; return; }
+      ed.lines = newLines;
+      pushUndoNode(engine, op === "c" ? "change" : "delete");
+      if (op === "c") {
+        // Real Vim propagates whatever gets typed here to the same column on
+        // every other line in the block once Escape is pressed (feedInsertKey
+        // handles the actual propagation) — lines shorter than the block's
+        // left column are left alone, matching "c" (not padded, unlike "A").
+        ed._blockInsert = { top, bottom, col: left, pad: false };
+        enterInsertAt(engine, { line: top, col: left });
+      } else {
+        ed.cursor = { line: top, col: Math.min(left, B.lastCol(ed.lines, top)) };
+      }
+      return;
+    }
+
+    if (op === "g~" || op === "gu" || op === "gU") {
+      const newLines = ed.lines.slice();
+      for (let l = top; l <= bottom; l++) {
+        const line = newLines[l] || "";
+        if (line.length <= left) continue;
+        const lineRight = ragged ? B.lastCol(newLines, l) : right;
+        const seg = line.slice(left, lineRight + 1);
+        const transformed = op === "gu" ? seg.toLowerCase() : op === "gU" ? seg.toUpperCase()
+          : seg.replace(/[a-zA-Z]/g, (ch) => (ch === ch.toUpperCase() ? ch.toLowerCase() : ch.toUpperCase()));
+        newLines[l] = line.slice(0, left) + transformed + line.slice(lineRight + 1);
+      }
+      ed.lines = newLines;
+      pushUndoNode(engine, "case");
+      ed.cursor = { line: top, col: left };
+      return;
+    }
+
+    if (op === ">" || op === "<") {
+      // Real Vim indents/dedents the whole affected lines in block mode too,
+      // regardless of the block's column range — same as linewise visual.
+      const newLines = ed.lines.slice();
+      for (let l = top; l <= bottom; l++) newLines[l] = op === ">" ? "    " + newLines[l] : newLines[l].replace(/^ {1,4}/, "");
+      ed.lines = newLines;
+      pushUndoNode(engine, "indent");
+      ed.cursor = { line: top, col: 0 };
+      return;
+    }
+  }
+  function startBlockInsert(engine, isAppend) {
+    const ed = engine.state.editor;
+    const { top, bottom, left, right, ragged } = blockBounds(ed);
+    ed.mode = "normal";
+    ed.visualAnchor = null;
+    resetParse(ed);
+    if (isAppend && ragged) {
+      // Ragged block-append: each line gets typed text at its OWN actual
+      // end, not a shared column — col: "eol" tells the Escape-time
+      // propagation logic (below) to recompute the target column per line.
+      const topStartCol = (ed.lines[top] || "").length;
+      ed._blockInsert = { top, bottom, col: "eol", pad: false, topStartCol };
+      enterInsertAt(engine, { line: top, col: topStartCol });
+      return;
+    }
+    const col = isAppend ? right + 1 : left;
+    // Real Vim's block-append ("A") pads lines shorter than the block with
+    // spaces so the appended text lines up in a column on every line; block-
+    // insert ("I") does not pad — it simply skips lines that don't reach it.
+    ed._blockInsert = { top, bottom, col, pad: isAppend };
+    const line = ed.lines[top] || "";
+    const startCol = isAppend && line.length < col
+      ? (() => { ed.lines = ed.lines.slice(); ed.lines[top] = line + " ".repeat(col - line.length); return col; })()
+      : Math.min(col, line.length);
+    enterInsertAt(engine, { line: top, col: startCol });
+  }
+
   function applyVisualOperator(engine, op) {
     const ed = engine.state.editor;
+    if (ed.mode === "visual-block") return applyBlockOperator(engine, op);
     const linewise = ed.mode === "visual-line";
     const range = orderRange(ed.visualAnchor, ed.cursor, true, linewise, ed.lines);
     ed.mode = "normal";
@@ -387,8 +633,8 @@ window.VimGrammar = (function () {
   }
   function feedVisualKey(engine, key) {
     const ed = engine.state.editor;
-    if (ed.macroRecording) ed.macroKeys.push(key);
     if (key === "Escape") { ed.mode = "normal"; ed.visualAnchor = null; resetParse(ed); return; }
+    if (ed.mode === "visual-block" && (key === "I" || key === "A")) return startBlockInsert(engine, key === "A");
     const p = ensureParse(ed);
     if (p.awaitingChar === "textobject") { p.textObjectChar = key; return applyVisualTextObject(engine, p); }
     if (p.awaitingChar === "find") { p.findChar = key; return applyVisualMotion(engine, p); }
@@ -529,6 +775,7 @@ window.VimGrammar = (function () {
       p.searchTargetIdx = found.idx;
       return executeParsed(engine, p);
     }
+    recordJumpMark(engine);
     ed.cursor = B.clampPos(ed.lines, B.toPos(ed.lines, found.idx));
     ed.message = found.wrapped ? (direction === "forward" ? "search hit BOTTOM, continuing at TOP" : "search hit TOP, continuing at BOTTOM") : "";
     resetParse(ed);
@@ -618,17 +865,41 @@ window.VimGrammar = (function () {
     const reg = ed.registers[p.register || "unnamed"];
     resetParse(ed);
     if (!reg || !reg.text) { ed.message = "nothing to paste"; return; }
+    if (reg.blockwise) {
+      // Each stored line goes at the same column on consecutive buffer
+      // lines (padding short lines with spaces so the block still lines up),
+      // rather than as one contiguous run of text — that's what makes block
+      // yank/paste round-trip a rectangle instead of scrambling it into a
+      // single-line insert.
+      const blockLines = reg.text.split("\n");
+      const col = after ? ed.cursor.col + 1 : ed.cursor.col;
+      const newLines = ed.lines.slice();
+      for (let i = 0; i < blockLines.length; i++) {
+        const l = ed.cursor.line + i;
+        if (newLines[l] === undefined) newLines.push("");
+        let line = newLines[l];
+        if (line.length < col) line = line + " ".repeat(col - line.length);
+        newLines[l] = line.slice(0, col) + blockLines[i] + line.slice(col);
+      }
+      commitEdit(engine, newLines, { line: ed.cursor.line, col }, "paste");
+      ed.wantCol = ed.cursor.col;
+      return;
+    }
     if (reg.linewise) {
       const linesToInsert = reg.text.split("\n");
       const insertAt = after ? ed.cursor.line + 1 : ed.cursor.line;
       const nl = ed.lines.slice();
       nl.splice(insertAt, 0, ...linesToInsert);
+      shiftMarksForSplice(ed, insertAt, 0, linesToInsert.length);
       commitEdit(engine, nl, { line: insertAt, col: B.firstNonBlankCol(linesToInsert[0]) }, "paste");
     } else {
       const insertCol = after ? Math.min(ed.lines[ed.cursor.line].length, ed.cursor.col + 1) : ed.cursor.col;
+      const oldLineCount = ed.lines.length;
       const r = B.insertTextAt(ed.lines, { line: ed.cursor.line, col: insertCol }, reg.text);
+      shiftMarksForSplice(ed, ed.cursor.line, 1, 1 + (r.lines.length - oldLineCount));
       commitEdit(engine, r.lines, { line: r.end.line, col: Math.max(0, r.end.col - 1) }, "paste");
     }
+    ed.wantCol = ed.cursor.col;
   }
   function doDeleteChar(engine, p, forward) {
     const ed = engine.state.editor;
@@ -648,6 +919,7 @@ window.VimGrammar = (function () {
       setRegisterAfterDelete(engine, B.rangeText(ed.lines, range), false, null);
       commitEdit(engine, B.deleteRange(ed.lines, range), { line: ed.cursor.line, col: start }, "delete-char");
     }
+    ed.wantCol = ed.cursor.col;
   }
   function doToEndOfLine(engine, p, op) {
     const ed = engine.state.editor;
@@ -667,9 +939,20 @@ window.VimGrammar = (function () {
     const nl = ed.lines.slice();
     nl[ed.cursor.line] = chars.join("");
     commitEdit(engine, nl, { line: ed.cursor.line, col: Math.min(nl[ed.cursor.line].length - 1, endCol + 1) }, "tilde");
+    ed.wantCol = ed.cursor.col;
   }
 
   /* =============================== macros =============================== */
+  // A macro that replays itself, directly or through another macro, recurses
+  // through feedKey with no natural base case. A pure self-loop (@a inside a)
+  // is caught by a depth cap alone, but a *branching* mutual recursion (a
+  // calls b twice, b calls a twice, ...) can stay within any reasonable depth
+  // cap while still doing exponentially more total work at each level, which
+  // hangs the tab instead of erroring. So this guards both dimensions: max
+  // nesting depth AND a total step budget shared across the whole call tree,
+  // matching the spirit of real Vim's E169 guard against runaway recursion.
+  const MAX_MACRO_DEPTH = 50;
+  const MAX_MACRO_STEPS = 20000;
   function startMacroRecording(engine, reg) { const ed = engine.state.editor; ed.macroRecording = reg; ed.macroKeys = []; }
   function stopMacroRecording(engine) { const ed = engine.state.editor; if (ed.macroRecording) { ed.macros[ed.macroRecording] = ed.macroKeys.slice(); ed.macroRecording = null; } }
   function replayMacro(engine, reg, times) {
@@ -678,8 +961,32 @@ window.VimGrammar = (function () {
     const keys = target ? ed.macros[target] : null;
     if (!keys) { ed.message = "macro not set"; return; }
     ed.lastMacroReg = target;
-    const n = times && times > 0 ? times : 1;
-    for (let i = 0; i < n; i++) keys.forEach((k) => feedKey(engine, k));
+
+    const isTopLevel = !ed._macroDepth;
+    if (isTopLevel) { ed._macroDepth = 0; ed._macroSteps = 0; ed._macroAborted = false; }
+    ed._macroDepth++;
+    if (ed._macroDepth > MAX_MACRO_DEPTH) ed._macroAborted = true;
+
+    if (!ed._macroAborted) {
+      const n = times && times > 0 ? times : 1;
+      outer:
+      for (let i = 0; i < n; i++) {
+        for (const k of keys) {
+          if (ed._macroAborted) break outer;
+          ed._macroSteps++;
+          if (ed._macroSteps > MAX_MACRO_STEPS) { ed._macroAborted = true; break outer; }
+          feedKey(engine, k);
+        }
+      }
+    }
+
+    ed._macroDepth--;
+    if (isTopLevel) {
+      if (ed._macroAborted) ed.message = "E169: Command too recursive";
+      ed._macroDepth = 0;
+      ed._macroSteps = 0;
+      ed._macroAborted = false;
+    }
   }
 
   /* =============================== buffers, windows, tabs =============================== */
@@ -709,16 +1016,30 @@ window.VimGrammar = (function () {
     const ed = engine.state.editor;
     if (!ed.buffers[targetId]) return false;
     if (targetId !== ed.activeBufferId) {
-      ed.buffers[ed.activeBufferId].lines = ed.lines;
-      ed.buffers[ed.activeBufferId].cursor = ed.cursor;
-      ed.buffers[ed.activeBufferId].undo = ed.undo;
-      ed.buffers[ed.activeBufferId].marks = ed.marks;
+      if (ed.buffers[ed.activeBufferId]) {
+        ed.buffers[ed.activeBufferId].lines = ed.lines;
+        ed.buffers[ed.activeBufferId].cursor = ed.cursor;
+        ed.buffers[ed.activeBufferId].undo = ed.undo;
+        ed.buffers[ed.activeBufferId].marks = ed.marks;
+      }
       const target = ed.buffers[targetId];
       ed.lines = target.lines ? target.lines : [""];
       ed.cursor = target.cursor ? target.cursor : { line: 0, col: 0 };
       ed.undo = target.undo ? target.undo : freshUndo(ed.lines);
       ed.marks = target.marks ? target.marks : {};
       ed.activeBufferId = targetId;
+      // Keep the current window's bufferId in sync with whatever buffer is
+      // now actually active. Without this, a direct switchToBuffer call
+      // (e.g. the buffer explorer's "switch" button, rather than switching
+      // via a window) leaves activeBufferId pointing at a buffer no window
+      // claims to show — which fools deleteBuffer's "is this buffer open in
+      // a window" safety check into allowing the truly-active buffer to be
+      // deleted out from under the editor.
+      const t = activeTab(ed);
+      if (t) {
+        const w = t.windows.find((x) => x.id === t.activeWindowId);
+        if (w) w.bufferId = targetId;
+      }
     }
     ed.mode = "normal";
     resetParse(ed);
@@ -818,9 +1139,6 @@ window.VimGrammar = (function () {
   function feedNormalKey(engine, key) {
     const ed = engine.state.editor;
     const p = ensureParse(ed);
-
-    const isStopRecording = key === "q" && ed.macroRecording && !p.operator && !p.awaitingChar && p.count1 === "";
-    if (ed.macroRecording && !isStopRecording) ed.macroKeys.push(key);
     ed.message = "";
 
     if (p.awaitingChar) {
@@ -933,19 +1251,128 @@ window.VimGrammar = (function () {
     const ed = engine.state.editor;
     const resolved = resolveMotion(engine, p);
     if (!resolved) { resetParse(ed); ed.message = "no match"; return; }
-    if (!p.operator) { ed.cursor = B.clampPos(ed.lines, resolved.newCursor || resolved.range.start); resetParse(ed); return; }
+    if (!p.operator) {
+      if (p.motion === "G" || p.motion === "gg" || p.motion === "%") recordJumpMark(engine);
+      ed.cursor = B.clampPos(ed.lines, resolved.newCursor || resolved.range.start);
+      updateWantCol(ed, p.motion);
+      resetParse(ed);
+      return;
+    }
     applyOperator(engine, p.operator, resolved.range, p.register);
     resetParse(ed);
   }
 
+  /* =============================== dot-repeat (".") =============================== */
+  // Real Vim's "." replays "the last change" — the most recent buffer-modifying
+  // command, whatever grammar produced it (operator+motion, operator+text
+  // object, an insert session's typed text, x/D/C/p/~, a visual-mode
+  // operator...). Rather than modeling every command type as its own
+  // structured record (brittle — every new command would need its own dot-
+  // repeat case), this records the *raw keystrokes* of the last command that
+  // actually changed the buffer, the same way macro recording already works,
+  // and replays them through feedKey itself. That gets motions/text objects/
+  // counts/registers re-resolved fresh against the current cursor for free
+  // (so "dw." deletes the *next* word, not a fixed range), and it composes
+  // naturally with macros (a macro invocation that changes the buffer is
+  // itself a repeatable "change").
+  //
+  // Known, deliberate scope limits (documented rather than silently wrong):
+  //  - A count typed before "." (e.g. "3.") overrides a *leading* count on
+  //    the recorded command (matches "3x", "3dd", ...). If the original
+  //    command's count lived elsewhere (rare — e.g. typed literally as
+  //    "d3w"), the new count is prepended instead of substituted, so it
+  //    multiplies rather than replaces. Still valid Vim grammar, just not a
+  //    true override in that one case.
+  //  - Visual-mode operators are repeated by literally replaying the motion
+  //    keys that built the selection (e.g. "vjjd") from the new cursor
+  //    position, which reproduces real Vim's "same shape, new location"
+  //    behavior for relative motions, but not for absolute jumps used to
+  //    build the original selection.
+  //  - "." after a macro replay (e.g. "@a.") repeats the whole "@a" that was
+  //    just run, not only the last atomic change inside the macro the way
+  //    real Vim's separate change-vs-command tracking does. Simpler and
+  //    still predictable, at the cost of not being byte-for-byte Vim.
+  function repeatLastChange(engine) {
+    const ed = engine.state.editor;
+    const p = ed.parse;
+    const overrideCount = p && p.count1 ? p.count1 : null;
+    resetParse(ed);
+    if (!ed.lastChangeKeys || !ed.lastChangeKeys.length) { ed.message = "nothing to repeat"; return; }
+    let keys = ed.lastChangeKeys;
+    if (overrideCount) {
+      let i = 0;
+      while (i < keys.length && /[0-9]/.test(keys[i]) && !(i === 0 && keys[i] === "0")) i++;
+      keys = overrideCount.split("").concat(keys.slice(i));
+    }
+    keys.forEach((k) => feedKey(engine, k));
+  }
+
   /* =============================== top-level entry point =============================== */
-  function feedKey(engine, key) {
+  function dispatchByMode(engine, key) {
     const ed = engine.state.editor;
     if (ed.mode === "normal") return feedNormalKey(engine, key);
     if (ed.mode === "insert") return feedInsertKey(engine, key);
     if (ed.mode === "visual" || ed.mode === "visual-line" || ed.mode === "visual-block") return feedVisualKey(engine, key);
     if (ed.mode === "command") return feedCommandKey(engine, key);
     if (ed.mode === "search") return feedSearchKey(engine, key);
+  }
+
+  function feedKey(engine, key) {
+    const ed = engine.state.editor;
+    const isNestedCall = !!ed._feedDepth;
+
+    // Macro recording captures only genuinely top-level keystrokes, not the
+    // expanded keys of a nested replay (a macro invoking another macro via
+    // "@b", or a dot-repeat replay). Recording used to push from inside
+    // feedNormalKey/feedInsertKey/feedVisualKey directly, which didn't
+    // distinguish a real keystroke from a replayed one — so recording macro
+    // 'a' as "@b" would also capture every key macro 'b' expanded into,
+    // double-applying it on every future replay of 'a'. Centralizing it here
+    // with the same depth guard as the change-tracking below fixes that: the
+    // literal "@","b" get recorded, and the replay that actually performs
+    // b's edit (needed so 'a' itself does something while being recorded)
+    // does NOT also add its own keys to 'a's definition.
+    if (!isNestedCall && ed.macroRecording) {
+      const p = ed.parse; // read-only: must NOT lazily materialize ed.parse here, or it corrupts the fresh-boundary check below
+      const isStopRecording = ed.mode === "normal" && key === "q" && (!p || (!p.operator && !p.awaitingChar && p.count1 === ""));
+      if (!isStopRecording) ed.macroKeys.push(key);
+    }
+
+    // "." bypasses the change-tracking bookkeeping below entirely, at every
+    // level of nesting — not just when typed directly. If it were tracked
+    // like a normal key, a top-level "." could end up recorded as the new
+    // lastChangeKeys (= ["."]), and the *next* "." would then replay that,
+    // calling repeatLastChange from inside itself forever. Bypassing it
+    // unconditionally means lastChangeKeys can never contain "." at all, so
+    // that can't happen.
+    if (key === "." && ed.mode === "normal") {
+      const p = ensureParse(ed);
+      if (!p.operator && !p.awaitingChar) {
+        ed._feedDepth = (ed._feedDepth || 0) + 1;
+        try { repeatLastChange(engine); } finally { ed._feedDepth--; }
+        return;
+      }
+    }
+
+    // Only a genuinely fresh top-level call (not one nested inside a macro
+    // replay or a dot-repeat replay) tracks change keys — otherwise the
+    // outer keystroke that triggered a nested replay would overwrite the
+    // correctly-recorded inner change once control returns to it.
+    if (!isNestedCall) {
+      if (ed.mode === "normal" && !ed.parse) { ed._changeKeys = []; ed._cmdStartLines = ed.lines; }
+      if (!ed._changeKeys) ed._changeKeys = [];
+      ed._changeKeys.push(key);
+    }
+    ed._feedDepth = (ed._feedDepth || 0) + 1;
+    try {
+      dispatchByMode(engine, key);
+    } finally {
+      ed._feedDepth--;
+    }
+    if (!isNestedCall && ed.mode === "normal" && !ed.parse) {
+      if (ed.lines !== ed._cmdStartLines) ed.lastChangeKeys = ed._changeKeys.slice();
+      ed._changeKeys = [];
+    }
   }
 
   return {

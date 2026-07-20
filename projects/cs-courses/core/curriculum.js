@@ -131,7 +131,21 @@ window.Curriculum = (function () {
     function loadProgress() {
       const saved = window.Persistence.load(storageKey);
       if (!saved) return false;
-      engine.state = { ...createInitialState(), ...saved };
+      let merged = { ...createInitialState(), ...saved };
+      // Saved state can predate schema changes the host project has made since
+      // (new nested fields added to a domain object, etc). A blind shallow merge
+      // leaves those fields entirely missing rather than defaulted, which crashes
+      // any code that assumes they exist. Give the host project a chance to
+      // patch its own domain state back into shape before we trust it.
+      if (config.migrateState) {
+        try {
+          merged = config.migrateState(merged, createInitialState()) || merged;
+        } catch (e) {
+          console.warn("migrateState failed, falling back to fresh state:", e);
+          return false;
+        }
+      }
+      engine.state = merged;
       return true;
     }
     function resetProgress() {
@@ -306,6 +320,23 @@ window.Curriculum = (function () {
       const savedWindowScroll = window.scrollY;
       const snapshots = window.ScrollPreserve.snapshot(preserveSelectors);
 
+      let body;
+      try {
+        body = engine.state.mode === "home" ? renderHomeView() : engine.state.mode === "lessons" ? renderLessonsMode() : renderSandboxMode();
+      } catch (e) {
+        // A malformed/incompatible state (e.g. restored from an older save
+        // whose shape has since changed) should degrade to a recovery screen,
+        // not crash the whole app and leave the person staring at a blank or
+        // half-built page with no way back in short of manually clearing
+        // localStorage themselves.
+        console.error("Render failed, offering recovery:", e);
+        body = `<div class="panel" style="padding:24px">
+          <div class="title mono" style="margin-bottom:8px">Something went wrong rendering this view</div>
+          <p class="perm-note" style="margin-top:0">This can happen if saved progress is from an older, incompatible version. Resetting progress will fix it.</p>
+          <button class="btn accent" data-resetprogress>Reset progress</button>
+        </div>`;
+      }
+
       app.innerHTML = `
         <header class="header">
           <div class="brand mono">${icon(config.brandIcon || "hardDrive", 18)}<span>${esc(config.brandName || "app")}</span><span class="accent">::</span><span class="dim">${esc(config.brandTagline || "curriculum")}</span></div>
@@ -315,7 +346,7 @@ window.Curriculum = (function () {
             <button class="${engine.state.mode === "sandbox" ? "active" : ""}" data-setmode="sandbox">${icon("terminal", 12)} sandbox</button>
           </div>
         </header>
-        <div id="view-container">${engine.state.mode === "home" ? renderHomeView() : engine.state.mode === "lessons" ? renderLessonsMode() : renderSandboxMode()}</div>
+        <div id="view-container">${body}</div>
         <footer class="foot">${esc(config.footerNote || "progress saves automatically in this browser")} · <button class="reset-link" data-resetprogress>reset progress</button></footer>
       `;
 

@@ -22,7 +22,8 @@ window.VimCourse = (function () {
 
     { id: "m1", title: "Modes", checkpoint: { questions: [
         { text: "Which mode is Vim in by default when you open a file?", options: ["Insert", "Normal", "Visual", "Command"], correct: 1 },
-        { text: "What key always returns you to Normal mode from Insert or Visual?", options: ["Enter", "Escape", "Tab", "Backspace"], correct: 1 }
+        { text: "What key always returns you to Normal mode from Insert or Visual?", options: ["Enter", "Escape", "Tab", "Backspace"], correct: 1 },
+        { text: "What makes Ctrl-v (block Visual mode) different from v or V?", options: ["It's just a faster way to select a single line", "It selects a column range repeated across several lines, rather than one contiguous run of text", "It only works with the y operator", "It automatically selects the entire buffer"], correct: 1 }
       ]}, lessons: [
       { id: "l1", title: "Normal mode", view: "editor", subsections: [
         { id: "s1", title: "The default: navigation and commands", kind: "concept", widget: null,
@@ -45,7 +46,12 @@ window.VimCourse = (function () {
           body: "<code>v</code> selects character by character, <code>V</code> selects whole lines, and <code>Ctrl-v</code> selects a rectangular block. Once something is selected, an operator like <code>d</code> or <code>y</code> acts on exactly that selection." },
         { id: "s2", title: "Practice: select, then delete", kind: "practice", widget: "editor",
           body: "Watch the selection highlight grow as you move.",
-          tryIt: "Press <code>v</code>, move with <code>w</code> or <code>l</code> a few times, then press <code>d</code>." }
+          tryIt: "Press <code>v</code>, move with <code>w</code> or <code>l</code> a few times, then press <code>d</code>." },
+        { id: "s3", title: "Block mode: editing a column, not a line", kind: "concept", widget: null,
+          body: "<code>Ctrl-v</code> is the odd one out: instead of one contiguous run of text, it selects the same column range across several lines at once. <code>d</code> or <code>y</code> on a block acts on that rectangle. <code>I</code> (before the block) and <code>A</code> (after it) are block-only: whatever you type gets inserted at that column on every line in the block the moment you press <code>Escape</code> &mdash; a fast way to comment out a column of code or add the same punctuation to the end of several lines." },
+        { id: "s4", title: "Practice: block-insert a prefix on several lines", kind: "practice", widget: "editor",
+          body: "This is the move people reach for Ctrl-v for most often: adding the same few characters to the start of a handful of lines in one motion.",
+          tryIt: "Press <code>Ctrl-v</code>, then <code>j</code> a couple of times to select down a column, then <code>I</code>, type something, and press <code>Escape</code> &mdash; watch it appear on every selected line at once." }
       ]},
       { id: "l4", title: "Command mode", view: "editor", subsections: [
         { id: "s1", title: "A line of its own", kind: "concept", widget: null,
@@ -98,7 +104,8 @@ window.VimCourse = (function () {
         { text: "What does the operator c do differently from d?", options: ["Nothing, they're identical", "c deletes and drops you into Insert mode; d just deletes", "c only works on whole lines", "c copies instead of deleting"], correct: 1 },
         { text: "In the command 2d3w, how many words are actually deleted?", options: ["2", "3", "5", "6"], correct: 3 },
         { text: "What does di\" do with the cursor inside \"hello world\"?", options: ["Deletes the whole line", "Deletes hello world but keeps the quotes", "Deletes the quotes but keeps the text", "Does nothing outside Visual mode"], correct: 1 },
-        { text: "What's the real difference between an operator and a motion?", options: ["There is none, they're the same thing", "A motion alone just moves the cursor; combined with an operator first, it defines a range for that operator to act on", "Operators only work in Visual mode", "Motions can only be used with counts"], correct: 1 }
+        { text: "What's the real difference between an operator and a motion?", options: ["There is none, they're the same thing", "A motion alone just moves the cursor; combined with an operator first, it defines a range for that operator to act on", "Operators only work in Visual mode", "Motions can only be used with counts"], correct: 1 },
+        { text: "After typing dw once, what does pressing . do?", options: ["Nothing, . only works after macros", "Deletes a word starting from wherever the cursor is now", "Re-deletes the exact same word again", "Undoes the previous delete"], correct: 1 }
       ]}, lessons: [
       { id: "l1", title: "The grammar shape", view: "grammar", subsections: [
         { id: "s1", title: "One recipe for almost everything", kind: "concept", widget: null,
@@ -148,6 +155,20 @@ window.VimCourse = (function () {
         { id: "s4", title: "Practice: gU$ and g~~", kind: "practice", widget: "grammar",
           body: "Case operators follow the exact same operator+motion grammar as d/c/y.",
           tryIt: "Try <code>gU$</code> to uppercase to end of line, then <code>g~~</code> (or <code>g~g~</code>) to toggle the case of the whole line back." }
+      ]},
+      { id: "l6", title: "The dot: repeating the last change", view: "grammar", subsections: [
+        { id: "s1", title: "\".\" replays your last edit, wherever the cursor is now", kind: "concept", widget: null,
+          body: "<code>.</code> repeats whatever the last buffer-changing command was &mdash; an operator+motion, an operator+text-object (including everything you typed afterward if it was <code>c</code>), an <code>x</code>, a paste, a case toggle &mdash; against the <em>current</em> cursor position. It's not a fixed replay of one exact edit; the motion or text object re-resolves fresh each time, which is what makes <code>dw.</code> delete two consecutive words instead of the same word twice." },
+        { id: "s2", title: "Practice: dw then .", kind: "practice", widget: "grammar",
+          body: "The grammar breakdown panel now shows a \"last change\" line under the sentence &mdash; whatever keys it lists are exactly what <code>.</code> will replay.",
+          tryIt: "Try <code>dw</code>, then press <code>.</code> a few times in a row and watch consecutive words disappear. Then try <code>x</code> a few times followed by <code>.</code>." },
+        { id: "s3", title: "A count before . overrides the original count", kind: "concept", widget: null,
+          body: "Typing a count before <code>.</code> &mdash; e.g. <code>3.</code> &mdash; replaces the original command's count rather than combining with it, the same way <code>3x</code> deletes three characters regardless of how many the original command deleted." },
+        { id: "s4", title: "Practice: x then 3.", kind: "practice", widget: "grammar",
+          body: "Compare deleting one character at a time versus overriding the count.",
+          tryIt: "Try <code>x</code> once, then <code>3.</code> &mdash; three more characters should disappear, not one." },
+        { id: "s5", title: "Only changes are repeatable, not moves or reads", kind: "concept", widget: null,
+          body: "Pure cursor motions, yanking (<code>y</code>), undo, and searches don't count as \"the last change\" &mdash; only commands that actually modify the buffer do. That also means <code>.</code> composes naturally with everything else you've learned: it works after an insert session, after a visual-mode operator, and even inside a macro." }
       ]}
     ]},
 
@@ -375,7 +396,9 @@ window.VimCourse = (function () {
         { text: "What's the difference between a lowercase mark and an uppercase mark?", options: ["There's no real difference, just a style choice", "Lowercase marks (a-z) are local to the buffer they were set in; uppercase marks (A-Z) are global and can jump you into a different buffer entirely", "Uppercase marks are temporary, lowercase marks are permanent", "Lowercase marks only work with operators"], correct: 1 },
         { text: "What's the difference between 'a and `a?", options: ["They're identical", "'a jumps to the first non-blank character of the mark's line; `a jumps to the mark's exact column", "'a only works with operators, `a only works standalone", "`a is for uppercase marks only"], correct: 1 },
         { text: "After undoing twice and then making a brand-new edit, what happens to the two changes you undid?", options: ["They're permanently lost, exactly like a normal undo stack", "They're preserved as a separate branch in the undo tree — you can still reach them, just not by pressing Ctrl-r from here", "They get merged into the new edit automatically", "Vim asks you to choose which one to keep"], correct: 1 },
-        { text: "After undoing and branching, which direction does Ctrl-r (redo) follow?", options: ["Always the oldest branch at that point", "Always the newest branch — whichever child was created most recently", "It asks you to pick", "It's random"], correct: 1 }
+        { text: "After undoing and branching, which direction does Ctrl-r (redo) follow?", options: ["Always the oldest branch at that point", "Always the newest branch — whichever child was created most recently", "It asks you to pick", "It's random"], correct: 1 },
+        { text: "You set mark a on a line, then insert 3 new lines above it. What happens when you press 'a?", options: ["It jumps to the raw line number the mark was created at, which is now the wrong content", "It still lands on the same text you marked, since the mark shifted along with it", "The mark is deleted automatically", "Vim asks you to reset the mark"], correct: 1 },
+        { text: "What does pressing '' (two single-quotes) do?", options: ["Nothing, it's not a real command", "Jumps back to wherever you were right before your last big jump — G, gg, a search, %, or another mark", "Sets a new mark at the cursor", "Repeats the last search"], correct: 1 }
       ]}, lessons: [
       { id: "l1", title: "Marks: bookmarking a position", view: "marks", subsections: [
         { id: "s1", title: "m sets, ' and ` jump", kind: "concept", widget: null,
@@ -387,7 +410,14 @@ window.VimCourse = (function () {
           body: "Just like search motions, marks can be an operator's target: <code>d'a</code> deletes whole lines from here down to (or up to) mark a's line; <code>d\\`a</code> deletes the exact exclusive range between the cursor and mark a." },
         { id: "s4", title: "Practice: delete or yank up to a mark", kind: "practice", widget: "marks",
           body: "This combines directly with everything from Module 3.",
-          tryIt: "Set a mark a few lines down with <code>ma</code>, move back to the top, then try <code>d'a</code> and undo, then try <code>y\\`a</code>." }
+          tryIt: "Set a mark a few lines down with <code>ma</code>, move back to the top, then try <code>d'a</code> and undo, then try <code>y\\`a</code>." },
+        { id: "s5", title: "Marks follow the text, not a line number", kind: "concept", widget: null,
+          body: "A mark is a bookmark on the <em>content</em>, not a fixed row. If you set <code>ma</code> on some line and then add or remove lines above it, the mark quietly shifts to stay on the same text &mdash; <code>'a</code> still lands on what you actually marked, wherever it ended up." },
+        { id: "s6", title: "\"''\" jumps back to before your last big jump", kind: "concept", widget: null,
+          body: "Vim automatically drops an invisible mark right before any long-distance move &mdash; <code>G</code>, <code>gg</code>, a search, <code>%</code>, or jumping to another mark. That mark is <code>'</code> (and <code>\\`</code>), so <code>''</code> instantly returns you to wherever you were standing before the jump. It's the fastest way to peek somewhere else in a file and come straight back." },
+        { id: "s7", title: "Practice: jump far, then jump back", kind: "practice", widget: "marks",
+          body: "No need to set anything yourself here &mdash; this one's automatic.",
+          tryIt: "Press <code>G</code> to jump to the end of the buffer, then press <code>''</code> and watch it return you to exactly where you started." }
       ]},
       { id: "l2", title: "Global marks: bookmarks that cross buffers", view: "marks", subsections: [
         { id: "s1", title: "Uppercase marks aren't tied to one buffer", kind: "concept", widget: null,

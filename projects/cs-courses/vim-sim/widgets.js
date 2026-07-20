@@ -199,10 +199,15 @@ window.VimWidgets = (function () {
       </div>
     </div>`;
 
+    const lastChange = ed.lastChangeKeys && ed.lastChangeKeys.length
+      ? `<div class="grammar-lastchange mono"><span class="dim">last change (repeat with</span> <code>.</code><span class="dim">):</span> <code>${ed.lastChangeKeys.map((k) => (k === "Escape" ? "&lt;Esc&gt;" : k === "Enter" ? "&lt;CR&gt;" : k === "Backspace" ? "&lt;BS&gt;" : esc(k))).join("")}</code></div>`
+      : `<div class="grammar-lastchange mono dim">last change: none yet &mdash; make an edit, then press <code>.</code> to repeat it</div>`;
+
     return `${editorHtml}<div class="panel grammar-panel">
       <div class="panel-header"><span class="title mono">${icon("keyboard", 15)} grammar breakdown</span><span class="pill">count? register? operator? {motion|object}</span></div>
       <div class="panel-body">
         ${body}
+        ${lastChange}
         ${legend}
       </div>
     </div>`;
@@ -603,15 +608,16 @@ window.VimWidgets = (function () {
     return `${renderVimEditor()}<div class="panel marks-panel">
       <div class="panel-header"><span class="title mono">${icon("keyboard", 15)} mark explorer</span></div>
       <div class="panel-body">
-        <div class="search-section-title mono">local marks (a&ndash;z) &mdash; this buffer only</div>
+        <div class="search-section-title mono">local marks &mdash; this buffer only</div>
         <div class="mark-list">${localEntries}</div>
         <div class="search-section-title mono" style="margin-top:16px">global marks (A&ndash;Z) &mdash; jump across buffers</div>
         <div class="mark-list">${globalEntries}</div>
         <div class="search-section-title mono" style="margin-top:16px">reference</div>
-        <div class="search-ref-row mono"><span>m{letter}</span><span>set a mark at the cursor</span></div>
+        <div class="search-ref-row mono"><span>m{letter}</span><span>set a mark at the cursor (a&ndash;z)</span></div>
         <div class="search-ref-row mono"><span>'{letter}</span><span>jump to the mark's line (first non-blank)</span></div>
         <div class="search-ref-row mono"><span>\`{letter}</span><span>jump to the mark's exact position</span></div>
         <div class="search-ref-row mono"><span>d'a / d\`a</span><span>marks work as operator motions too</span></div>
+        <div class="search-ref-row mono"><span>''</span><span>jump back to before your last big jump (G, gg, search, %, or another mark) &mdash; set automatically</span></div>
       </div>
     </div>`;
   }
@@ -619,21 +625,53 @@ window.VimWidgets = (function () {
   /* --------------------------------- undo tree visualizer widget (Module 9) --------------------------------- */
   function computeUndoTreeLayout(nodes, rootId) {
     const positions = {};
+    const depths = {};
     let leafCounter = 0;
-    function layout(id, depth) {
-      const n = nodes[id];
-      if (!n.childIds.length) { positions[id] = { x: leafCounter++, y: depth }; return; }
-      n.childIds.forEach((cid) => layout(cid, depth + 1));
-      const xs = n.childIds.map((cid) => positions[cid].x);
-      positions[id] = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: depth };
+    // Post-order traversal done iteratively with an explicit stack rather
+    // than recursion: a linear (unbranched) undo history — entirely
+    // plausible once macros and dot-repeat make generating thousands of
+    // small edits trivial — is exactly the pathological case that blows the
+    // call stack in a naive recursive version, since its "tree" is really
+    // just one long chain as deep as the whole edit history. Depth is
+    // computed in this same forward pass (each child = parent's depth + 1)
+    // rather than by walking back up to the root for every node, which
+    // would turn a long chain into an O(n^2) hang instead of a crash.
+    const order = [];
+    const visitStack = [rootId];
+    depths[rootId] = 0;
+    while (visitStack.length) {
+      const id = visitStack.pop();
+      order.push(id);
+      nodes[id].childIds.forEach((cid) => { depths[cid] = depths[id] + 1; visitStack.push(cid); });
     }
-    layout(rootId, 0);
+    for (let i = order.length - 1; i >= 0; i--) {
+      const id = order[i];
+      const n = nodes[id];
+      if (!n.childIds.length) { positions[id] = { x: leafCounter++, y: depths[id] }; continue; }
+      const xs = n.childIds.map((cid) => positions[cid].x);
+      positions[id] = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: depths[id] };
+    }
     return positions;
   }
 
   function renderUndoTreeVisualizer() {
     const ed = ENGINE.state.editor;
     const u = ed.undo;
+    const nodeCount = Object.keys(u.nodes).length;
+    const MAX_VISUALIZED_NODES = 1500;
+    if (nodeCount > MAX_VISUALIZED_NODES) {
+      // A history this long — thousands of edits, easily reached now that
+      // macros and dot-repeat make generating many small changes trivial —
+      // wouldn't render into a diagram a person could actually read even if
+      // the browser handled the memory fine. Undo (u) and redo (Ctrl-r)
+      // keep working normally either way; only this visualization backs off.
+      return `${renderVimEditor()}<div class="panel undotree-panel">
+        <div class="panel-header"><span class="title mono">${icon("keyboard", 15)} undo tree &mdash; time traveler</span></div>
+        <div class="panel-body">
+          <div class="ved-hint mono">This history has grown to ${nodeCount.toLocaleString()} changes &mdash; too many to draw as a readable diagram, so the visualization is paused here. <code>u</code> and <code>Ctrl-r</code> still work exactly as normal.</div>
+        </div>
+      </div>`;
+    }
     const positions = computeUndoTreeLayout(u.nodes, 0);
     const COL_W = 64, ROW_H = 56, PAD = 30, NODE_R = 16;
     let maxX = 0, maxY = 0;

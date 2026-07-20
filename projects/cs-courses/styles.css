@@ -326,6 +326,8 @@
 .grammar-slot.filled .grammar-slot-value { color: var(--accent); font-weight: 600; }
 .grammar-sentence { margin-top: 14px; font-size: 13px; color: var(--text-primary); line-height: 1.5; }
 .grammar-awaiting { margin-top: 8px; font-size: 12px; color: var(--coral); background: var(--coral-soft); border-radius: 6px; padding: 6px 10px; display: inline-block; }
+.grammar-lastchange { margin-top: 12px; font-size: 12px; color: var(--text-muted); background: var(--bg-raised); border-radius: 8px; padding: 8px 12px; }
+.grammar-lastchange code { color: var(--accent); background: none; padding: 0; }
 .grammar-modenote { font-size: 13px; color: var(--text-muted); line-height: 1.6; background: var(--bg-raised); border-radius: 8px; padding: 12px 14px; }
 .grammar-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-soft); }
 .grammar-legend-title { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }

@@ -37,6 +37,41 @@
     };
   }
 
+  // Fields the editor state has grown over time (buffers/windows/tabs, marks,
+  // global marks...). A save made before one of these existed is missing the
+  // field entirely rather than having it empty, so we backfill from a fresh
+  // editor rather than trusting the merge in curriculum.js to have handled it.
+  const EDITOR_DEFAULT_KEYS = [
+    "marks", "globalMarks",
+    "buffers", "activeBufferId", "nextBufferId",
+    "tabs", "activeTabId", "nextWindowId", "nextTabId",
+    "lastChangeKeys",
+    "wantCol"
+  ];
+
+  function migrateState(state) {
+    const fresh = window.VimGrammar.createEditorState(SEED_LINES);
+    if (!state.editor) { state.editor = fresh; return state; }
+    EDITOR_DEFAULT_KEYS.forEach((key) => {
+      if (state.editor[key] === undefined) state.editor[key] = fresh[key];
+    });
+    // Buffers/tabs reference each other by id; if buffers exists but the
+    // active ids or tab/window structure don't, the ids won't line up, so
+    // reset those pieces together rather than mixing old+new partial shapes.
+    if (!state.editor.buffers || !state.editor.buffers[state.editor.activeBufferId]) {
+      state.editor.buffers = fresh.buffers;
+      state.editor.activeBufferId = fresh.activeBufferId;
+      state.editor.nextBufferId = fresh.nextBufferId;
+    }
+    if (!state.editor.tabs || !state.editor.tabs.length) {
+      state.editor.tabs = fresh.tabs;
+      state.editor.activeTabId = fresh.activeTabId;
+      state.editor.nextWindowId = fresh.nextWindowId;
+      state.editor.nextTabId = fresh.nextTabId;
+    }
+    return state;
+  }
+
   const Engine = window.Curriculum.createEngine({
     course: window.VimCourse.COURSE,
     storageKey: "vim-simulator-progress-v1",
@@ -44,6 +79,7 @@
     footerNote: "educational prototype — progress saves automatically in this browser",
     resetExtraWarning: "restore the default buffer and game scores",
     createDomainState,
+    migrateState,
     sandboxNav: SANDBOX_NAV,
     defaultSandboxView: "editor",
     scrollPreserveSelectors: [".ved-lines"],
