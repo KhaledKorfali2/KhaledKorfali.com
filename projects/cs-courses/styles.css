@@ -305,6 +305,7 @@
 .ved-char { position: relative; }
 .ved-cursor-block { background: var(--accent); color: #1A1206; border-radius: 2px; }
 .ved-cursor-ibeam { border-left: 2px solid var(--accent); margin-left: -1px; }
+.ved-cursor-underline { border-bottom: 2px solid var(--coral); }
 .ved-selected { background: var(--accent-soft); }
 .ved-target { background: var(--coral-soft); color: var(--coral); border-radius: 2px; outline: 1px dashed var(--coral); }
 .ved-status { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
@@ -312,6 +313,7 @@
 .ved-hint { font-size: 11px; color: var(--text-dim); margin-top: 8px; font-style: italic; }
 .ved-mode-normal { background: var(--accent-soft); color: var(--accent); }
 .ved-mode-insert { background: var(--teal-soft); color: var(--teal); }
+.ved-mode-replace { background: var(--teal-soft); color: var(--coral); }
 .ved-mode-visual, .ved-mode-visual-line, .ved-mode-visual-block { background: var(--coral-soft); color: var(--coral); }
 .ved-mode-command { background: var(--bg-raised-2); color: var(--text-primary); }
 .ved-mode-search { background: var(--teal-soft); color: var(--teal); }

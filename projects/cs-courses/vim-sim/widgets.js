@@ -101,7 +101,7 @@ window.VimWidgets = (function () {
     if (ed.mode === "visual" || ed.mode === "visual-line" || ed.mode === "visual-block") {
       selRange = window.VimGrammar.orderRange(ed.visualAnchor, ed.cursor, true, ed.mode === "visual-line", ed.lines);
     }
-    const grid = renderCharGrid(ed.lines, ed.cursor, selRange, null, ed.mode === "insert" ? "ved-cursor-ibeam" : "ved-cursor-block");
+    const grid = renderCharGrid(ed.lines, ed.cursor, selRange, null, ed.mode === "insert" ? "ved-cursor-ibeam" : ed.mode === "replace" ? "ved-cursor-underline" : "ved-cursor-block");
     const regsUsed = Object.entries(ed.registers).filter(([, v]) => v.text).slice(0, 5);
     const marksUsed = Object.keys(ed.marks);
     return `<div class="panel">
@@ -246,6 +246,13 @@ window.VimWidgets = (function () {
         '</div>'
       ],
       cursor: { line: 1, col: 12 } // inside <b>world</b>
+    },
+    sentences: {
+      label: "Sentences",
+      lines: [
+        'One short sentence. Here is a much longer second sentence to look at. Three.'
+      ],
+      cursor: { line: 0, col: 40 } // inside the middle sentence
     }
   };
 
@@ -266,6 +273,7 @@ window.VimWidgets = (function () {
     { key: "[", label: "[ ]" },
     { key: "{", label: "{ }" },
     { key: "p", label: "paragraph" },
+    { key: "s", label: "sentence" },
     { key: "t", label: "tag" }
   ];
 
@@ -280,7 +288,7 @@ window.VimWidgets = (function () {
     const resolved = window.VimGrammar.resolveMotion(ENGINE, p);
     const range = resolved ? resolved.range : null;
 
-    const cursorClass = ed.mode === "insert" ? "ved-cursor-ibeam" : "ved-cursor-block";
+    const cursorClass = ed.mode === "insert" ? "ved-cursor-ibeam" : ed.mode === "replace" ? "ved-cursor-underline" : "ved-cursor-block";
     const grid = renderCharGrid(ed.lines, ed.cursor, range, null, cursorClass, "ved-tobj-preview");
 
     let desc;
@@ -479,6 +487,31 @@ window.VimWidgets = (function () {
         </div>
         <div class="search-matchcount mono">${preview.matchCount} substitution${preview.matchCount === 1 ? "" : "s"} would be made across ${preview.lineCount} line${preview.lineCount === 1 ? "" : "s"}</div>`;
       }
+    } else if (ed.mode === "command" && /^(g!?|v)\//.test(ed.commandLine)) {
+      const preview = G.previewGlobal(ENGINE, ed.commandLine);
+      const liveRow = `<div class="search-live-row mono"><span class="search-dir">:</span><span class="search-pattern">${esc(ed.commandLine)}</span><span class="search-caret">&#9608;</span></div>`;
+      if (!preview.valid) {
+        body = `${liveRow}<div class="search-hint mono">keep typing &mdash; needs a closing <code>/</code> after the pattern to parse, e.g. <code>g/pattern/d</code></div>`;
+      } else {
+        const scopeLabel = preview.invert ? "lines NOT matching" : "lines matching";
+        const matchRow = `<div class="search-matchcount mono">${preview.matchingCount} of ${preview.totalLines} line${preview.totalLines === 1 ? "" : "s"} ${preview.invert ? "don't match" : "match"} &mdash; ${scopeLabel} <span class="search-pattern">${esc(preview.pattern)}</span></div>`;
+        let cmdRow;
+        if (preview.cmdKind === "incomplete") {
+          cmdRow = `<div class="search-hint mono">keep typing a command after the second <code>/</code> &mdash; try <code>d</code> to delete, or <code>s/from/to/</code> to substitute</div>`;
+        } else if (preview.cmdKind === "delete") {
+          cmdRow = `<div class="sub-slots">${subSlot("command", "d &mdash; delete")}</div><div class="search-matchcount mono">${preview.matchingCount} line${preview.matchingCount === 1 ? "" : "s"} would be deleted</div>`;
+        } else if (preview.cmdKind === "substitute" && preview.cmdValid) {
+          cmdRow = `<div class="sub-slots">
+            ${subSlot("command", "s (substitute)")}
+            ${subSlot("pattern", preview.subPattern.length ? esc(preview.subPattern) : '<span class="sub-flag-note">(empty)</span>')}
+            ${subSlot("replacement", preview.subReplacement.length ? esc(preview.subReplacement) : '<span class="sub-flag-note">(empty &mdash; deletes the match)</span>')}
+          </div>
+          <div class="search-matchcount mono">${preview.subMatchCount} substitution${preview.subMatchCount === 1 ? "" : "s"} would be made, scoped to just the ${preview.matchingCount} matching line${preview.matchingCount === 1 ? "" : "s"}</div>`;
+        } else {
+          cmdRow = `<div class="search-hint mono search-invalid">not a recognized :g command &mdash; supported here: d, s/from/to/[g]</div>`;
+        }
+        body = `${liveRow}${matchRow}${cmdRow}`;
+      }
     } else {
       const lastSearchInfo = ed.lastSearch
         ? `<div class="search-lastinfo mono">last search: <span class="search-pattern">${esc(ed.lastSearch.pattern)}</span> (${esc(ed.lastSearch.direction)}) &mdash; <code>n</code>/<code>N</code> repeat it</div>`
@@ -495,7 +528,11 @@ window.VimWidgets = (function () {
         <div class="search-ref-row mono"><span>:s/pat/rep/</span><span>replace first match, current line</span></div>
         <div class="search-ref-row mono"><span>:s/pat/rep/g</span><span>replace every match, current line</span></div>
         <div class="search-ref-row mono"><span>:%s/pat/rep/g</span><span>replace every match, whole buffer</span></div>
-        <div class="search-hint mono" style="margin-top:10px">try typing <code>/</code> or <code>:%s/.../.../</code> in the editor above &mdash; this panel updates live as you type, before you press Enter.</div>`;
+        <div class="search-section-title mono" style="margin-top:16px">global command</div>
+        <div class="search-ref-row mono"><span>:g/pat/d</span><span>delete every line matching pat</span></div>
+        <div class="search-ref-row mono"><span>:g/pat/s/from/to/</span><span>substitute, scoped to matching lines</span></div>
+        <div class="search-ref-row mono"><span>:v/pat/d</span><span>delete every line NOT matching pat</span></div>
+        <div class="search-hint mono" style="margin-top:10px">try typing <code>/</code>, <code>:%s/.../.../</code>, or <code>:g/.../d</code> in the editor above &mdash; this panel updates live as you type, before you press Enter.</div>`;
     }
 
     return `${renderVimEditor()}<div class="panel search-panel">
@@ -812,7 +849,7 @@ window.VimWidgets = (function () {
     if (!def) { ENGINE.state.golfActivePuzzle = null; return renderGolfPicker(); }
     let g = ENGINE.state.golfGame;
     if (!g || g.id !== puzzleId) { VG.startGolfGame(ENGINE, puzzleId); g = ENGINE.state.golfGame; }
-    const grid = renderCharGrid(g.editor.lines, g.editor.cursor, null, null, g.editor.mode === "insert" ? "ved-cursor-ibeam" : "ved-cursor-block");
+    const grid = renderCharGrid(g.editor.lines, g.editor.cursor, null, null, g.editor.mode === "insert" ? "ved-cursor-ibeam" : g.editor.mode === "replace" ? "ved-cursor-underline" : "ved-cursor-block");
     const targetPreview = def.targetLines.map((l) => esc(l) || "&nbsp;").join("<br>");
     const elapsed = g.finished ? g.resultMs : Date.now() - g.startedAt;
     const gradeColor = GOLF_GRADE_COLOR[g.grade] || "var(--text-muted)";

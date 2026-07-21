@@ -31,8 +31,12 @@ window.VimGrammar = (function () {
       undo: freshUndo(lines),
       macroRecording: null, macroKeys: [], macros: {}, lastMacroReg: null,
       insertSnapshot: null,
+      insertStartLine: 0, insertStartCol: 0,
       lastChangeKeys: null,
       wantCol: 0,
+      lastVisual: null,
+      jumpList: [], jumpIndex: 0,
+      replaceOverwritten: null,
       buffers: { 1: { id: "1", name: "[No Name]" } },
       activeBufferId: "1", nextBufferId: 2,
       tabs: [{ id: "t1", windows: [{ id: "w1", bufferId: "1" }], activeWindowId: "w1", splitDirection: "horizontal" }],
@@ -158,6 +162,28 @@ window.VimGrammar = (function () {
     const ed = engine.state.editor;
     ed.marks["'"] = { ...ed.cursor };
     ed.marks["`"] = { ...ed.cursor };
+    // Truncate any "forward" history past where we currently are (a fresh
+    // jump invalidates the old future, same as browser back/forward), then
+    // record where we're jumping FROM so Ctrl-o has somewhere to return to.
+    ed.jumpList = ed.jumpList.slice(0, ed.jumpIndex);
+    ed.jumpList.push({ ...ed.cursor });
+    ed.jumpIndex = ed.jumpList.length;
+  }
+  // Ctrl-o / Ctrl-i: a simplified linear jump list (real Vim's is per-window
+  // and survives more edge cases around edits) — walks backward/forward
+  // through positions recorded by recordJumpMark (G, gg, search, %, marks).
+  function jumpBack(engine) {
+    const ed = engine.state.editor;
+    if (!ed.jumpList.length || ed.jumpIndex <= 0) { ed.message = "at start of jump list"; return; }
+    if (ed.jumpIndex === ed.jumpList.length) ed.jumpList.push({ ...ed.cursor });
+    ed.jumpIndex--;
+    ed.cursor = B.clampPos(ed.lines, ed.jumpList[ed.jumpIndex]);
+  }
+  function jumpForward(engine) {
+    const ed = engine.state.editor;
+    if (!ed.jumpList.length || ed.jumpIndex >= ed.jumpList.length - 1) { ed.message = "at end of jump list"; return; }
+    ed.jumpIndex++;
+    ed.cursor = B.clampPos(ed.lines, ed.jumpList[ed.jumpIndex]);
   }
 
   function setMark(engine, letter) {
@@ -245,6 +271,7 @@ window.VimGrammar = (function () {
         const [o, c] = pairMap[ch];
         r = B.textObjectPair(ed.lines, cur, o, c, around);
       } else if (ch === "p") r = B.textObjectParagraph(ed.lines, cur, around);
+      else if (ch === "s") r = B.textObjectSentence(ed.lines, cur, around);
       else if (ch === "t") { const t = B.textObjectTag(ed.lines, cur); r = t ? (around ? t.around : t.inner) : null; }
       if (!r) return null;
       return { range: r, newCursor: r.start };
@@ -312,6 +339,24 @@ window.VimGrammar = (function () {
     else if (m === "b") { let t = cur; for (let i = 0; i < count; i++) t = B.wordBackward(ed.lines, t); target = t; }
     else if (m === "e") { inclusive = true; let t = cur; for (let i = 0; i < count; i++) t = B.wordEnd(ed.lines, t); target = t; }
     else if (m === "ge") { inclusive = true; let t = cur; for (let i = 0; i < count; i++) t = B.wordEndBackward(ed.lines, t); target = t; }
+    else if (m === "W") {
+      // Same cw/cW special case as "w" above, just against WORD boundaries.
+      const atCursor = (ed.lines[cur.line] || "")[cur.col];
+      const onWordChar = atCursor !== undefined && B.charClassBig(atCursor) !== "space";
+      if (p.operator === "c" && onWordChar) {
+        inclusive = true;
+        let t = cur; for (let i = 0; i < count; i++) t = B.wordEnd(ed.lines, t, true);
+        target = t;
+      } else {
+        let t = cur; for (let i = 0; i < count; i++) t = B.wordForward(ed.lines, t, true);
+        target = t;
+      }
+    }
+    else if (m === "B") { let t = cur; for (let i = 0; i < count; i++) t = B.wordBackward(ed.lines, t, true); target = t; }
+    else if (m === "E") { inclusive = true; let t = cur; for (let i = 0; i < count; i++) t = B.wordEnd(ed.lines, t, true); target = t; }
+    else if (m === "gE") { inclusive = true; let t = cur; for (let i = 0; i < count; i++) t = B.wordEndBackward(ed.lines, t, true); target = t; }
+    else if (m === "(") { let t = cur; for (let i = 0; i < count; i++) t = B.sentenceBackward(ed.lines, t); target = t; }
+    else if (m === ")") { let t = cur; for (let i = 0; i < count; i++) t = B.sentenceForward(ed.lines, t); target = t; }
     else if (m === "gg") { linewise = true; const l = (p.count1 || p.count2) ? Math.min(ed.lines.length - 1, count - 1) : 0; target = { line: l, col: B.firstNonBlankCol(ed.lines[l]) }; }
     else if (m === "G") { linewise = true; const l = (p.count1 || p.count2) ? Math.min(ed.lines.length - 1, count - 1) : ed.lines.length - 1; target = { line: l, col: B.firstNonBlankCol(ed.lines[l]) }; }
     else if (m === "H") { linewise = true; target = { line: 0, col: B.firstNonBlankCol(ed.lines[0]) }; }
@@ -430,12 +475,14 @@ window.VimGrammar = (function () {
     else if (kind === "o") { const nl = ed.lines.slice(); nl.splice(ed.cursor.line + 1, 0, ""); shiftMarksForSplice(ed, ed.cursor.line + 1, 0, 1); ed.lines = nl; ed.cursor = { line: ed.cursor.line + 1, col: 0 }; }
     else if (kind === "O") { const nl = ed.lines.slice(); nl.splice(ed.cursor.line, 0, ""); shiftMarksForSplice(ed, ed.cursor.line, 0, 1); ed.lines = nl; ed.cursor = { line: ed.cursor.line, col: 0 }; }
     ed.mode = "insert";
+    ed.insertStartLine = ed.cursor.line; ed.insertStartCol = ed.cursor.col;
     resetParse(ed);
   }
   function enterInsertAt(engine, pos) {
     const ed = engine.state.editor;
     ed.insertSnapshot = ed.lines.slice();
     ed.cursor = pos;
+    ed.insertStartLine = pos.line; ed.insertStartCol = pos.col;
     ed.mode = "insert";
   }
   function feedInsertKey(engine, key) {
@@ -489,11 +536,40 @@ window.VimGrammar = (function () {
       return;
     }
     if (key === "Enter") { const r = B.insertTextAt(ed.lines, ed.cursor, "\n"); shiftMarksForSplice(ed, ed.cursor.line, 1, 2); ed.lines = r.lines; ed.cursor = r.end; return; }
+    if (key === "ctrl-w") {
+      const target = B.wordBackward(ed.lines, ed.cursor);
+      if (target.line === ed.cursor.line && target.col < ed.cursor.col) {
+        const l = ed.lines[ed.cursor.line];
+        const newLines = ed.lines.slice();
+        newLines[ed.cursor.line] = l.slice(0, target.col) + l.slice(ed.cursor.col);
+        ed.lines = newLines;
+        ed.cursor = { line: ed.cursor.line, col: target.col };
+      }
+      return;
+    }
+    if (key === "ctrl-u") {
+      const boundary = (ed.insertStartLine === ed.cursor.line) ? Math.min(ed.insertStartCol, ed.cursor.col) : 0;
+      if (boundary < ed.cursor.col) {
+        const l = ed.lines[ed.cursor.line];
+        const newLines = ed.lines.slice();
+        newLines[ed.cursor.line] = l.slice(0, boundary) + l.slice(ed.cursor.col);
+        ed.lines = newLines;
+        ed.cursor = { line: ed.cursor.line, col: boundary };
+      }
+      return;
+    }
     const r = B.insertTextAt(ed.lines, ed.cursor, key);
     ed.lines = r.lines; ed.cursor = r.end;
   }
 
   /* =============================== visual mode =============================== */
+  // gv support: snapshot the mode/anchor/cursor right before any transition
+  // OUT of a visual mode, so "gv" from Normal mode can restore exactly that
+  // selection later.
+  function recordLastVisual(ed) {
+    if (!ed.visualAnchor) return;
+    ed.lastVisual = { mode: ed.mode, anchor: { ...ed.visualAnchor }, cursor: { ...ed.cursor } };
+  }
   function enterVisual(engine, kind) {
     const ed = engine.state.editor;
     ed.mode = kind;
@@ -536,6 +612,7 @@ window.VimGrammar = (function () {
   function applyBlockOperator(engine, op) {
     const ed = engine.state.editor;
     const { top, bottom, left, right, ragged } = blockBounds(ed);
+    recordLastVisual(ed);
     ed.mode = "normal";
     ed.visualAnchor = null;
     resetParse(ed);
@@ -597,6 +674,7 @@ window.VimGrammar = (function () {
   function startBlockInsert(engine, isAppend) {
     const ed = engine.state.editor;
     const { top, bottom, left, right, ragged } = blockBounds(ed);
+    recordLastVisual(ed);
     ed.mode = "normal";
     ed.visualAnchor = null;
     resetParse(ed);
@@ -626,14 +704,29 @@ window.VimGrammar = (function () {
     if (ed.mode === "visual-block") return applyBlockOperator(engine, op);
     const linewise = ed.mode === "visual-line";
     const range = orderRange(ed.visualAnchor, ed.cursor, true, linewise, ed.lines);
+    recordLastVisual(ed);
     ed.mode = "normal";
     ed.visualAnchor = null;
     resetParse(ed);
     applyOperator(engine, op, range, null);
   }
+  // Pressing v / V / ctrl-v while ALREADY in a visual mode doesn't start a
+  // new selection (the anchor is already set) — real Vim instead treats it
+  // as a mode toggle: pressing the SAME key you're already in exits back to
+  // Normal (mirrors Escape), and pressing a DIFFERENT one of the three
+  // switches to that submode in place, keeping the same anchor and cursor
+  // so the selection's span doesn't change, only how it's interpreted.
+  const VISUAL_MODE_KEY = { v: "visual", V: "visual-line", "ctrl-v": "visual-block" };
+  function toggleVisualMode(engine, targetMode) {
+    const ed = engine.state.editor;
+    if (ed.mode === targetMode) { recordLastVisual(ed); ed.mode = "normal"; ed.visualAnchor = null; resetParse(ed); return; }
+    ed.mode = targetMode;
+    resetParse(ed);
+  }
   function feedVisualKey(engine, key) {
     const ed = engine.state.editor;
-    if (key === "Escape") { ed.mode = "normal"; ed.visualAnchor = null; resetParse(ed); return; }
+    if (key === "Escape") { recordLastVisual(ed); ed.mode = "normal"; ed.visualAnchor = null; resetParse(ed); return; }
+    if (VISUAL_MODE_KEY[key]) return toggleVisualMode(engine, VISUAL_MODE_KEY[key]);
     if (ed.mode === "visual-block" && (key === "I" || key === "A")) return startBlockInsert(engine, key === "A");
     const p = ensureParse(ed);
     if (p.awaitingChar === "textobject") { p.textObjectChar = key; return applyVisualTextObject(engine, p); }
@@ -641,8 +734,10 @@ window.VimGrammar = (function () {
     if (!p.textObjectKind && (key === "i" || key === "a")) { p.textObjectKind = key; p.awaitingChar = "textobject"; return; }
     if ("fFtT".includes(key)) { p.motion = key; p.awaitingChar = "find"; return; }
     if (key === "g") { p.awaitingChar = "g-motion"; return; }
-    if (p.awaitingChar === "g-motion") { p.motion = key === "g" ? "gg" : key === "e" ? "ge" : null; if (!p.motion) { resetParse(ed); return; } return applyVisualMotion(engine, p); }
-    if ("hjklwbe0^$%HML{}".includes(key) || key === "G") { p.motion = key; return applyVisualMotion(engine, p); }
+    if (p.awaitingChar === "g-motion") { p.motion = key === "g" ? "gg" : key === "e" ? "ge" : key === "E" ? "gE" : null; if (!p.motion) { resetParse(ed); return; } return applyVisualMotion(engine, p); }
+    if ("hjklwbe0^$%HML{}()".includes(key) || "WBEG".includes(key)) { p.motion = key; return applyVisualMotion(engine, p); }
+    if (key === "o") { const a = ed.visualAnchor; ed.visualAnchor = ed.cursor; ed.cursor = a; resetParse(ed); return; }
+    if (key === "p" || key === "P") return applyVisualPaste(engine);
     if (key === "d" || key === "x") return applyVisualOperator(engine, "d");
     if (key === "c") return applyVisualOperator(engine, "c");
     if (key === "y") return applyVisualOperator(engine, "y");
@@ -651,6 +746,39 @@ window.VimGrammar = (function () {
     if (key === "u") return applyVisualOperator(engine, "gu");
     if (key === "U") return applyVisualOperator(engine, "gU");
     resetParse(ed);
+  }
+
+  // Visual p/P: replace the selection with the (unnamed) register's
+  // contents; the replaced text becomes the new unnamed/"1 register,
+  // same swap real Vim does. Simplified vs. real Vim: doesn't support a
+  // register prefix on the paste itself, and pasting into a Visual Block
+  // selection isn't modeled (exits to Normal unchanged) since a rectangle
+  // has no single well-defined "replace with linear text" behavior.
+  function applyVisualPaste(engine) {
+    const ed = engine.state.editor;
+    if (ed.mode === "visual-block") { recordLastVisual(ed); ed.mode = "normal"; ed.visualAnchor = null; resetParse(ed); return; }
+    const linewise = ed.mode === "visual-line";
+    const range = orderRange(ed.visualAnchor, ed.cursor, true, linewise, ed.lines);
+    recordLastVisual(ed);
+    ed.mode = "normal"; ed.visualAnchor = null; resetParse(ed);
+    const reg = ed.registers.unnamed;
+    if (!reg || !reg.text) return;
+    const pasteText = reg.text, pasteLinewise = reg.linewise;
+    const deletedText = B.rangeText(ed.lines, range);
+    const deletedLinewise = range.linewise;
+    if (range.linewise) {
+      const insertLines = pasteLinewise ? pasteText.split("\n") : [pasteText];
+      const newLines = ed.lines.slice();
+      newLines.splice(range.start.line, range.end.line - range.start.line + 1, ...insertLines);
+      shiftMarksForSplice(ed, range.start.line, range.end.line - range.start.line + 1, insertLines.length);
+      commitEdit(engine, newLines, { line: range.start.line, col: B.firstNonBlankCol(insertLines[0]) }, "visual-paste");
+    } else {
+      const deletedLines = B.deleteRange(ed.lines, range);
+      const insertText = pasteLinewise ? "\n" + pasteText : pasteText;
+      const r = B.insertTextAt(deletedLines, range.start, insertText);
+      commitEdit(engine, r.lines, { line: r.end.line, col: Math.max(0, r.end.col - 1) }, "visual-paste");
+    }
+    setRegisterAfterDelete(engine, deletedText, deletedLinewise, null);
   }
 
   /* =============================== command-line mode =============================== */
@@ -672,6 +800,45 @@ window.VimGrammar = (function () {
       ed.lines = newLines;
       pushUndoNode(engine, "substitute");
       ed.message = `${count} substitution${count === 1 ? "" : "s"} made`;
+      return;
+    }
+    // :g/pattern/cmd runs cmd on every line matching pattern; :v (or :g!) is
+    // the inverse — every line NOT matching. Only "d" (delete) and a
+    // trailing "s/from/to/[g]" (substitute) are supported as the command,
+    // which covers the overwhelming majority of real-world :g usage without
+    // building out a full Ex-command interpreter for its right-hand side.
+    const gMatch = cmd.match(/^(g!?|v)\/(.*?)\/(.*)$/);
+    if (gMatch) {
+      const [, gtype, pattern, rest] = gMatch;
+      const invert = gtype !== "g";
+      let re;
+      try { re = new RegExp(pattern); } catch (e) { ed.message = "E486: Pattern not found: " + pattern; return; }
+      const matchingIdx = [];
+      ed.lines.forEach((l, i) => { if (re.test(l) !== invert) matchingIdx.push(i); });
+      if (rest === "d" || rest === "delete") {
+        if (!matchingIdx.length) { ed.message = "Pattern not found: " + pattern; return; }
+        const newLines = ed.lines.filter((_, i) => !matchingIdx.includes(i));
+        ed.lines = newLines.length ? newLines : [""];
+        ed.cursor = B.clampPos(ed.lines, ed.cursor);
+        pushUndoNode(engine, "global-delete");
+        ed.message = `${matchingIdx.length} fewer line${matchingIdx.length === 1 ? "" : "s"}`;
+        return;
+      }
+      const subOnMatches = rest.match(/^s\/(.*?)\/(.*?)\/([a-z]*)$/);
+      if (subOnMatches) {
+        const [, subPattern, subReplacement, subFlags] = subOnMatches;
+        const subGlobal = subFlags.includes("g");
+        let subRe;
+        try { subRe = new RegExp(subPattern, subGlobal ? "g" : ""); } catch (e) { ed.message = "E486: Pattern not found: " + subPattern; return; }
+        const newLines = ed.lines.slice();
+        let count = 0;
+        matchingIdx.forEach((i) => { newLines[i] = newLines[i].replace(subRe, () => { count++; return subReplacement; }); });
+        ed.lines = newLines;
+        pushUndoNode(engine, "global-substitute");
+        ed.message = `${count} substitution${count === 1 ? "" : "s"} on ${matchingIdx.length} line${matchingIdx.length === 1 ? "" : "s"}`;
+        return;
+      }
+      ed.message = `E492: Not an editor command: ${cmd}`;
       return;
     }
     if (cmd === "w") { ed.message = '"buffer" written'; return; }
@@ -859,6 +1026,35 @@ window.VimGrammar = (function () {
     return { valid: true, scope: scopeFlag === "%" ? "whole buffer" : "current line only", pattern, replacement, flags, global, matchCount, lineCount };
   }
 
+  // Live preview for :g/:v — mirrors previewSubstitute, but for the global
+  // command instead. Understands the same two right-hand-side forms
+  // executeCommandLine does (d, and s/from/to/[g]) so the panel can show
+  // exactly what will happen before Enter is pressed.
+  function previewGlobal(engine, commandLine) {
+    const ed = engine.state.editor;
+    const m = commandLine.match(/^(g!?|v)\/(.*?)\/(.*)$/);
+    if (!m) return { valid: false };
+    const [, gtype, pattern, rest] = m;
+    const invert = gtype !== "g";
+    let re;
+    try { re = new RegExp(pattern); } catch (e) { return { valid: false, error: "bad pattern" }; }
+    const matchingIdx = [];
+    ed.lines.forEach((l, i) => { if (re.test(l) !== invert) matchingIdx.push(i); });
+    const base = { valid: true, invert, pattern, matchingCount: matchingIdx.length, totalLines: ed.lines.length };
+    if (rest === "" ) return { ...base, cmdKind: "incomplete" };
+    if (rest === "d" || rest === "delete") return { ...base, cmdKind: "delete" };
+    const subMatch = rest.match(/^s\/(.*?)\/(.*?)\/([a-z]*)$/);
+    if (subMatch) {
+      const [, subPattern, subReplacement, subFlags] = subMatch;
+      const subGlobal = subFlags.includes("g");
+      let subRe, subMatchCount = 0;
+      try { subRe = new RegExp(subPattern, "g"); } catch (e) { return { ...base, cmdKind: "substitute", cmdValid: false }; }
+      matchingIdx.forEach((i) => { const found = ed.lines[i].match(subRe); if (found) subMatchCount += subGlobal ? found.length : 1; });
+      return { ...base, cmdKind: "substitute", cmdValid: true, subPattern, subReplacement, subGlobal, subMatchCount };
+    }
+    return { ...base, cmdKind: "unknown" };
+  }
+
   /* =============================== simple normal-mode commands =============================== */
   function doPaste(engine, p, after) {
     const ed = engine.state.editor;
@@ -939,6 +1135,141 @@ window.VimGrammar = (function () {
     const nl = ed.lines.slice();
     nl[ed.cursor.line] = chars.join("");
     commitEdit(engine, nl, { line: ed.cursor.line, col: Math.min(nl[ed.cursor.line].length - 1, endCol + 1) }, "tilde");
+    ed.wantCol = ed.cursor.col;
+  }
+
+  // J: join the current line with the next `count-1` lines (so plain "J"
+  // joins 2 lines total, "3J" joins 3). Matches real Vim's simplified rule:
+  // the joined line's leading whitespace is stripped and replaced with a
+  // single space, except when the following text is empty or starts with
+  // ")" (no space inserted then), or the line above already ends in
+  // whitespace (no extra space added). Doesn't model every real-Vim
+  // exception (e.g. never inserting two spaces after a '.'), just the
+  // common case.
+  function doJoinLines(engine, p) {
+    const ed = engine.state.editor;
+    const count = totalCount(p);
+    resetParse(ed);
+    const joins = Math.max(1, count - 1);
+    let joinCol = null;
+    for (let i = 0; i < joins; i++) {
+      if (ed.cursor.line >= ed.lines.length - 1) break;
+      const newLines = ed.lines.slice();
+      const top = newLines[ed.cursor.line];
+      const bottomTrimmed = newLines[ed.cursor.line + 1].replace(/^[ \t]+/, "");
+      const sep = (bottomTrimmed.length === 0 || top.length === 0 || /\s$/.test(top) || bottomTrimmed[0] === ")") ? "" : " ";
+      joinCol = top.length;
+      newLines.splice(ed.cursor.line, 2, top + sep + bottomTrimmed);
+      shiftMarksForSplice(ed, ed.cursor.line, 2, 1);
+      ed.lines = newLines;
+    }
+    if (joinCol !== null) {
+      pushUndoNode(engine, "join");
+      ed.cursor = { line: ed.cursor.line, col: Math.min(joinCol, B.lastCol(ed.lines, ed.cursor.line)) };
+      ed.wantCol = ed.cursor.col;
+    }
+  }
+
+  // r{char}: replace `count` characters starting at the cursor with the
+  // typed character, without entering Insert mode. Cursor lands on the
+  // last replaced character (matching real Vim). Refuses (does nothing) if
+  // there aren't enough characters left on the line, same as real Vim
+  // beeping rather than replacing past the end of the line. Escape cancels
+  // with no change.
+  function doReplaceChar(engine, p, ch) {
+    const ed = engine.state.editor;
+    const count = totalCount(p);
+    resetParse(ed);
+    if (ch === "Escape") return;
+    if (ch === "Enter" || ch === "Backspace" || ch === "Tab") return; // out of scope for this sim's r — no-op rather than corrupt the buffer
+    const lineText = ed.lines[ed.cursor.line];
+    if (count > lineText.length - ed.cursor.col) return;
+    const newLines = ed.lines.slice();
+    newLines[ed.cursor.line] = lineText.slice(0, ed.cursor.col) + ch.repeat(count) + lineText.slice(ed.cursor.col + count);
+    commitEdit(engine, newLines, { line: ed.cursor.line, col: ed.cursor.col + count - 1 }, "replace-char");
+    ed.wantCol = ed.cursor.col;
+  }
+
+  // R: Replace mode. Typing overwrites existing characters instead of
+  // inserting; Backspace restores whatever character used to be there
+  // (only back to where R was pressed — matches real Vim, which won't
+  // "un-replace" past the start of the session). Typing past the end of
+  // the line simply extends it, same as Insert mode.
+  function enterReplace(engine) {
+    const ed = engine.state.editor;
+    ed.insertSnapshot = ed.lines.slice();
+    ed.replaceOverwritten = [];
+    ed.mode = "replace";
+    resetParse(ed);
+  }
+  function feedReplaceKey(engine, key) {
+    const ed = engine.state.editor;
+    if (key === "Escape") {
+      ed.mode = "normal";
+      ed.cursor = { line: ed.cursor.line, col: Math.max(0, ed.cursor.col - 1) };
+      ed.wantCol = ed.cursor.col;
+      if (JSON.stringify(ed.lines) !== JSON.stringify(ed.insertSnapshot)) pushUndoNode(engine, "replace");
+      ed.insertSnapshot = null; ed.replaceOverwritten = null;
+      return;
+    }
+    if (key === "Backspace") {
+      if (!ed.replaceOverwritten.length) {
+        if (ed.cursor.col > 0) ed.cursor = { line: ed.cursor.line, col: ed.cursor.col - 1 };
+        return;
+      }
+      const last = ed.replaceOverwritten.pop();
+      const line = ed.lines[last.line];
+      const newLines = ed.lines.slice();
+      newLines[last.line] = last.ch === null ? line.slice(0, last.col) + line.slice(last.col + 1) : line.slice(0, last.col) + last.ch + line.slice(last.col + 1);
+      ed.lines = newLines;
+      ed.cursor = { line: last.line, col: last.col };
+      return;
+    }
+    if (key === "Enter") {
+      const r = B.insertTextAt(ed.lines, ed.cursor, "\n");
+      shiftMarksForSplice(ed, ed.cursor.line, 1, 2);
+      ed.lines = r.lines; ed.cursor = r.end;
+      return;
+    }
+    const line = ed.lines[ed.cursor.line];
+    const newLines = ed.lines.slice();
+    if (ed.cursor.col < line.length) {
+      ed.replaceOverwritten.push({ line: ed.cursor.line, col: ed.cursor.col, ch: line[ed.cursor.col] });
+      newLines[ed.cursor.line] = line.slice(0, ed.cursor.col) + key + line.slice(ed.cursor.col + 1);
+    } else {
+      ed.replaceOverwritten.push({ line: ed.cursor.line, col: ed.cursor.col, ch: null });
+      newLines[ed.cursor.line] = line + key;
+    }
+    ed.lines = newLines;
+    ed.cursor = { line: ed.cursor.line, col: ed.cursor.col + 1 };
+  }
+
+  // Ctrl-a / Ctrl-x: find the first number on the current line that ends at
+  // or after the cursor, and add/subtract `count` from it. Preserves a
+  // leading-zero field width (e.g. "007" -> "008") and a leading "-" sign.
+  function doIncrementNumber(engine, p, sign) {
+    const ed = engine.state.editor;
+    const delta = totalCount(p) * sign;
+    resetParse(ed);
+    const lineText = ed.lines[ed.cursor.line];
+    const re = /-?\d+/g;
+    let m, found = null;
+    while ((m = re.exec(lineText))) {
+      if (m.index + m[0].length - 1 >= ed.cursor.col) { found = m; break; }
+    }
+    if (!found) return;
+    const numStr = found[0];
+    const start = found.index;
+    const digits = numStr[0] === "-" ? numStr.slice(1) : numStr;
+    const width = digits.length;
+    const hasLeadingZero = width > 1 && digits[0] === "0";
+    const val = parseInt(numStr, 10) + delta;
+    let newStr = String(Math.abs(val));
+    if (hasLeadingZero) newStr = newStr.padStart(width, "0");
+    newStr = (val < 0 ? "-" : "") + newStr;
+    const newLines = ed.lines.slice();
+    newLines[ed.cursor.line] = lineText.slice(0, start) + newStr + lineText.slice(start + numStr.length);
+    commitEdit(engine, newLines, { line: ed.cursor.line, col: start + newStr.length - 1 }, "increment");
     ed.wantCol = ed.cursor.col;
   }
 
@@ -1162,6 +1493,7 @@ window.VimGrammar = (function () {
         jumpToMark(engine, key, true); resetParse(ed); return;
       }
       if (kind === "macro-record") { startMacroRecording(engine, key); resetParse(ed); return; }
+      if (kind === "replace-char") { doReplaceChar(engine, p, key); return; }
       if (kind === "macro-replay") {
         const times = totalCount(p);
         resetParse(ed); // clear BEFORE replay so leftover count/operator state can't leak into the macro's own first keystroke
@@ -1171,6 +1503,16 @@ window.VimGrammar = (function () {
       if (kind === "g-prefix") {
         if (key === "g") { p.motion = "gg"; return executeParsed(engine, p); }
         if (key === "e") { p.motion = "ge"; return executeParsed(engine, p); }
+        if (key === "E") { p.motion = "gE"; return executeParsed(engine, p); }
+        if (key === "v" && !p.operator) {
+          if (ed.lastVisual) {
+            ed.mode = ed.lastVisual.mode;
+            ed.visualAnchor = B.clampPos(ed.lines, ed.lastVisual.anchor);
+            ed.cursor = B.clampPos(ed.lines, ed.lastVisual.cursor);
+            ed.wantCol = ed.cursor.col;
+          } else { ed.message = "no previous visual selection"; }
+          resetParse(ed); return;
+        }
         if (key === "t") { cycleTab(engine, false); resetParse(ed); return; }
         if (key === "T") { cycleTab(engine, true); resetParse(ed); return; }
         if ((key === "~" || key === "u" || key === "U") && !p.operator) { p.operator = "g" + key; ed.pending = "pending"; return; }
@@ -1202,14 +1544,15 @@ window.VimGrammar = (function () {
       p.awaitingChar = "macro-record"; return;
     }
     if (key === "@" && !p.operator) { p.awaitingChar = "macro-replay"; return; }
+    if (key === "r" && !p.operator) { p.awaitingChar = "replace-char"; return; }
 
     if (!p.operator && "dcy".includes(key)) { p.operator = key; ed.pending = "pending"; return; }
-    if (!p.operator && (key === ">" || key === "<" || key === "=")) { p.operator = key; ed.pending = "pending"; return; }
+    if (!p.operator && (key === ">" || key === "<")) { p.operator = key; ed.pending = "pending"; return; }
     if (p.operator && key === p.operator) { p.motion = "LINEWISE_SELF"; return executeParsed(engine, p); }
     if (p.operator && (key === "i" || key === "a")) { p.textObjectKind = key; p.awaitingChar = "textobject"; ed.pending = "pending"; return; }
     if ("fFtT".includes(key)) { p.motion = key; p.awaitingChar = "find"; ed.pending = "pending"; return; }
 
-    if ("hjklwbe0^$%;,{}".includes(key) || key === "G" || key === "H" || key === "M" || key === "L") { p.motion = key; return executeParsed(engine, p); }
+    if ("hjklwbe0^$%;,{}()".includes(key) || "WBEG".includes(key) || key === "H" || key === "M" || key === "L") { p.motion = key; return executeParsed(engine, p); }
 
     if (!p.operator) {
       if (key === "x") return doDeleteChar(engine, p, true);
@@ -1232,6 +1575,12 @@ window.VimGrammar = (function () {
       if (key === "V") return enterVisual(engine, "visual-line");
       if (key === "ctrl-v") return enterVisual(engine, "visual-block");
       if (key === ":") return enterCommand(engine);
+      if (key === "J") return doJoinLines(engine, p);
+      if (key === "R") return enterReplace(engine);
+      if (key === "ctrl-a") return doIncrementNumber(engine, p, 1);
+      if (key === "ctrl-x") return doIncrementNumber(engine, p, -1);
+      if (key === "ctrl-o") { jumpBack(engine); resetParse(ed); return; }
+      if (key === "ctrl-i") { jumpForward(engine); resetParse(ed); return; }
     }
 
     // Search motions work as bare cursor jumps OR, with an operator already
@@ -1312,6 +1661,7 @@ window.VimGrammar = (function () {
     const ed = engine.state.editor;
     if (ed.mode === "normal") return feedNormalKey(engine, key);
     if (ed.mode === "insert") return feedInsertKey(engine, key);
+    if (ed.mode === "replace") return feedReplaceKey(engine, key);
     if (ed.mode === "visual" || ed.mode === "visual-line" || ed.mode === "visual-block") return feedVisualKey(engine, key);
     if (ed.mode === "command") return feedCommandKey(engine, key);
     if (ed.mode === "search") return feedSearchKey(engine, key);
@@ -1378,7 +1728,7 @@ window.VimGrammar = (function () {
   return {
     createEditorState, feedKey,
     undo, redo, totalCount, resolveMotion, orderRange,
-    previewSearchMatches, previewSubstitute,
+    previewSearchMatches, previewSubstitute, previewGlobal,
     switchToBuffer, createBuffer, deleteBuffer, findBufferByName,
     activeTab, switchToWindow, cycleWindow, splitWindow, closeWindow, onlyWindow,
     switchToTab, newTab, cycleTab, closeTab,

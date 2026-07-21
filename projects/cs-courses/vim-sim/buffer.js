@@ -46,12 +46,22 @@ window.VimBuffer = (function () {
     return "punct";
   }
 
+  // WORD motions (W/B/E/gE) collapse word and punct into a single class —
+  // real Vim's WORD is "anything that isn't whitespace", full stop, unlike
+  // lowercase word motions which stop separately at punctuation.
+  function charClassBig(ch) {
+    if (ch === undefined || ch === "") return "eol";
+    if (/\s/.test(ch)) return "space";
+    return "word";
+  }
+
   /* --------------------------------- word motions --------------------------------- */
-  function wordForward(lines, pos) {
+  function wordForward(lines, pos, big) {
+    const classify = big ? charClassBig : charClass;
     const text = flatten(lines);
     const n = text.length;
     let i = toIndex(lines, pos);
-    const cls = (k) => (k >= n ? "eol" : charClass(text[k]));
+    const cls = (k) => (k >= n ? "eol" : classify(text[k]));
     const startCls = cls(i);
     if (startCls !== "space") { while (i < n && cls(i) === startCls) i++; }
     while (i < n && cls(i) === "space") {
@@ -62,10 +72,11 @@ window.VimBuffer = (function () {
     return i >= n ? toPos(lines, n) : toPos(lines, i);
   }
 
-  function wordBackward(lines, pos) {
+  function wordBackward(lines, pos, big) {
+    const classify = big ? charClassBig : charClass;
     const text = flatten(lines);
     let i = toIndex(lines, pos);
-    const cls = (k) => (k < 0 ? "eol" : charClass(text[k]));
+    const cls = (k) => (k < 0 ? "eol" : classify(text[k]));
     i--;
     while (i >= 0 && cls(i) === "space") i--;
     if (i < 0) return toPos(lines, 0);
@@ -74,11 +85,12 @@ window.VimBuffer = (function () {
     return toPos(lines, i);
   }
 
-  function wordEnd(lines, pos) {
+  function wordEnd(lines, pos, big) {
+    const classify = big ? charClassBig : charClass;
     const text = flatten(lines);
     const n = text.length;
     let i = toIndex(lines, pos);
-    const cls = (k) => (k < 0 || k >= n ? "eol" : charClass(text[k]));
+    const cls = (k) => (k < 0 || k >= n ? "eol" : classify(text[k]));
     const startCls = cls(i);
     const atEnd = startCls !== "space" && cls(i + 1) !== startCls;
     if (atEnd || startCls === "space") {
@@ -92,11 +104,12 @@ window.VimBuffer = (function () {
     return toPos(lines, i);
   }
 
-  function wordEndBackward(lines, pos) {
+  function wordEndBackward(lines, pos, big) {
+    const classify = big ? charClassBig : charClass;
     const text = flatten(lines);
     const n = text.length;
     let i = toIndex(lines, pos);
-    const cls = (k) => (k < 0 || k >= n ? "eol" : charClass(text[k]));
+    const cls = (k) => (k < 0 || k >= n ? "eol" : classify(text[k]));
     const startCls = cls(i);
     if (startCls !== "space") { while (i - 1 >= 0 && cls(i - 1) === startCls) i--; }
     i--;
@@ -159,6 +172,54 @@ window.VimBuffer = (function () {
     let l = pos.line;
     while (l > 0) { l--; if (lineAt(lines, l).trim() === "") return { line: l, col: 0 }; }
     return { line: 0, col: 0 };
+  }
+
+  /* --------------------------------- sentence motions --------------------------------- */
+  // Simplified vs. real Vim (which also breaks on blank lines/paragraph
+  // boundaries): a sentence here ends at '.', '!', or '?', optionally
+  // followed by closing punctuation (')' ']' '"' '''), followed by
+  // whitespace or end of text. Good enough to teach the ( ) motions and
+  // is/as text object without modeling every real-Vim edge case.
+  function sentenceBoundaries(text) {
+    const starts = [0];
+    const re = /[.!?]+/g;
+    let m;
+    while ((m = re.exec(text))) {
+      let j = m.index + m[0].length;
+      while (j < text.length && ")]\"'".includes(text[j])) j++;
+      if (j < text.length && !/\s/.test(text[j])) continue; // not actually a sentence end (e.g. "e.g.")
+      while (j < text.length && /\s/.test(text[j])) j++;
+      if (j < text.length && starts[starts.length - 1] !== j) starts.push(j);
+    }
+    return starts;
+  }
+  function sentenceForward(lines, pos) {
+    const text = flatten(lines);
+    const starts = sentenceBoundaries(text);
+    const i = toIndex(lines, pos);
+    const next = starts.find((s) => s > i);
+    return toPos(lines, next !== undefined ? next : text.length);
+  }
+  function sentenceBackward(lines, pos) {
+    const text = flatten(lines);
+    const starts = sentenceBoundaries(text);
+    const i = toIndex(lines, pos);
+    const before = starts.filter((s) => s < i);
+    return toPos(lines, before.length ? before[before.length - 1] : 0);
+  }
+  function textObjectSentence(lines, pos, around) {
+    const text = flatten(lines);
+    const starts = sentenceBoundaries(text);
+    const i = toIndex(lines, pos);
+    const upTo = starts.filter((s) => s <= i);
+    const start = upTo.length ? upTo[upTo.length - 1] : 0;
+    const after = starts.filter((s) => s > i);
+    const nextStart = after.length ? after[0] : text.length;
+    if (nextStart <= start) return null;
+    if (around) return { start: toPos(lines, start), end: toPos(lines, nextStart - 1), linewise: false };
+    let innerEnd = nextStart - 1;
+    while (innerEnd > start && /\s/.test(text[innerEnd])) innerEnd--;
+    return { start: toPos(lines, start), end: toPos(lines, Math.max(start, innerEnd)), linewise: false };
   }
 
   /* --------------------------------- text objects --------------------------------- */
@@ -310,10 +371,11 @@ window.VimBuffer = (function () {
 
   return {
     clampLine, lastCol, clampCol, clampPos, firstNonBlankCol,
-    flatten, toIndex, toPos, charClass,
+    flatten, toIndex, toPos, charClass, charClassBig,
     wordForward, wordBackward, wordEnd, wordEndBackward,
     findCharForward, findCharBackward, matchPercent,
     paragraphForward, paragraphBackward,
+    sentenceForward, sentenceBackward, textObjectSentence,
     textObjectWord, textObjectQuote, textObjectPair, textObjectParagraph, textObjectTag,
     rangeText, deleteRange, insertTextAt
   };

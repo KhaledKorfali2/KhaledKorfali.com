@@ -23,49 +23,116 @@ window.VimCourse = (function () {
     { id: "m1", title: "Modes", checkpoint: { questions: [
         { text: "Which mode is Vim in by default when you open a file?", options: ["Insert", "Normal", "Visual", "Command"], correct: 1 },
         { text: "What key always returns you to Normal mode from Insert or Visual?", options: ["Enter", "Escape", "Tab", "Backspace"], correct: 1 },
-        { text: "What makes Ctrl-v (block Visual mode) different from v or V?", options: ["It's just a faster way to select a single line", "It selects a column range repeated across several lines, rather than one contiguous run of text", "It only works with the y operator", "It automatically selects the entire buffer"], correct: 1 }
+        { text: "What does V (capital) select, no matter which column your cursor is sitting in?", options: ["Only the characters between the cursor and where you started", "Whole lines, from the line you started on through the line your cursor is on", "A rectangular block of text", "Nothing, until you also press an operator" ], correct: 1 },
+        { text: "What makes Ctrl-v (block Visual mode) fundamentally different from v or V?", options: ["It's just a faster way to select a single line", "It selects the same column range repeated across several lines — a rectangle, not one unbroken run of text", "It only works with the y operator", "It automatically selects the entire buffer"], correct: 1 },
+        { text: "You're in Visual mode with v and want the selection to become whole-line instead, without losing your starting point. What do you press?", options: ["Escape, then V", "V, right where you are — it switches shape in place", "You can't; you have to start the selection over", "o"], correct: 1 },
+        { text: "In Replace mode (R), what does Backspace do that it doesn't do in Insert mode?", options: ["Nothing different — they're identical", "It restores whatever character used to be there, instead of just deleting", "It exits Replace mode immediately", "It deletes the entire line"], correct: 1 },
+        { text: "What does gv do?", options: ["Opens a new tab", "Reselects your last Visual selection, in the same shape it was", "Repeats the last global command", "Enters Visual mode for the first time"], correct: 1 }
       ]}, lessons: [
       { id: "l1", title: "Normal mode", view: "editor", subsections: [
         { id: "s1", title: "The default: navigation and commands", kind: "concept", widget: null,
-          body: "Normal mode is where you spend most of your time. Keys here move the cursor or act on text — nothing you press inserts a character. It's called \"Normal\" because everything else is a deliberate detour from it." },
+          body: "Normal mode is where you spend most of your time. Keys here move the cursor or act on text — nothing you press inserts a character. It's called \"Normal\" because everything else (Insert, Visual, Command-line) is a deliberate, temporary detour from it: you go there to do one specific thing, then come back." },
         { id: "s2", title: "Practice: move around in Normal mode", kind: "practice", widget: "editor",
           body: "Confirm the mode pill reads NORMAL, then try a few of the classic movement keys.",
-          tryIt: "Press <code>h</code> <code>j</code> <code>k</code> <code>l</code> a few times and watch the cursor and the Ln/Col readout." }
+          tryIt: "Press <code>h</code> <code>j</code> <code>k</code> <code>l</code> a few times and watch the cursor and the Ln/Col readout." },
+        { id: "s3", title: "Normal mode is the hub all the other modes return to", kind: "concept", widget: null,
+          body: "Every other mode in this module is reached FROM Normal mode and (with one exception you'll see in Module 4 covering visual-to-visual switching) returns TO Normal mode when you're done — never directly to each other. Insert &rarr; Normal &rarr; Visual is the normal path, not Insert &rarr; Visual directly. Keeping Normal mode as the one hub everything routes through is a big part of why Vim's grammar stays predictable no matter how many modes it has." }
       ]},
       { id: "l2", title: "Insert mode", view: "editor", subsections: [
         { id: "s1", title: "Six ways in, each slightly different", kind: "concept", widget: null,
-          body: "<code>i</code> inserts before the cursor, <code>a</code> after it, <code>I</code> at the start of the line, <code>A</code> at the end, and <code>o</code>/<code>O</code> open a new line below/above and drop you into it. They all land you in the same Insert mode — they just differ in where." },
+          body: "<code>i</code> inserts before the cursor, <code>a</code> after it, <code>I</code> at the start of the line (its first non-blank character, not necessarily column 0), <code>A</code> at the end, and <code>o</code>/<code>O</code> open a new line below/above and drop you into it. They all land you in the exact same Insert mode — they just differ in where the cursor is when you land." },
         { id: "s2", title: "Practice: enter, type, escape", kind: "practice", widget: "editor",
           body: "Try any entry point, type a few characters, then leave.",
           tryIt: "Press <code>i</code>, type a couple of words, then press <code>Escape</code>." },
         { id: "s3", title: "Why Escape matters", kind: "concept", widget: null,
-          body: "Insert mode is the one place you can't casually run commands — so Vim makes returning to Normal mode a deliberate, single, memorable action. That round trip (out to insert, back to normal) is baked into how nearly every edit works." }
+          body: "Insert mode is the one place you can't casually run commands — every key just types a character, full stop. No counts, no operators, no motions. So Vim makes returning to Normal mode a deliberate, single, memorable action. That round trip (out to insert, back to normal) is baked into how nearly every edit works, and it's also exactly what dot-repeat and macros capture when the change they're replaying involved typing." },
+        { id: "s4", title: "Practice: try all six entry points", kind: "practice", widget: "editor",
+          body: "The six feel similar once you've used them, but the differences matter in real editing — try each one back to back on the same line.",
+          tryIt: "On one line, try <code>i</code>, <code>Escape</code>, <code>a</code>, <code>Escape</code>, <code>I</code>, <code>Escape</code>, <code>A</code>, <code>Escape</code>, <code>o</code>, <code>Escape</code>, <code>O</code>, <code>Escape</code> — watch where the cursor lands each time before you type anything." },
+        { id: "s5", title: "Two keys for undoing a typo without leaving Insert mode", kind: "concept", widget: null,
+          body: "<code>Ctrl-w</code> deletes the word immediately before the cursor — handy the instant you notice you've mistyped one. <code>Ctrl-u</code> deletes everything you've typed so far back to the point Insert mode started (not the whole line — if you entered Insert mode partway through a line, it stops right there, the same way it stops for real Vim). Neither one ever leaves Insert mode, so you keep typing right where they leave off." },
+        { id: "s6", title: "Practice: Ctrl-w and Ctrl-u", kind: "practice", widget: "editor",
+          body: "Type a few words, then try clearing them without leaving Insert mode.",
+          tryIt: "Press <code>A</code>, type a couple of words, press <code>Ctrl-w</code> and watch the last word disappear; type more, then press <code>Ctrl-u</code> and watch everything you typed this session vanish at once." }
       ]},
-      { id: "l3", title: "Visual mode", view: "editor", subsections: [
-        { id: "s1", title: "Select first, then act", kind: "concept", widget: null,
-          body: "<code>v</code> selects character by character, <code>V</code> selects whole lines, and <code>Ctrl-v</code> selects a rectangular block. Once something is selected, an operator like <code>d</code> or <code>y</code> acts on exactly that selection." },
-        { id: "s2", title: "Practice: select, then delete", kind: "practice", widget: "editor",
-          body: "Watch the selection highlight grow as you move.",
+      { id: "l3", title: "Visual mode: selecting text before you act", view: "editor", subsections: [
+        { id: "s1", title: "Select first, then act — same operators every time", kind: "concept", widget: null,
+          body: "Vim actually has three Visual variants, covered across this lesson and the next: <code>v</code> (characterwise), <code>V</code> (linewise), and <code>Ctrl-v</code> (blockwise, its own lesson next since it's the most different). All three work the same way at a high level — move the cursor to grow or shrink a highlighted selection, then press an operator (<code>d</code>, <code>c</code>, <code>y</code>, <code>&gt;</code>, <code>&lt;</code>, <code>~</code>, <code>u</code>, <code>U</code>) and it acts on exactly what's highlighted. The operator set never changes between variants — only what counts as \"the selection\" does." },
+        { id: "s2", title: "Practice: charwise select, then delete", kind: "practice", widget: "editor",
+          body: "Watch the selection highlight grow one character at a time as you move.",
           tryIt: "Press <code>v</code>, move with <code>w</code> or <code>l</code> a few times, then press <code>d</code>." },
-        { id: "s3", title: "Block mode: editing a column, not a line", kind: "concept", widget: null,
-          body: "<code>Ctrl-v</code> is the odd one out: instead of one contiguous run of text, it selects the same column range across several lines at once. <code>d</code> or <code>y</code> on a block acts on that rectangle. <code>I</code> (before the block) and <code>A</code> (after it) are block-only: whatever you type gets inserted at that column on every line in the block the moment you press <code>Escape</code> &mdash; a fast way to comment out a column of code or add the same punctuation to the end of several lines." },
+        { id: "s3", title: "V: whole lines, regardless of where the cursor sits", kind: "concept", widget: null,
+          body: "<code>V</code> selects entire lines from the line you started on through whatever line your cursor is currently on — the column your cursor happens to be at is irrelevant to what gets selected, it only decides which line is the far end. Motions like <code>l</code> or <code>$</code> still move the cursor left and right for you to look around, but they can't shrink the selection to anything less than full lines. An operator then acts on all of those lines at once: <code>d</code> deletes them outright, <code>c</code> clears them but leaves one blank line to type into (matching plain <code>cc</code>), and <code>y</code> yanks them so a later <code>p</code> pastes back whole lines, not inline text." },
+        { id: "s4", title: "Practice: select two whole lines, then delete", kind: "practice", widget: "editor",
+          body: "Notice the entire line highlights even though you only moved the cursor down, not sideways.",
+          tryIt: "Press <code>V</code>, then <code>j</code> once to extend down a line, then <code>d</code> &mdash; both full lines disappear." },
+        { id: "s5", title: "Side by side: what actually differs", kind: "concept", widget: null,
+          body: "If you've mixed up Visual and Visual Block before, here's the concrete distinction: <b>v</b> and <b>V</b> always select one single, unbroken run of text — either a stretch of characters (which can start and end mid-line, and can span several lines) or a stack of whole lines. Visual Block, covered next, selects something that ISN'T one unbroken run at all — it's several separate, short pieces of text, one per line, all lined up in the same column range. Concretely: <code>v3ld</code> deletes 4 characters as one contiguous chunk; <code>Vjd</code> deletes 2 complete lines; <code>Ctrl-v</code> selecting the same two lines and 3 columns would instead delete 2 separate 3-character fragments, one from each line, leaving the rest of both lines intact." }
+      ]},
+      { id: "l4", title: "Visual Block mode: editing a column, not a line", view: "editor", subsections: [
+        { id: "s1", title: "A rectangle, not a range", kind: "concept", widget: null,
+          body: "<code>Ctrl-v</code> is the odd one out among the three Visual variants: instead of one contiguous run of text, it tracks a rectangle — the same [left, right] column range repeated on every line from your anchor's line down (or up) to your cursor's line. <code>d</code> or <code>y</code> on a block acts on that rectangle specifically: each affected line loses (or yields) only the characters inside that column range, and every other character on every one of those lines is left completely untouched." },
+        { id: "s2", title: "Practice: cut a column out of several lines", kind: "practice", widget: "editor",
+          body: "Watch that only a narrow strip disappears from each line — the rest of every line stays exactly where it was.",
+          tryIt: "Press <code>Ctrl-v</code>, then <code>j</code> a couple of times and <code>l</code> a couple of times to shape a small rectangle, then press <code>d</code>." },
+        { id: "s3", title: "Block-only commands: I and A", kind: "concept", widget: null,
+          body: "<code>I</code> (before the block) and <code>A</code> (after it) are block-only commands with no equivalent in charwise or linewise Visual. Whatever you type after pressing one gets inserted at that same column on every other line in the block, all at once, the moment you press <code>Escape</code> &mdash; a fast way to comment out a column of code, add the same prefix to a list of lines, or append the same punctuation to several lines in one motion. <code>I</code> skips any line too short to reach the block's column; <code>A</code> instead pads short lines with spaces so the appended text still lines up. If you extend the block to the true end of each line with <code>$</code> before pressing <code>A</code>, Vim switches to a \"ragged\" mode instead: it appends at each line's own actual end rather than one shared column, which is what makes it possible to add the same suffix to a paragraph of differently-sized lines in a single motion." },
         { id: "s4", title: "Practice: block-insert a prefix on several lines", kind: "practice", widget: "editor",
           body: "This is the move people reach for Ctrl-v for most often: adding the same few characters to the start of a handful of lines in one motion.",
-          tryIt: "Press <code>Ctrl-v</code>, then <code>j</code> a couple of times to select down a column, then <code>I</code>, type something, and press <code>Escape</code> &mdash; watch it appear on every selected line at once." }
+          tryIt: "Press <code>Ctrl-v</code>, then <code>j</code> a couple of times to select down a column, then <code>I</code>, type something, and press <code>Escape</code> &mdash; watch it appear on every selected line at once." },
+        { id: "s5", title: "Yank and paste round-trip the rectangle too", kind: "concept", widget: null,
+          body: "<code>y</code> on a block copies the rectangle rather than a single run of text, and pasting it back with <code>p</code> reproduces that same rectangle at the cursor — one fragment per line, at the same column, padding short target lines with spaces if it needs to. This is what separates a genuine block yank/paste from just copying and retyping a column by hand." }
       ]},
-      { id: "l4", title: "Command mode", view: "editor", subsections: [
+      { id: "l5", title: "Switching between Visual modes", view: "editor", subsections: [
+        { id: "s1", title: "You don't have to start over to change your mind", kind: "concept", widget: null,
+          body: "You're not locked into whichever Visual variant you entered with. While a selection is active, pressing a DIFFERENT one of <code>v</code>, <code>V</code>, or <code>Ctrl-v</code> reinterprets your current selection as that shape instead, keeping the same starting point — so a selection you built as characters can become whole lines, or a block, without losing where you started. Pressing the SAME key you're already using, on the other hand, exits straight back to Normal mode, exactly like <code>Escape</code> would." },
+        { id: "s2", title: "Practice: reshape one selection three ways", kind: "practice", widget: "editor",
+          body: "Same starting point and same cursor position throughout &mdash; only the interpretation of what's selected changes.",
+          tryIt: "Press <code>v</code>, move right a few characters, then press <code>V</code> and watch it become whole lines, then press <code>Ctrl-v</code> and watch it become a block, then press <code>Ctrl-v</code> again to leave." },
+        { id: "s3", title: "o: swap which end you're adjusting", kind: "concept", widget: null,
+          body: "Once you have a selection, <code>o</code> jumps the cursor to the OTHER end of it &mdash; the end that used to be the fixed starting point becomes the end you're now moving, and vice versa. This is the fix for the common situation where you started a selection one character too late (or too early) and realize it only once you've already extended the far end: instead of cancelling and restarting, press <code>o</code> and adjust the near end directly." },
+        { id: "s4", title: "Practice: select, then adjust the start instead of the end", kind: "practice", widget: "editor",
+          body: "Notice the cursor jumps to the opposite corner of the highlight, and the highlight itself doesn't change until you move again.",
+          tryIt: "Press <code>v</code>, move right three times, press <code>o</code>, then move left or right and watch that end of the selection change instead." }
+      ]},
+      { id: "l6", title: "Command mode", view: "editor", subsections: [
         { id: "s1", title: "A line of its own", kind: "concept", widget: null,
           body: "Pressing <code>:</code> opens a command line at the bottom of the screen — a genuinely different kind of mode from the other three, since you're typing a whole instruction (<code>:w</code>, <code>:q</code>, <code>:wq</code>, <code>:set ...</code>) rather than moving or inserting text character by character." },
         { id: "s2", title: "Practice: open and close it", kind: "practice", widget: "editor",
           body: "You'll use this mode properly for search-and-replace in Module 6 — for now just get comfortable opening and closing it.",
           tryIt: "Press <code>:</code>, type <code>w</code>, then press Enter. Try <code>Escape</code> instead next time to cancel without running anything." }
+      ]},
+      { id: "l7", title: "Replace mode: typing that overwrites instead of inserting", view: "editor", subsections: [
+        { id: "s1", title: "R: a seventh mode, easy to forget", kind: "concept", widget: null,
+          body: "<code>R</code> looks like Insert mode's twin, and it mostly is — you type, characters appear — except each character you type replaces whatever was already at the cursor instead of pushing it aside. Type past the end of a line and it simply extends, exactly like Insert mode would. <code>Escape</code> returns to Normal mode the same way it does everywhere else." },
+        { id: "s2", title: "Practice: overwrite instead of insert", kind: "practice", widget: "editor",
+          body: "Notice existing characters vanish as you type over them, rather than sliding to the right.",
+          tryIt: "Press <code>R</code>, type a few characters over existing text, then press <code>Escape</code>." },
+        { id: "s3", title: "Backspace restores, it doesn't just delete", kind: "concept", widget: null,
+          body: "In Replace mode, <code>Backspace</code> does something Insert mode's Backspace doesn't: it puts back whatever character used to be there, rather than just removing what you typed. This only reaches back to wherever you pressed <code>R</code> — Backspace past that point just moves the cursor left without restoring anything, since there's nothing from this session left to undo." },
+        { id: "s4", title: "Practice: type over text, then back out of it", kind: "practice", widget: "editor",
+          body: "Watch the original characters reappear one at a time as you backspace, until you reach where you started.",
+          tryIt: "Press <code>R</code>, type 3 or 4 characters over existing text, then press <code>Backspace</code> that many times and watch the original text return, then press <code>Escape</code>." }
+      ]},
+      { id: "l8", title: "gv and pasting over a selection", view: "editor", subsections: [
+        { id: "s1", title: "gv: get the same selection back", kind: "concept", widget: null,
+          body: "Leave Visual mode — with an operator, with <code>Escape</code>, any way at all — and <code>gv</code> from Normal mode reselects exactly what you had, in whichever variant (charwise, linewise, or block) you were using. Handy the moment you realize you needed one more operator on a selection you already committed to, without re-aiming the whole thing by hand." },
+        { id: "s2", title: "Practice: reselect after leaving Visual mode", kind: "practice", widget: "editor",
+          body: "Select something, leave Visual mode entirely, move the cursor elsewhere, then bring the exact same selection back.",
+          tryIt: "Press <code>v</code>, move a few characters, press <code>Escape</code>, move the cursor somewhere else entirely, then press <code>g</code> <code>v</code> and watch the original selection reappear." },
+        { id: "s3", title: "p in Visual mode: paste over a selection", kind: "concept", widget: null,
+          body: "Pasting isn't only a Normal-mode move. With a selection active, <code>p</code> deletes exactly what's highlighted and drops the register's contents in its place — a one-motion \"replace this with what I copied earlier,\" instead of deleting first and pasting after as two separate steps. The text that gets replaced takes over the unnamed register afterward, the same swap a plain delete would do." },
+        { id: "s4", title: "Practice: swap two words using visual paste", kind: "practice", widget: "editor",
+          body: "Yank one word, select a different word, and drop the yanked text in its place in a single step.",
+          tryIt: "Move to a word and press <code>y</code> <code>w</code> to yank it, move to a different word, press <code>v</code> and select it with <code>e</code>, then press <code>p</code>." }
       ]}
     ]},
 
     { id: "m2", title: "Basic Motions", checkpoint: { questions: [
         { text: "Which motion moves to the end of the current or next word?", options: ["w", "b", "e", "gg"], correct: 2 },
         { text: "What does a count like 5 do before a motion, e.g. 5w?", options: ["Repeats the motion 5 times", "Jumps to line 5", "Selects 5 characters", "Nothing special"], correct: 0 },
-        { text: "What does % do?", options: ["Scrolls the view 50%", "Jumps to the matching bracket", "Repeats the last search", "Duplicates the current line"], correct: 1 }
+        { text: "What does % do?", options: ["Scrolls the view 50%", "Jumps to the matching bracket", "Repeats the last search", "Duplicates the current line"], correct: 1 },
+        { text: "On the text foo.bar, what's different about W compared to w?", options: ["W moves backward instead of forward", "W treats foo.bar as one WORD and skips past the period; w would stop at it", "They're exactly the same key, just capitalized differently", "W only works at the end of a line"], correct: 1 }
       ]}, lessons: [
       { id: "l1", title: "h j k l — character motions", view: "game-cursorRacer", subsections: [
         { id: "s1", title: "Four keys instead of arrow keys", kind: "concept", widget: null,
@@ -78,7 +145,12 @@ window.VimCourse = (function () {
         { id: "s1", title: "Move by word, not by character", kind: "concept", widget: null,
           body: "<code>w</code> jumps to the start of the next word, <code>b</code> back to the start of the current/previous word, <code>e</code> to the end of the current/next word, and <code>ge</code> to the end of the previous word. These four cover moving through text far faster than stepping character by character." },
         { id: "s2", title: "Game: Word Jumper", kind: "practice", widget: "game-wordJumper",
-          body: "Reach the highlighted target word using w, b, e, or ge — whichever gets you there in fewer moves." }
+          body: "Reach the highlighted target word using w, b, e, or ge — whichever gets you there in fewer moves." },
+        { id: "s3", title: "WORD vs word: capital letters mean \"ignore punctuation\"", kind: "concept", widget: null,
+          body: "Lowercase <code>w</code> treats punctuation as its own little word — on <code>foo.bar</code>, <code>w</code> stops at the <code>.</code> and again at <code>bar</code>. Capital <code>W</code> <code>B</code> <code>E</code> <code>gE</code> don't bother with that distinction at all: to them, anything that isn't whitespace is part of the same WORD, so <code>W</code> on <code>foo.bar baz</code> jumps straight past the period to <code>baz</code>. Same four-key family, same logic, just a coarser definition of \"word\" — reach for the capital version when punctuation is just noise you want to skip over." },
+        { id: "s4", title: "Practice: word vs WORD on the same text", kind: "practice", widget: "editor",
+          body: "Compare how far one press of each takes you across the same punctuated text.",
+          tryIt: "On a line with punctuation like <code>foo.bar baz-qux hello</code>, press <code>w</code> a few times and watch it stop at every punctuation mark; move back to the start and press <code>W</code> instead and watch it skip straight past them to the next whitespace-separated chunk." }
       ]},
       { id: "l3", title: "f F t T ; , — find motions", view: "game-characterSniper", subsections: [
         { id: "s1", title: "Jump straight to a character", kind: "concept", widget: null,
@@ -97,6 +169,13 @@ window.VimCourse = (function () {
           body: "With the cursor on (or before) a bracket, <code>%</code> jumps straight to its matching partner — invaluable for finding your way around deeply nested code." },
         { id: "s2", title: "Game: Bracket Hunter", kind: "practice", widget: "game-bracketHunter",
           body: "Jump to the matching bracket using %. Try it from different starting brackets in the same snippet." }
+      ]},
+      { id: "l6", title: "( ) — sentence motions", view: "editor", subsections: [
+        { id: "s1", title: "One level up from words, one level down from paragraphs", kind: "concept", widget: null,
+          body: "<code>)</code> jumps forward to the start of the next sentence; <code>(</code> jumps back to the start of the current or previous one. A sentence ends at a <code>.</code>, <code>!</code>, or <code>?</code> followed by whitespace (optionally with a closing quote or bracket in between) — useful for moving through prose a whole thought at a time, faster than word-by-word but more precise than jumping a whole paragraph." },
+        { id: "s2", title: "Practice: move sentence by sentence", kind: "practice", widget: "editor",
+          body: "Notice each press lands you at the very first character of a sentence, regardless of how long the previous one was.",
+          tryIt: "On a line with a few sentences like <code>One sentence. Two sentence. Three.</code>, press <code>)</code> a couple of times to move forward, then <code>(</code> to move back." }
       ]}
     ]},
 
@@ -169,6 +248,25 @@ window.VimCourse = (function () {
           tryIt: "Try <code>x</code> once, then <code>3.</code> &mdash; three more characters should disappear, not one." },
         { id: "s5", title: "Only changes are repeatable, not moves or reads", kind: "concept", widget: null,
           body: "Pure cursor motions, yanking (<code>y</code>), undo, and searches don't count as \"the last change\" &mdash; only commands that actually modify the buffer do. That also means <code>.</code> composes naturally with everything else you've learned: it works after an insert session, after a visual-mode operator, and even inside a macro." }
+      ]},
+      { id: "l7", title: "J, r, and Ctrl-a/Ctrl-x — commands outside the grammar", view: "grammar", subsections: [
+        { id: "s1", title: "Not everything is an operator", kind: "concept", widget: null,
+          body: "A few extremely common commands look like they might slot into the <code>operator + motion</code> grammar from this module, but don't &mdash; they're complete commands on their own, sometimes with a count in front, never with a motion after. Worth knowing them by name so you stop reaching for a motion that isn't coming." },
+        { id: "s2", title: "J: join lines", kind: "concept", widget: null,
+          body: "<code>J</code> joins the current line with the next one, replacing the line break with a single space (Vim also strips the next line's leading whitespace, and skips the space entirely if the next line starts with a closing paren). <code>3J</code> joins three lines total, not just \"3 times\" &mdash; the count means how many lines end up joined together, same convention as <code>3dd</code> deleting 3 lines." },
+        { id: "s3", title: "Practice: J", kind: "practice", widget: "grammar",
+          body: "Try it on two adjacent lines in the seed buffer.",
+          tryIt: "Move to a line with something below it and press <code>J</code>. Try <code>3J</code> somewhere with at least 2 lines below the cursor." },
+        { id: "s4", title: "r{char}: replace without entering Insert mode", kind: "concept", widget: null,
+          body: "<code>r</code> followed by any single character replaces exactly the character under the cursor with it &mdash; no Insert mode round trip needed for a one-character fix. A count works here too: <code>3rx</code> replaces the next three characters with <code>x</code>, and refuses to do anything if there aren't three characters left on the line to replace (same \"don't half-apply a command\" caution real Vim uses)." },
+        { id: "s5", title: "Practice: r and a counted r", kind: "practice", widget: "grammar",
+          body: "Notice the cursor doesn't move for a single r, but does move to the last replaced character for a counted one.",
+          tryIt: "Try <code>rx</code> on a single character, then try <code>3rx</code> somewhere with at least 3 characters ahead of the cursor." },
+        { id: "s6", title: "Ctrl-a / Ctrl-x: nudge a number without retyping it", kind: "concept", widget: null,
+          body: "With the cursor on or before a number, <code>Ctrl-a</code> increments it by one and <code>Ctrl-x</code> decrements it &mdash; a count in front changes the amount, so <code>5 Ctrl-a</code> adds 5. It finds the first number at or after the cursor on the current line, and preserves things like leading zeros (<code>007</code> becomes <code>008</code>, not <code>8</code>)." },
+        { id: "s7", title: "Practice: Ctrl-a and Ctrl-x", kind: "practice", widget: "grammar",
+          body: "Try both directions, and with a count.",
+          tryIt: "Find or type a number in the buffer, press <code>Ctrl-a</code> a couple of times, then <code>5</code> <code>Ctrl-x</code>." }
       ]}
     ]},
 
@@ -217,6 +315,16 @@ window.VimCourse = (function () {
         { id: "s3", title: "Practice: explore the boundary first, then commit", kind: "practice", widget: "textobjects",
           body: "A good habit while learning: preview the text object's boundary here first, then go execute the real command with confidence.",
           tryIt: "Pick a text-object kind and scope here, confirm the highlighted region is what you expect, then switch to the editor and run the matching d/c/y command for real." }
+      ]},
+      { id: "l6", title: "Sentences: is / as", view: "textobjects", subsections: [
+        { id: "s1", title: "One level up from a word, a notch below a paragraph", kind: "concept", widget: null,
+          body: "<code>is</code> selects the sentence the cursor is inside, however far you are from either end of it; <code>as</code> also includes the whitespace after it, the same inside/around pattern as every other text object. It uses the same sentence boundary as the <code>(</code>/<code>)</code> motions from Module 2 &mdash; a <code>.</code>, <code>!</code>, or <code>?</code> followed by whitespace." },
+        { id: "s2", title: "Explore: the sentences demo", kind: "practice", widget: "textobjects",
+          body: "Load the Sentences demo, select the sentence kind, and toggle inside/around.",
+          tryIt: "Click \"Sentences\", select the sentence kind above, and watch the middle sentence highlight even though the cursor starts partway through it &mdash; then toggle around and watch the trailing space join the selection." },
+        { id: "s3", title: "Practice: dis and das for real", kind: "practice", widget: "editor",
+          body: "Once you've confirmed the boundary above, try the real commands in a plain editor.",
+          tryIt: "On a line with a few sentences like <code>One sentence. Two sentence. Three.</code>, put the cursor in the middle of the second sentence and try <code>dis</code>; undo with <code>u</code>, then try <code>das</code> and compare what's left." }
       ]}
     ]},
 
@@ -273,7 +381,8 @@ window.VimCourse = (function () {
         { text: "After a forward search, what does N do (as opposed to n)?", options: ["Repeats the search in the same direction", "Repeats the search in the opposite direction", "Starts a brand new search", "Nothing, N is only for backward searches"], correct: 1 },
         { text: "What's the key difference between * and a plain /word search?", options: ["There is none", "* automatically grabs the word under the cursor and matches it as a whole word, so it won't match that word as part of a longer one", "* only searches backward", "* only works on the first line of the buffer"], correct: 1 },
         { text: "In :%s/foo/bar/g, what does the g flag control, and what does % control?", options: ["g means 'global program'; % means 'percent match'", "g replaces every match on a line instead of just the first; % extends the scope from the current line to the whole buffer", "g and % do the same thing, redundantly", "g reverses the search direction; % repeats it"], correct: 1 },
-        { text: "What does d/foo<Enter> do?", options: ["Nothing — search motions can't be combined with operators", "Deletes from the cursor up to (but not including) the next occurrence of 'foo'", "Deletes the entire line containing 'foo'", "Searches for 'foo' without deleting anything"], correct: 1 }
+        { text: "What does d/foo<Enter> do?", options: ["Nothing — search motions can't be combined with operators", "Deletes from the cursor up to (but not including) the next occurrence of 'foo'", "Deletes the entire line containing 'foo'", "Searches for 'foo' without deleting anything"], correct: 1 },
+        { text: "What does :g/TODO/d do?", options: ["Deletes the first line containing TODO", "Deletes every line in the buffer that contains TODO", "Deletes every line that does NOT contain TODO", "Searches for TODO without deleting anything"], correct: 1 }
       ]}, lessons: [
       { id: "l1", title: "Searching forward and backward", view: "search", subsections: [
         { id: "s1", title: "/ and ? jump the cursor to a match", kind: "concept", widget: null,
@@ -307,6 +416,19 @@ window.VimCourse = (function () {
         { id: "s2", title: "Practice: watch the breakdown before you commit", kind: "practice", widget: "search",
           body: "The scope/pattern/replacement/flags breakdown below is reading your command line live, using the exact same parsing the real substitution runs on &mdash; so the substitution count shown is exactly what will happen when you press Enter.",
           tryIt: "Type <code>:s/foo/bar/</code> replacing 'foo' with a word that's actually in the buffer, and watch the breakdown fill in before you press Enter. Then try adding <code>%</code> and <code>g</code> and see how the match count changes." }
+      ]},
+      { id: "l5", title: "The global command: :g and :v", view: "search", subsections: [
+        { id: "s1", title: "Run a command on every matching line at once", kind: "concept", widget: null,
+          body: "<code>:g/pattern/cmd</code> finds every line matching <code>pattern</code> in the whole buffer and runs <code>cmd</code> on each one &mdash; most often <code>d</code> to delete all of them in one shot, or a <code>s/from/to/</code> substitution scoped to just those lines instead of the whole buffer. <code>:v/pattern/cmd</code> (or <code>:g!/pattern/cmd</code>) is the mirror image: it runs the command on every line that does <b>not</b> match." },
+        { id: "s2", title: "Practice: watch the breakdown before you commit", kind: "practice", widget: "search",
+          body: "The panel below parses your command line live, exactly like it does for :s &mdash; showing which lines match before you've even finished typing the command to run on them.",
+          tryIt: "In a buffer with a few lines containing the word \"TODO\" among others, type <code>:g/TODO/d</code> and watch the match count and preview fill in before you press Enter." },
+        { id: "s3", title: "Practice: substitute, but only on matching lines", kind: "practice", widget: "search",
+          body: "This narrows a substitution's scope to exactly the lines you care about, something plain :%s can't do on its own.",
+          tryIt: "Try <code>:g/foo/s/foo/bar/</code> and compare the breakdown against a plain <code>:%s/foo/bar/</code> on the same buffer — notice :g only touches lines that already contained \"foo\"." },
+        { id: "s4", title: "Practice: :v — keep only what matches", kind: "practice", widget: "search",
+          body: "Sometimes it's easier to describe what you want to throw away as \"everything except…\" rather than a positive pattern.",
+          tryIt: "Try <code>:v/keep/d</code> on a buffer where most lines should go and only a few contain the word \"keep\" &mdash; watch the panel confirm it's targeting the non-matching lines before you commit." }
       ]}
     ]},
 
@@ -398,7 +520,8 @@ window.VimCourse = (function () {
         { text: "After undoing twice and then making a brand-new edit, what happens to the two changes you undid?", options: ["They're permanently lost, exactly like a normal undo stack", "They're preserved as a separate branch in the undo tree — you can still reach them, just not by pressing Ctrl-r from here", "They get merged into the new edit automatically", "Vim asks you to choose which one to keep"], correct: 1 },
         { text: "After undoing and branching, which direction does Ctrl-r (redo) follow?", options: ["Always the oldest branch at that point", "Always the newest branch — whichever child was created most recently", "It asks you to pick", "It's random"], correct: 1 },
         { text: "You set mark a on a line, then insert 3 new lines above it. What happens when you press 'a?", options: ["It jumps to the raw line number the mark was created at, which is now the wrong content", "It still lands on the same text you marked, since the mark shifted along with it", "The mark is deleted automatically", "Vim asks you to reset the mark"], correct: 1 },
-        { text: "What does pressing '' (two single-quotes) do?", options: ["Nothing, it's not a real command", "Jumps back to wherever you were right before your last big jump — G, gg, a search, %, or another mark", "Sets a new mark at the cursor", "Repeats the last search"], correct: 1 }
+        { text: "What does pressing '' (two single-quotes) do?", options: ["Nothing, it's not a real command", "Jumps back to wherever you were right before your last big jump — G, gg, a search, %, or another mark", "Sets a new mark at the cursor", "Repeats the last search"], correct: 1 },
+        { text: "How is Ctrl-o/Ctrl-i's jump list different from the '' mark?", options: ["They're exactly the same thing under two names", "'' only ever returns to your one most recent jump; Ctrl-o keeps stepping further back through every previous big jump, and Ctrl-i steps forward again", "The jump list only works across buffers, '' only works within one", "Ctrl-o sets a mark; '' does not"], correct: 1 }
       ]}, lessons: [
       { id: "l1", title: "Marks: bookmarking a position", view: "marks", subsections: [
         { id: "s1", title: "m sets, ' and ` jump", kind: "concept", widget: null,
@@ -437,6 +560,13 @@ window.VimCourse = (function () {
         { id: "s4", title: "Practice: time-travel to any point directly", kind: "practice", widget: "undotree",
           body: "You're not limited to stepping one undo/redo at a time here &mdash; click any node to jump straight to it.",
           tryIt: "Build up a few branches, then click directly on an old node in the middle of the tree and watch the editor snap straight to that exact historical state." }
+      ]},
+      { id: "l4", title: "Jump list: Ctrl-o and Ctrl-i", view: "editor", subsections: [
+        { id: "s1", title: "Retracing your steps through every big jump, not just marks", kind: "concept", widget: null,
+          body: "Every long-distance move &mdash; the same ones that set the <code>''</code> mark automatically (<code>G</code>, <code>gg</code>, a search, <code>%</code>, jumping to a mark) &mdash; also gets recorded in a running list. <code>Ctrl-o</code> steps backward through that list, older jump by older jump; <code>Ctrl-i</code> steps forward again. Where <code>''</code> only ever returns to your one most recent spot, the jump list keeps going further back, one big move at a time." },
+        { id: "s2", title: "Practice: jump around, then retrace your steps", kind: "practice", widget: "editor",
+          body: "Make a few unrelated long jumps first, so there's an actual trail to walk back through.",
+          tryIt: "Press <code>G</code> to jump to the end, then <code>gg</code> to jump to the start, then <code>Ctrl-o</code> a couple of times and watch it retrace each jump in reverse, then <code>Ctrl-i</code> to walk forward again." }
       ]}
     ]},
 

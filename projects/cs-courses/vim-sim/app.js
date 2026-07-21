@@ -46,7 +46,11 @@
     "buffers", "activeBufferId", "nextBufferId",
     "tabs", "activeTabId", "nextWindowId", "nextTabId",
     "lastChangeKeys",
-    "wantCol"
+    "wantCol",
+    "lastVisual",
+    "jumpList", "jumpIndex",
+    "insertStartLine", "insertStartCol",
+    "replaceOverwritten"
   ];
 
   function migrateState(state) {
