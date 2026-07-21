@@ -17,6 +17,18 @@ const projects = [
     category: "simulation"
   },
   {
+    name: "Vim System",
+    image: "screenshots/linux-filesystem.png",
+    path: "./projects/cs-courses/vim-sim-index.html",
+    category: "programming"
+  },
+  {
+    name: "Arabic Letter Quiz",
+    image: "screenshots/arabic-letter-quiz.png",
+    path: "./projects/arabic-letter-quiz/index.html",
+    category: "arabic"
+  },
+  {
     name: "Linux File System",
     image: "screenshots/linux-filesystem.png",
     path: "./projects/cs-courses/fs-sim-index.html",
@@ -26,12 +38,6 @@ const projects = [
     name: "Git System",
     image: "screenshots/linux-filesystem.png",
     path: "./projects/cs-courses/git-sim-index.html",
-    category: "programming"
-  },
-  {
-    name: "Vim System",
-    image: "screenshots/linux-filesystem.png",
-    path: "./projects/cs-courses/vim-sim-index.html",
     category: "programming"
   },
    {
@@ -98,12 +104,6 @@ const projects = [
     name: "Arabic Word Breakdown",
     image: "screenshots/arabic-breakdown.png",
     path: "./projects/arabic-breakdown/index.html",
-    category: "arabic"
-  },
-  {
-    name: "Arabic Letter Quiz",
-    image: "screenshots/arabic-letter-quiz.png",
-    path: "./projects/arabic-letter-quiz/index.html",
     category: "arabic"
   },
   {
