@@ -37,6 +37,14 @@ window.VimGrammar = (function () {
       lastVisual: null,
       jumpList: [], jumpIndex: 0,
       replaceOverwritten: null,
+      settings: {
+        number: false, relativenumber: false,
+        tabstop: 8, shiftwidth: 8, expandtab: false,
+        ignorecase: false, smartcase: false,
+        hlsearch: false, cursorline: false,
+        list: false, wrap: true, autoindent: false
+      },
+      hlsearchSuppressed: false,
       buffers: { 1: { id: "1", name: "[No Name]" } },
       activeBufferId: "1", nextBufferId: 2,
       tabs: [{ id: "t1", windows: [{ id: "w1", bufferId: "1" }], activeWindowId: "w1", splitDirection: "horizontal" }],
@@ -447,7 +455,9 @@ window.VimGrammar = (function () {
       ed.cursor = B.clampPos(ed.lines, range.start);
     } else if (op === ">" || op === "<") {
       const newLines = ed.lines.slice();
-      for (let l = range.start.line; l <= range.end.line; l++) newLines[l] = op === ">" ? "    " + newLines[l] : newLines[l].replace(/^ {1,4}/, "");
+      const sw = ed.settings.shiftwidth;
+      const dedentRe = new RegExp("^ {1," + sw + "}");
+      for (let l = range.start.line; l <= range.end.line; l++) newLines[l] = op === ">" ? " ".repeat(sw) + newLines[l] : newLines[l].replace(dedentRe, "");
       commitEdit(engine, newLines, { line: range.start.line, col: 0 }, "indent");
     } else if (op === "g~" || op === "gu" || op === "gU") {
       const applyCase = (s) => (op === "gu" ? s.toLowerCase() : op === "gU" ? s.toUpperCase() : s.split("").map((c) => (c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase())).join(""));
@@ -472,8 +482,14 @@ window.VimGrammar = (function () {
     if (kind === "a") ed.cursor = { line: ed.cursor.line, col: Math.min(ed.lines[ed.cursor.line].length, ed.cursor.col + 1) };
     else if (kind === "I") ed.cursor = { line: ed.cursor.line, col: B.firstNonBlankCol(ed.lines[ed.cursor.line]) };
     else if (kind === "A") ed.cursor = { line: ed.cursor.line, col: ed.lines[ed.cursor.line].length };
-    else if (kind === "o") { const nl = ed.lines.slice(); nl.splice(ed.cursor.line + 1, 0, ""); shiftMarksForSplice(ed, ed.cursor.line + 1, 0, 1); ed.lines = nl; ed.cursor = { line: ed.cursor.line + 1, col: 0 }; }
-    else if (kind === "O") { const nl = ed.lines.slice(); nl.splice(ed.cursor.line, 0, ""); shiftMarksForSplice(ed, ed.cursor.line, 0, 1); ed.lines = nl; ed.cursor = { line: ed.cursor.line, col: 0 }; }
+    else if (kind === "o") {
+      const leadWS = ed.settings.autoindent ? (ed.lines[ed.cursor.line].match(/^[ \t]*/) || [""])[0] : "";
+      const nl = ed.lines.slice(); nl.splice(ed.cursor.line + 1, 0, leadWS); shiftMarksForSplice(ed, ed.cursor.line + 1, 0, 1); ed.lines = nl; ed.cursor = { line: ed.cursor.line + 1, col: leadWS.length };
+    }
+    else if (kind === "O") {
+      const leadWS = ed.settings.autoindent ? (ed.lines[ed.cursor.line].match(/^[ \t]*/) || [""])[0] : "";
+      const nl = ed.lines.slice(); nl.splice(ed.cursor.line, 0, leadWS); shiftMarksForSplice(ed, ed.cursor.line, 0, 1); ed.lines = nl; ed.cursor = { line: ed.cursor.line, col: leadWS.length };
+    }
     ed.mode = "insert";
     ed.insertStartLine = ed.cursor.line; ed.insertStartCol = ed.cursor.col;
     resetParse(ed);
@@ -535,7 +551,18 @@ window.VimGrammar = (function () {
       }
       return;
     }
-    if (key === "Enter") { const r = B.insertTextAt(ed.lines, ed.cursor, "\n"); shiftMarksForSplice(ed, ed.cursor.line, 1, 2); ed.lines = r.lines; ed.cursor = r.end; return; }
+    if (key === "Enter") {
+      const leadWS = ed.settings.autoindent ? (ed.lines[ed.cursor.line].match(/^[ \t]*/) || [""])[0] : "";
+      const r = B.insertTextAt(ed.lines, ed.cursor, "\n" + leadWS);
+      shiftMarksForSplice(ed, ed.cursor.line, 1, 2);
+      ed.lines = r.lines; ed.cursor = r.end;
+      return;
+    }
+    if (key === "Tab") {
+      const r = B.insertTextAt(ed.lines, ed.cursor, tabInsertText(ed));
+      ed.lines = r.lines; ed.cursor = r.end;
+      return;
+    }
     if (key === "ctrl-w") {
       const target = B.wordBackward(ed.lines, ed.cursor);
       if (target.line === ed.cursor.line && target.col < ed.cursor.col) {
@@ -664,7 +691,9 @@ window.VimGrammar = (function () {
       // Real Vim indents/dedents the whole affected lines in block mode too,
       // regardless of the block's column range — same as linewise visual.
       const newLines = ed.lines.slice();
-      for (let l = top; l <= bottom; l++) newLines[l] = op === ">" ? "    " + newLines[l] : newLines[l].replace(/^ {1,4}/, "");
+      const sw = ed.settings.shiftwidth;
+      const dedentRe = new RegExp("^ {1," + sw + "}");
+      for (let l = top; l <= bottom; l++) newLines[l] = op === ">" ? " ".repeat(sw) + newLines[l] : newLines[l].replace(dedentRe, "");
       ed.lines = newLines;
       pushUndoNode(engine, "indent");
       ed.cursor = { line: top, col: 0 };
@@ -783,6 +812,91 @@ window.VimGrammar = (function () {
 
   /* =============================== command-line mode =============================== */
   function enterCommand(engine) { const ed = engine.state.editor; ed.mode = "command"; ed.commandLine = ""; resetParse(ed); }
+
+  /* =============================== :set / editor settings =============================== */
+  // The subset of real Vim's hundreds of options that are actually
+  // meaningful to demo in this sandbox: line numbers, tab behavior, search
+  // case sensitivity/highlighting, cursorline, whitespace visibility, soft
+  // wrap, and autoindent. Each entry lists every real-Vim abbreviation for
+  // it, so ":set nu", ":set number", ":set rnu", etc. all resolve the same
+  // way :set does in a real install.
+  const SETTING_DEFS = {
+    number: { type: "bool", aliases: ["number", "nu"] },
+    relativenumber: { type: "bool", aliases: ["relativenumber", "rnu"] },
+    tabstop: { type: "number", aliases: ["tabstop", "ts"] },
+    shiftwidth: { type: "number", aliases: ["shiftwidth", "sw"] },
+    expandtab: { type: "bool", aliases: ["expandtab", "et"] },
+    ignorecase: { type: "bool", aliases: ["ignorecase", "ic"] },
+    smartcase: { type: "bool", aliases: ["smartcase", "scs"] },
+    hlsearch: { type: "bool", aliases: ["hlsearch", "hls"] },
+    cursorline: { type: "bool", aliases: ["cursorline", "cul"] },
+    list: { type: "bool", aliases: ["list"] },
+    wrap: { type: "bool", aliases: ["wrap"] },
+    autoindent: { type: "bool", aliases: ["autoindent", "ai"] }
+  };
+  function findSettingByAlias(token) {
+    for (const canon in SETTING_DEFS) if (SETTING_DEFS[canon].aliases.includes(token)) return canon;
+    return null;
+  }
+  // Parses the space-separated argument list of a :set command. Supports
+  // every real-Vim form that matters for booleans and numbers: bare name
+  // (on), "no" prefix (off), trailing "!" or "inv" prefix (toggle), "="
+  // (set a number option), and trailing "?" (query current value) —
+  // exactly the forms someone would actually type or put in a vimrc.
+  function applySetCommand(engine, argsString) {
+    const ed = engine.state.editor;
+    const tokens = argsString.trim().split(/\s+/).filter(Boolean);
+    if (!tokens.length) { ed.message = "E518: no option specified"; return; }
+    const messages = [];
+    tokens.forEach((tok) => {
+      let m = tok.match(/^([a-z]+)=(-?\d+)$/);
+      if (m) {
+        const canon = findSettingByAlias(m[1]);
+        if (!canon || SETTING_DEFS[canon].type !== "number") { messages.push(`E518: Unknown option: ${tok}`); return; }
+        ed.settings[canon] = Math.max(1, parseInt(m[2], 10));
+        return;
+      }
+      if (tok.endsWith("?")) {
+        const canon = findSettingByAlias(tok.slice(0, -1));
+        if (!canon) { messages.push(`E518: Unknown option: ${tok}`); return; }
+        messages.push(SETTING_DEFS[canon].type === "bool" ? (ed.settings[canon] ? canon : "no" + canon) : `${canon}=${ed.settings[canon]}`);
+        return;
+      }
+      if (tok.endsWith("!")) {
+        const canon = findSettingByAlias(tok.slice(0, -1));
+        if (!canon || SETTING_DEFS[canon].type !== "bool") { messages.push(`E518: Unknown option: ${tok}`); return; }
+        ed.settings[canon] = !ed.settings[canon];
+        return;
+      }
+      if (tok.startsWith("inv")) {
+        const canon = findSettingByAlias(tok.slice(3));
+        if (canon && SETTING_DEFS[canon].type === "bool") { ed.settings[canon] = !ed.settings[canon]; return; }
+      }
+      if (tok.startsWith("no")) {
+        const canon = findSettingByAlias(tok.slice(2));
+        if (canon && SETTING_DEFS[canon].type === "bool") { ed.settings[canon] = false; return; }
+      }
+      const canon = findSettingByAlias(tok);
+      if (!canon) { messages.push(`E518: Unknown option: ${tok}`); return; }
+      if (SETTING_DEFS[canon].type === "bool") { ed.settings[canon] = true; return; }
+      messages.push(`${canon}=${ed.settings[canon]}`);
+    });
+    ed.message = messages.join("  ");
+  }
+
+  // What a single Tab keypress inserts: a real tab character if noexpandtab
+  // (display-time expansion handles the visual width — same as real Vim),
+  // or just enough spaces to reach the next tabstop-aligned visual column
+  // if expandtab is on. Uses the real visual column (accounting for any
+  // earlier tabs already on the line), not just the raw buffer column, so
+  // it lines up with how the line actually renders.
+  function tabInsertText(ed) {
+    if (!ed.settings.expandtab) return "\t";
+    const ts = ed.settings.tabstop;
+    const vcol = B.visualColumn(ed.lines[ed.cursor.line], ed.cursor.col, ts);
+    return " ".repeat(ts - (vcol % ts));
+  }
+
   function executeCommandLine(engine) {
     const ed = engine.state.editor;
     const cmd = ed.commandLine;
@@ -792,7 +906,7 @@ window.VimGrammar = (function () {
       const [, scope, pattern, replacement, flags] = subMatch;
       const global = flags.includes("g");
       let re;
-      try { re = new RegExp(pattern, global ? "g" : ""); } catch (e) { ed.message = "E486: Pattern not found: " + pattern; return; }
+      try { re = new RegExp(pattern, (global ? "g" : "") + (shouldIgnoreCase(ed, pattern) ? "i" : "")); } catch (e) { ed.message = "E486: Pattern not found: " + pattern; return; }
       const newLines = ed.lines.slice();
       const targetLines = scope === "%" ? newLines.map((_, i) => i) : [ed.cursor.line];
       let count = 0;
@@ -812,7 +926,7 @@ window.VimGrammar = (function () {
       const [, gtype, pattern, rest] = gMatch;
       const invert = gtype !== "g";
       let re;
-      try { re = new RegExp(pattern); } catch (e) { ed.message = "E486: Pattern not found: " + pattern; return; }
+      try { re = new RegExp(pattern, shouldIgnoreCase(ed, pattern) ? "i" : ""); } catch (e) { ed.message = "E486: Pattern not found: " + pattern; return; }
       const matchingIdx = [];
       ed.lines.forEach((l, i) => { if (re.test(l) !== invert) matchingIdx.push(i); });
       if (rest === "d" || rest === "delete") {
@@ -829,7 +943,7 @@ window.VimGrammar = (function () {
         const [, subPattern, subReplacement, subFlags] = subOnMatches;
         const subGlobal = subFlags.includes("g");
         let subRe;
-        try { subRe = new RegExp(subPattern, subGlobal ? "g" : ""); } catch (e) { ed.message = "E486: Pattern not found: " + subPattern; return; }
+        try { subRe = new RegExp(subPattern, (subGlobal ? "g" : "") + (shouldIgnoreCase(ed, subPattern) ? "i" : "")); } catch (e) { ed.message = "E486: Pattern not found: " + subPattern; return; }
         const newLines = ed.lines.slice();
         let count = 0;
         matchingIdx.forEach((i) => { newLines[i] = newLines[i].replace(subRe, () => { count++; return subReplacement; }); });
@@ -847,6 +961,10 @@ window.VimGrammar = (function () {
       ed.message = "cannot close the only sandbox buffer"; return;
     }
     if (cmd === "wq") { ed.message = '"buffer" written'; return; }
+
+    if (cmd === "noh" || cmd === "nohl" || cmd === "nohlsearch") { ed.hlsearchSuppressed = true; ed.message = ""; return; }
+    const setMatch = cmd.match(/^se(?:t)?\s+(.*)$/);
+    if (setMatch) { applySetCommand(engine, setMatch[1]); return; }
 
     if (cmd === "enew") { switchToBuffer(engine, createBuffer(engine)); ed.message = ""; return; }
     const eMatch = cmd.match(/^e\s+(\S+)$/);
@@ -897,23 +1015,41 @@ window.VimGrammar = (function () {
   /* =============================== search =============================== */
   function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
+  // ignorecase makes search/substitute case-insensitive; smartcase overrides
+  // that back to case-SENSITIVE the moment the pattern itself contains an
+  // uppercase letter — the same "shout to be specific" convention real Vim
+  // uses, so typing an all-lowercase pattern stays forgiving while typing
+  // Something with a capital narrows the match.
+  function shouldIgnoreCase(ed, pattern) {
+    if (!ed.settings.ignorecase) return false;
+    if (ed.settings.smartcase && /[A-Z]/.test(pattern)) return false;
+    return true;
+  }
+
   // Shared by performSearch and the widget-facing preview helpers below, so
   // there's exactly one place that turns a pattern into match positions.
-  function findAllMatchIndices(lines, pattern) {
+  // Returns {index, length} pairs — the length is needed by hlsearch
+  // rendering, which has to highlight a whole matched range, not just where
+  // it starts.
+  function findAllMatches(lines, pattern, ignoreCase) {
     let re;
-    try { re = new RegExp(pattern, "g"); } catch (e) { return null; }
+    try { re = new RegExp(pattern, ignoreCase ? "gi" : "g"); } catch (e) { return null; }
     const text = B.flatten(lines);
     const matches = [];
     let m;
     while ((m = re.exec(text))) {
-      matches.push(m.index);
+      matches.push({ index: m.index, length: m[0].length });
       if (m[0].length === 0) re.lastIndex++; // guard against infinite loop on a zero-width match
     }
     return matches;
   }
+  function findAllMatchIndices(lines, pattern, ignoreCase) {
+    const matches = findAllMatches(lines, pattern, ignoreCase);
+    return matches === null ? null : matches.map((m) => m.index);
+  }
 
-  function findSearchTargetIdx(lines, cursor, pattern, direction) {
-    const matches = findAllMatchIndices(lines, pattern);
+  function findSearchTargetIdx(lines, cursor, pattern, direction, ignoreCase) {
+    const matches = findAllMatchIndices(lines, pattern, ignoreCase);
     if (matches === null || matches.length === 0) return null;
     const curIdx = B.toIndex(lines, cursor);
     let idx, wrapped = false;
@@ -934,8 +1070,9 @@ window.VimGrammar = (function () {
   // every other motion uses. Otherwise it's a plain cursor jump.
   function applySearchAsMotionOrJump(engine, p, pattern, direction) {
     const ed = engine.state.editor;
+    ed.hlsearchSuppressed = false;
     if (!pattern) { ed.message = "E35: No previous regular expression"; resetParse(ed); return; }
-    const found = findSearchTargetIdx(ed.lines, ed.cursor, pattern, direction);
+    const found = findSearchTargetIdx(ed.lines, ed.cursor, pattern, direction, shouldIgnoreCase(ed, pattern));
     if (!found) { ed.message = "E486: Pattern not found: " + pattern; resetParse(ed); return; }
     if (p.operator) {
       p.motion = "search";
@@ -946,6 +1083,20 @@ window.VimGrammar = (function () {
     ed.cursor = B.clampPos(ed.lines, B.toPos(ed.lines, found.idx));
     ed.message = found.wrapped ? (direction === "forward" ? "search hit BOTTOM, continuing at TOP" : "search hit TOP, continuing at BOTTOM") : "";
     resetParse(ed);
+  }
+
+  // hlsearch rendering support: every match of the last search pattern,
+  // as {start,end} positions — empty if the setting is off, there's no
+  // search yet, or :noh most recently suppressed it.
+  function getSearchHighlightRanges(engine) {
+    const ed = engine.state.editor;
+    if (!ed.settings.hlsearch || ed.hlsearchSuppressed || !ed.lastSearch || !ed.lastSearch.pattern) return [];
+    const matches = findAllMatches(ed.lines, ed.lastSearch.pattern, shouldIgnoreCase(ed, ed.lastSearch.pattern));
+    if (!matches) return [];
+    return matches.filter((m) => m.length > 0).map((m) => ({
+      start: B.toPos(ed.lines, m.index),
+      end: B.toPos(ed.lines, m.index + m.length - 1)
+    }));
   }
 
   function enterSearch(engine, direction, operatorContext) {
@@ -1004,7 +1155,7 @@ window.VimGrammar = (function () {
   function previewSearchMatches(engine, pattern) {
     const ed = engine.state.editor;
     if (!pattern) return { count: 0, valid: true };
-    const matches = findAllMatchIndices(ed.lines, pattern);
+    const matches = findAllMatchIndices(ed.lines, pattern, shouldIgnoreCase(ed, pattern));
     if (matches === null) return { count: 0, valid: false };
     return { count: matches.length, valid: true };
   }
@@ -1016,7 +1167,7 @@ window.VimGrammar = (function () {
     const [, scopeFlag, pattern, replacement, flags] = m;
     const global = flags.includes("g");
     let re;
-    try { re = new RegExp(pattern, "g"); } catch (e) { return { valid: false, error: "bad pattern" }; }
+    try { re = new RegExp(pattern, shouldIgnoreCase(ed, pattern) ? "gi" : "g"); } catch (e) { return { valid: false, error: "bad pattern" }; }
     const targetLines = scopeFlag === "%" ? ed.lines : [ed.lines[ed.cursor.line]];
     let matchCount = 0, lineCount = 0;
     targetLines.forEach((lineText) => {
@@ -1037,7 +1188,7 @@ window.VimGrammar = (function () {
     const [, gtype, pattern, rest] = m;
     const invert = gtype !== "g";
     let re;
-    try { re = new RegExp(pattern); } catch (e) { return { valid: false, error: "bad pattern" }; }
+    try { re = new RegExp(pattern, shouldIgnoreCase(ed, pattern) ? "i" : ""); } catch (e) { return { valid: false, error: "bad pattern" }; }
     const matchingIdx = [];
     ed.lines.forEach((l, i) => { if (re.test(l) !== invert) matchingIdx.push(i); });
     const base = { valid: true, invert, pattern, matchingCount: matchingIdx.length, totalLines: ed.lines.length };
@@ -1048,7 +1199,7 @@ window.VimGrammar = (function () {
       const [, subPattern, subReplacement, subFlags] = subMatch;
       const subGlobal = subFlags.includes("g");
       let subRe, subMatchCount = 0;
-      try { subRe = new RegExp(subPattern, "g"); } catch (e) { return { ...base, cmdKind: "substitute", cmdValid: false }; }
+      try { subRe = new RegExp(subPattern, shouldIgnoreCase(ed, subPattern) ? "gi" : "g"); } catch (e) { return { ...base, cmdKind: "substitute", cmdValid: false }; }
       matchingIdx.forEach((i) => { const found = ed.lines[i].match(subRe); if (found) subMatchCount += subGlobal ? found.length : 1; });
       return { ...base, cmdKind: "substitute", cmdValid: true, subPattern, subReplacement, subGlobal, subMatchCount };
     }
@@ -1226,19 +1377,27 @@ window.VimGrammar = (function () {
       return;
     }
     if (key === "Enter") {
-      const r = B.insertTextAt(ed.lines, ed.cursor, "\n");
+      const leadWS = ed.settings.autoindent ? (ed.lines[ed.cursor.line].match(/^[ \t]*/) || [""])[0] : "";
+      const r = B.insertTextAt(ed.lines, ed.cursor, "\n" + leadWS);
       shiftMarksForSplice(ed, ed.cursor.line, 1, 2);
       ed.lines = r.lines; ed.cursor = r.end;
       return;
     }
+    if (key === "Tab") {
+      tabInsertText(ed).split("").forEach((ch) => overwriteOneChar(ed, ch));
+      return;
+    }
+    overwriteOneChar(ed, key);
+  }
+  function overwriteOneChar(ed, ch) {
     const line = ed.lines[ed.cursor.line];
     const newLines = ed.lines.slice();
     if (ed.cursor.col < line.length) {
       ed.replaceOverwritten.push({ line: ed.cursor.line, col: ed.cursor.col, ch: line[ed.cursor.col] });
-      newLines[ed.cursor.line] = line.slice(0, ed.cursor.col) + key + line.slice(ed.cursor.col + 1);
+      newLines[ed.cursor.line] = line.slice(0, ed.cursor.col) + ch + line.slice(ed.cursor.col + 1);
     } else {
       ed.replaceOverwritten.push({ line: ed.cursor.line, col: ed.cursor.col, ch: null });
-      newLines[ed.cursor.line] = line + key;
+      newLines[ed.cursor.line] = line + ch;
     }
     ed.lines = newLines;
     ed.cursor = { line: ed.cursor.line, col: ed.cursor.col + 1 };
@@ -1732,6 +1891,7 @@ window.VimGrammar = (function () {
     switchToBuffer, createBuffer, deleteBuffer, findBufferByName,
     activeTab, switchToWindow, cycleWindow, splitWindow, closeWindow, onlyWindow,
     switchToTab, newTab, cycleTab, closeTab,
-    setMark, jumpToMark, resolveMarkPosition, jumpToUndoNode
+    setMark, jumpToMark, resolveMarkPosition, jumpToUndoNode,
+    SETTING_DEFS, applySetCommand, getSearchHighlightRanges
   };
 })();

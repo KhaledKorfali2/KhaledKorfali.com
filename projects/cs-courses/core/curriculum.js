@@ -71,7 +71,21 @@ window.Curriculum = (function () {
       return !!engine.state.checkpointPassed[mod.id];
     }
     function isModuleUnlockedIdx(mi) {
-      return mi === 0 ? true : isModuleComplete(course[mi - 1]);
+      const mod = course[mi];
+      // An optional module (a "side track") unlocks based on its own explicit
+      // prerequisite rather than raw array position, and — critically — the
+      // main sequential chain looks PAST any optional modules when finding
+      // "the previous module," so inserting a side track anywhere in the
+      // array never blocks or is blocked by the modules around it.
+      if (mod.optional) {
+        if (!mod.unlockAfter) return true;
+        const dep = findModule(mod.unlockAfter);
+        return dep ? isModuleComplete(dep) : true;
+      }
+      for (let j = mi - 1; j >= 0; j--) {
+        if (!course[j].optional) return isModuleComplete(course[j]);
+      }
+      return true;
     }
     function totalUnits() {
       let t = 0;
@@ -107,6 +121,7 @@ window.Curriculum = (function () {
     function continueLearningTarget() {
       for (let mi = 0; mi < course.length; mi++) {
         const mod = course[mi];
+        if (mod.optional) continue;
         if (!isModuleUnlockedIdx(mi)) continue;
         if (isModuleComplete(mod)) continue;
         for (const l of mod.lessons) { if (!isLessonComplete(mod, l)) return { modId: mod.id, lessonId: l.id }; }
@@ -192,10 +207,13 @@ window.Curriculum = (function () {
           ${course.map((mod, mi) => {
             const unlocked = isModuleUnlockedIdx(mi);
             const complete = isModuleComplete(mod);
+            const lockMsg = mod.optional && mod.unlockAfter
+              ? `Locked — finish ${esc((findModule(mod.unlockAfter) || {}).title || "a prior module")} first`
+              : "Locked — finish the previous module";
             return `<div class="panel card" style="${unlocked ? "" : "opacity:.5;cursor:not-allowed"}" ${unlocked ? `data-gotomodule="${mod.id}"` : ""}>
               ${icon(complete ? "check" : unlocked ? "compass" : "lock", 16)}
-              <div class="card-title">${mi}. ${esc(mod.title)}</div>
-              <div class="card-desc">${complete ? "Completed" : unlocked ? `${mod.lessons.length} lessons` : "Locked — finish the previous module"}</div>
+              <div class="card-title">${mod.optional ? `<span class="pill teal" style="margin-right:6px">bonus</span>` : `${mi}. `}${esc(mod.title)}</div>
+              <div class="card-desc">${complete ? "Completed" : unlocked ? `${mod.lessons.length} lessons` : lockMsg}</div>
             </div>`;
           }).join("")}
         </div>
@@ -211,7 +229,7 @@ window.Curriculum = (function () {
         const open = sidebarOpenFor(mod.id);
         return `<div class="module-block">
           <div class="module-head ${unlocked ? "" : "locked"}" ${unlocked ? `data-togglemodule="${mod.id}"` : ""}>
-            <span class="num mono">${mi}</span>
+            <span class="num mono">${mod.optional ? "\u2605" : mi}</span>
             <span class="m-title">${esc(mod.title)}</span>
             <span class="m-status">${complete ? icon("check", 13) : unlocked ? icon(open ? "chevronDown" : "chevronRight", 12) : icon("lock", 12)}</span>
           </div>

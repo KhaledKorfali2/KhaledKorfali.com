@@ -601,6 +601,75 @@ window.VimCourse = (function () {
         { id: "s3", title: "You've completed the course", kind: "concept", widget: null,
           body: "Modes, motions, operators, text objects, registers, search, macros, buffers and windows, marks and the undo tree &mdash; every one of those is a real, working piece of this editor, not a simplified stand-in. The muscle memory that gets built solving these puzzles is the same muscle memory that makes real Vim fast. Go build something with it." }
       ]}
+    ]},
+
+    { id: "mConfig", title: "Configuring Vim: .vimrc & init.lua", optional: true, unlockAfter: "m2", checkpoint: { questions: [
+        { text: "What's the actual difference between typing :set number and putting 'set number' in your .vimrc?", options: ["No difference at all", ":set number only lasts for the current session; a vimrc line runs automatically every time you open the editor, so it doesn't have to be retyped", "The vimrc version is faster to type", ":set only works in Neovim, vimrc only works in classic Vim"], correct: 1 },
+        { text: "What does relativenumber show for the line the cursor is currently on?", options: ["Always 0", "Its real absolute line number, if number is also on — otherwise 0", "A blank line number", "The total line count"], correct: 1 },
+        { text: "If expandtab is on and tabstop is 4, what does pressing Tab actually insert?", options: ["A single real tab character, always", "Enough spaces to reach the next multiple-of-4 column", "Exactly 4 spaces, regardless of the current column", "Nothing — expandtab disables the Tab key"], correct: 1 },
+        { text: "With ignorecase AND smartcase both on, does searching for 'Function' match 'function'?", options: ["Yes, ignorecase always wins", "No — smartcase notices the capital letter and makes this particular search case-sensitive", "It's random", "Only if hlsearch is also on"], correct: 1 },
+        { text: "In a real Neovim config, what's the Lua equivalent of the Vimscript line 'set shiftwidth=2'?", options: ["shiftwidth = 2", "vim.opt.shiftwidth = 2", "set.shiftwidth(2)", "There is no Lua equivalent"], correct: 1 }
+      ]}, lessons: [
+      { id: "l1", title: "Why configure Vim at all", view: "vimconfig", subsections: [
+        { id: "s1", title: "A file that runs before you type a single key", kind: "concept", widget: null,
+          body: "Everything so far in this course has been about commands you type in the moment. A config file is different: it's a small script that runs automatically the instant the editor opens, every single time, before you've touched anything. Classic Vim reads <code>~/.vimrc</code>, written in Vim's own scripting language (Vimscript). Neovim instead reads <code>~/.config/nvim/init.lua</code>, written in ordinary Lua. Both exist to answer the same question: \"what should my editor already look like and behave like, without me asking every time?\"" },
+        { id: "s2", title: ":set is the live, one-session version of the same thing", kind: "concept", widget: null,
+          body: "Every setting in this module can be changed two ways, and they end up in the exact same place: type <code>:set number</code> right now and it takes effect immediately, but only for this session — close and reopen, and you're back to defaults. Put <code>set number</code> in your vimrc (or <code>vim.opt.number = true</code> in init.lua) instead, and it's applied automatically forever, on every future launch. <code>:set</code> is how you experiment; the config file is where you keep what you decided you actually wanted." },
+        { id: "s3", title: "Practice: change a setting for real", kind: "practice", widget: "vimconfig",
+          body: "The panel below the editor shows every setting this module covers, and toggling one runs the literal :set command against the real editor &mdash; nothing here is a mockup.",
+          tryIt: "Type <code>:set number</code> directly in the editor above and watch line numbers appear, then look at the settings panel below and notice its \"number\" toggle switched to on by itself &mdash; then look further down and notice both config-file previews just gained a line." }
+      ]},
+      { id: "l2", title: "Line numbers: number & relativenumber", view: "vimconfig", subsections: [
+        { id: "s1", title: "number: know exactly where you are", kind: "concept", widget: null,
+          body: "<code>set number</code> adds a gutter on the left showing each line's real line number &mdash; useful on its own for commands that take a line number, like jumping straight to one, or just keeping your bearings in a long file." },
+        { id: "s2", title: "relativenumber: know exactly how far a count needs to reach", kind: "concept", widget: null,
+          body: "<code>set relativenumber</code> instead shows every OTHER line's distance from the cursor, counting up in both directions. This is the setting that actually justifies itself once you know counted motions from Module 2: instead of guessing between <code>6j</code> and <code>7j</code>, the gutter just tells you the target line is exactly <code>6</code> away. Turn both on together and you get real Vim's common \"hybrid\" setup: the cursor's own line still shows its true absolute number, and every other line switches to relative." },
+        { id: "s3", title: "Practice: toggle both, and try a counted motion with the gutter's help", kind: "practice", widget: "vimconfig",
+          body: "Watch the gutter numbers update live as the cursor moves — they're recalculated relative to wherever the cursor currently sits.",
+          tryIt: "Turn on both number and relativenumber, move the cursor around with j/k, and read a count straight off the gutter before pressing e.g. 5j to confirm it lands exactly where the gutter said it would." }
+      ]},
+      { id: "l3", title: "Tabs and indentation: tabstop, shiftwidth, expandtab", view: "vimconfig", subsections: [
+        { id: "s1", title: "tabstop: how wide a real tab character LOOKS", kind: "concept", widget: null,
+          body: "A real tab character (what you get from pressing Tab when expandtab is off) is a single character in the file, but <code>tabstop</code> controls how many columns wide it's drawn on screen. Change it and every existing tab in the buffer visually resizes at once, without the file itself changing by a single byte." },
+        { id: "s2", title: "shiftwidth: how far >> and << actually move text", kind: "concept", widget: null,
+          body: "Back in Module 3, <code>&gt;&gt;</code> and <code>&lt;&lt;</code> indented and dedented by some fixed amount &mdash; that amount is <code>shiftwidth</code>. It's independent of <code>tabstop</code>: plenty of real configs set them to different values on purpose, since \"how wide does an existing tab render\" and \"how far should one press of the indent operator move text\" are genuinely different questions." },
+        { id: "s3", title: "expandtab: what actually gets inserted when you press Tab", kind: "concept", widget: null,
+          body: "This is the setting that resolves the classic \"tabs vs. spaces\" argument for your own files: with <code>noexpandtab</code> (real Vim's traditional default), pressing Tab inserts one genuine tab character. With <code>expandtab</code> on, pressing Tab instead inserts however many spaces are needed to reach the next <code>tabstop</code>-aligned column &mdash; no tab character ever enters the file at all." },
+        { id: "s4", title: "Practice: feel the difference between all three", kind: "practice", widget: "vimconfig",
+          body: "Try the same keystrokes under two different configurations and compare what actually lands in the buffer.",
+          tryIt: "With noexpandtab and tabstop=8, press i then Tab then Escape, then press :set expandtab tabstop=4 Enter, then try i Tab Escape on a new line &mdash; compare the two results, and try &gt;&gt; on both lines to see shiftwidth apply independently of whichever tabstop is set." }
+      ]},
+      { id: "l4", title: "Search behavior: ignorecase, smartcase, hlsearch", view: "vimconfig", subsections: [
+        { id: "s1", title: "ignorecase: stop typing exact case for search", kind: "concept", widget: null,
+          body: "By default, <code>/Hello</code> and <code>/hello</code> are different searches. <code>set ignorecase</code> makes case irrelevant for every search and every <code>:s</code> substitution &mdash; a small setting that removes a surprising amount of daily friction." },
+        { id: "s2", title: "smartcase: forgiving by default, precise on demand", kind: "concept", widget: null,
+          body: "Turned on alongside ignorecase, <code>smartcase</code> adds one refinement: the instant your search pattern contains an uppercase letter, that specific search becomes case-sensitive again. Lowercase patterns stay forgiving; typing a capital is treated as a deliberate signal that case matters this time." },
+        { id: "s3", title: "hlsearch: see every match, not just the one you jumped to", kind: "concept", widget: null,
+          body: "Normally a search jumps the cursor to the next match and that's the only visual feedback you get. <code>set hlsearch</code> highlights every match in the buffer at once, so you can see the whole shape of what you're about to operate on before pressing <code>n</code> even once. <code>:noh</code> (or <code>:nohlsearch</code>) clears the highlighting for now without turning the setting off &mdash; searching again brings it right back." },
+        { id: "s4", title: "Practice: all three together", kind: "practice", widget: "vimconfig",
+          body: "Notice how many matches light up at once, and how smartcase changes that count the moment a capital letter appears in the pattern.",
+          tryIt: "Turn on hlsearch and ignorecase, search for a lowercase word that appears in both upper and lower case in the buffer, count the highlighted matches, then turn on smartcase and search again with a capital letter &mdash; watch the match count drop to only the case-sensitive hits. Try :noh afterward and confirm the highlighting disappears until you search again." }
+      ]},
+      { id: "l5", title: "Visual aids: cursorline, list, and autoindent", view: "vimconfig", subsections: [
+        { id: "s1", title: "cursorline: never lose track of the active line", kind: "concept", widget: null,
+          body: "<code>set cursorline</code> highlights the entire line the cursor is on, updating as you move &mdash; a small visual anchor that matters most in a tall file where the cursor itself is easy to lose track of at a glance." },
+        { id: "s2", title: "list: make invisible characters visible", kind: "concept", widget: null,
+          body: "<code>set list</code> reveals characters that are normally invisible: tabs show as a small arrow-and-dots glyph stretching their full display width, trailing whitespace at the end of a line shows as raised dots, and a <code>$</code> marks the true end of each line. Genuinely useful for hunting down stray trailing whitespace or confirming whether indentation is really tabs or spaces." },
+        { id: "s3", title: "autoindent: new lines inherit indentation automatically", kind: "concept", widget: null,
+          body: "With <code>set autoindent</code> on, pressing <code>Enter</code> in Insert mode (or opening a line with <code>o</code>/<code>O</code>) copies the current line's leading whitespace onto the new line automatically, instead of starting back at column 0. Small setting, but it's the difference between re-indenting every single line of a nested block by hand and not having to think about it at all." },
+        { id: "s4", title: "Practice: turn all three on together", kind: "practice", widget: "vimconfig",
+          body: "cursorline and list are purely visual and update instantly; autoindent only shows its effect the next time you press Enter or o/O.",
+          tryIt: "Turn on cursorline and move up/down a few lines to watch it follow the cursor. Turn on list and look at any indented or trailing-whitespace line. Turn on autoindent, go to an indented line, press A then Enter, and notice the new line already starts at the same indent." },
+        { id: "s5", title: "A note on wrap", kind: "concept", widget: null,
+          body: "<code>wrap</code> (on by default in real Vim) controls whether long lines visually wrap to the next screen row or run off the edge with horizontal scrolling instead. It's a fully real, functional setting here too — toggle it and it's reflected correctly in both config files below — but this sandbox's practice editor doesn't have a fixed-width viewport to visually demonstrate the wrapping itself, so there's no live before/after to point at the way there is for the others." }
+      ]},
+      { id: "l6", title: "Putting it in your config file", view: "vimconfig", subsections: [
+        { id: "s1", title: "Two files, one goal", kind: "concept", widget: null,
+          body: "The panel at the bottom of this module has been quietly doing one thing this whole time: showing you the actual <code>~/.vimrc</code> and <code>~/.config/nvim/init.lua</code> lines that would reproduce whatever you've currently got toggled, in both syntaxes side by side. Whichever one matches your actual setup is the one you'd copy in &mdash; that single file is what turns everything you explored in this module from \"things I retyped this session\" into \"how my editor always starts.\"" },
+        { id: "s2", title: "Practice: assemble your own starter config", kind: "practice", widget: "vimconfig",
+          body: "There's no one \"correct\" combination — this is genuinely about what you'd actually want waiting for you every time you open the editor.",
+          tryIt: "Pick 4 or 5 settings from this module that you'd actually want on by default, toggle them on, and read the two generated config files at the bottom &mdash; that's the real content you'd paste into whichever file your own setup uses." }
+      ]}
     ]}
   ];
 

@@ -21,6 +21,18 @@ window.VimBuffer = (function () {
     return m ? m.index : 0;
   }
 
+  // The on-screen column a buffer column maps to, once tab characters are
+  // expanded to their tabstop-aligned width — used both for rendering a
+  // line with real tab characters in it, and for computing how many spaces
+  // a Tab keypress should insert when expandtab is on.
+  function visualColumn(lineText, col, tabstop) {
+    let vcol = 0;
+    for (let i = 0; i < col && i < lineText.length; i++) {
+      vcol = lineText[i] === "\t" ? (Math.floor(vcol / tabstop) + 1) * tabstop : vcol + 1;
+    }
+    return vcol;
+  }
+
   /* ---- flatten <-> {line,col} index conversion (makes cross-line motions simple) ---- */
   function flatten(lines) { return lines.join("\n"); }
   function toIndex(lines, pos) {
@@ -370,7 +382,7 @@ window.VimBuffer = (function () {
   }
 
   return {
-    clampLine, lastCol, clampCol, clampPos, firstNonBlankCol,
+    clampLine, lastCol, clampCol, clampPos, firstNonBlankCol, visualColumn,
     flatten, toIndex, toPos, charClass, charClassBig,
     wordForward, wordBackward, wordEnd, wordEndBackward,
     findCharForward, findCharBackward, matchPercent,

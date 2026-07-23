@@ -21,6 +21,7 @@
     { key: "buffers", label: "buffers", icon: "keyboard" },
     { key: "marks", label: "marks", icon: "keyboard" },
     { key: "undotree", label: "undo tree", icon: "keyboard" },
+    { key: "vimconfig", label: "settings & config", icon: "settingsGear" },
     { key: "golf", label: "vim golf", icon: "trophy" },
     { key: "games-menu", label: "games", icon: "trophy" }
   ];
@@ -50,7 +51,8 @@
     "lastVisual",
     "jumpList", "jumpIndex",
     "insertStartLine", "insertStartCol",
-    "replaceOverwritten"
+    "replaceOverwritten",
+    "settings", "hlsearchSuppressed"
   ];
 
   function migrateState(state) {
@@ -73,6 +75,13 @@
       state.editor.nextWindowId = fresh.nextWindowId;
       state.editor.nextTabId = fresh.nextTabId;
     }
+    // Settings is a growing object of individual toggles/numbers — backfill
+    // any key missing from an older save rather than replacing the whole
+    // object, so a save made before a NEW setting existed still gets a
+    // sensible default for just that one setting.
+    Object.keys(fresh.settings).forEach((key) => {
+      if (state.editor.settings[key] === undefined) state.editor.settings[key] = fresh.settings[key];
+    });
     return state;
   }
 

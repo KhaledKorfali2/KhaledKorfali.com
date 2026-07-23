@@ -67,11 +67,31 @@ window.VimWidgets = (function () {
   }
 
   /* --------------------------------- shared char-grid renderer --------------------------------- */
-  function renderCharGrid(lines, cursor, selRange, targetPos, cursorClass, selClass) {
+  // opts (all optional, and the whole 7th param can be omitted entirely —
+  // existing callers that only care about cursor/selection, like the golf
+  // and text-object widgets, are completely unaffected):
+  //   settings: ed.settings — enables the gutter, tab expansion, cursorline,
+  //             and list-mode glyphs once present
+  //   hlRanges: array of {start,end} from VimGrammar.getSearchHighlightRanges
+  function renderCharGrid(lines, cursor, selRange, targetPos, cursorClass, selClass, opts) {
     const B = window.VimBuffer;
+    const settings = (opts && opts.settings) || null;
+    const hlRanges = (opts && opts.hlRanges) || [];
+    const tabstop = settings ? settings.tabstop : 8;
+    const showGutter = settings && (settings.number || settings.relativenumber);
+    const gutterWidth = showGutter ? Math.max(2, String(lines.length).length) + 1 : 0;
+    const isHighlighted = (li, ci) => {
+      if (!hlRanges.length) return false;
+      const idx = B.toIndex(lines, { line: li, col: ci });
+      return hlRanges.some((r) => idx >= B.toIndex(lines, r.start) && idx <= B.toIndex(lines, r.end));
+    };
     const rows = lines.map((lineText, li) => {
       const chars = lineText.length ? lineText.split("") : [" "];
-      const cells = chars.map((ch, ci) => {
+      const trailingMatch = lineText.match(/[ \t]+$/);
+      const trailingStartIdx = trailingMatch && trailingMatch[0].length < lineText.length ? lineText.length - trailingMatch[0].length : (trailingMatch ? 0 : lineText.length);
+      let vcol = 0;
+      const cells = [];
+      chars.forEach((ch, ci) => {
         const isCursor = li === cursor.line && ci === cursor.col;
         const isTarget = targetPos && li === targetPos.line && ci === targetPos.col;
         let selected = false;
@@ -83,15 +103,55 @@ window.VimWidgets = (function () {
             selected = idx >= s && idx <= e;
           }
         }
-        const cls = ["ved-char"];
-        if (isTarget && !isCursor) cls.push("ved-target");
-        if (selected && !isCursor) cls.push(selClass || "ved-selected");
+        const hl = isHighlighted(li, ci);
+        const baseCls = ["ved-char"];
+        if (hl && !isCursor) baseCls.push("ved-hlsearch");
+        if (isTarget && !isCursor) baseCls.push("ved-target");
+        if (selected && !isCursor) baseCls.push(selClass || "ved-selected");
+
+        if (ch === "\t") {
+          const nextVcol = (Math.floor(vcol / tabstop) + 1) * tabstop;
+          const width = Math.max(1, nextVcol - vcol);
+          vcol = nextVcol;
+          const glyphs = settings && settings.list ? "\u25B8" + "\u00B7".repeat(width - 1) : " ".repeat(width);
+          glyphs.split("").forEach((g, gi) => {
+            const cls = baseCls.slice();
+            if (gi === 0 && isCursor) cls.push(cursorClass || "ved-cursor-block");
+            if (settings && settings.list) cls.push("ved-listchar");
+            cells.push(`<span class="${cls.join(" ")}">${esc(g)}</span>`);
+          });
+          return;
+        }
+        const isTrailingSpace = ch === " " && ci >= trailingStartIdx && settings && settings.list;
+        const displayCh = isTrailingSpace ? "\u00B7" : ch;
+        vcol++;
+        const cls = baseCls.slice();
         if (isCursor) cls.push(cursorClass || "ved-cursor-block");
-        return `<span class="${cls.join(" ")}">${esc(ch)}</span>`;
+        if (isTrailingSpace) cls.push("ved-listchar");
+        cells.push(`<span class="${cls.join(" ")}">${esc(displayCh)}</span>`);
       });
-      return `<div class="ved-line">${cells.join("")}</div>`;
+      if (settings && settings.list) cells.push(`<span class="ved-eol-marker">$</span>`);
+      const gutter = showGutter ? renderGutterCell(li, cursor.line, settings, gutterWidth) : "";
+      const cursorlineCls = settings && settings.cursorline && li === cursor.line ? " ved-cursorline" : "";
+      return `<div class="ved-line${cursorlineCls}">${gutter}${cells.join("")}</div>`;
     }).join("");
     return `<div class="ved-lines">${rows}</div>`;
+  }
+
+  // number+relativenumber together = "hybrid": the cursor's own line shows
+  // its real absolute number, every other line shows distance from it —
+  // exactly real Vim's combined behavior, not a simplification.
+  function renderGutterCell(li, cursorLine, settings, width) {
+    let text;
+    if (li === cursorLine) {
+      text = settings.number || !settings.relativenumber ? String(li + 1) : "0";
+    } else if (settings.relativenumber) {
+      text = String(Math.abs(li - cursorLine));
+    } else {
+      text = String(li + 1);
+    }
+    const cls = li === cursorLine ? "ved-gutter ved-gutter-cur" : "ved-gutter";
+    return `<span class="${cls}" style="width:${width}ch">${esc(text)}</span>`;
   }
 
   /* --------------------------------- main vim editor --------------------------------- */
@@ -101,7 +161,8 @@ window.VimWidgets = (function () {
     if (ed.mode === "visual" || ed.mode === "visual-line" || ed.mode === "visual-block") {
       selRange = window.VimGrammar.orderRange(ed.visualAnchor, ed.cursor, true, ed.mode === "visual-line", ed.lines);
     }
-    const grid = renderCharGrid(ed.lines, ed.cursor, selRange, null, ed.mode === "insert" ? "ved-cursor-ibeam" : ed.mode === "replace" ? "ved-cursor-underline" : "ved-cursor-block");
+    const hlRanges = window.VimGrammar.getSearchHighlightRanges({ state: { editor: ed } });
+    const grid = renderCharGrid(ed.lines, ed.cursor, selRange, null, ed.mode === "insert" ? "ved-cursor-ibeam" : ed.mode === "replace" ? "ved-cursor-underline" : "ved-cursor-block", null, { settings: ed.settings, hlRanges });
     const regsUsed = Object.entries(ed.registers).filter(([, v]) => v.text).slice(0, 5);
     const marksUsed = Object.keys(ed.marks);
     return `<div class="panel">
@@ -209,6 +270,110 @@ window.VimWidgets = (function () {
         ${body}
         ${lastChange}
         ${legend}
+      </div>
+    </div>`;
+  }
+
+  /* --------------------------------- vim configuration widget (bonus module) --------------------------------- */
+  const CONFIG_SETTING_ORDER = ["number", "relativenumber", "tabstop", "shiftwidth", "expandtab", "autoindent", "ignorecase", "smartcase", "hlsearch", "cursorline", "list", "wrap"];
+  const CONFIG_SETTING_DESC = {
+    number: "show absolute line numbers",
+    relativenumber: "show line numbers relative to the cursor line",
+    tabstop: "how wide a real tab character displays",
+    shiftwidth: "how many columns &gt;&gt; / &lt;&lt; indent by",
+    expandtab: "Tab key inserts spaces instead of a real tab character",
+    autoindent: "carry the current line's indentation onto a new line",
+    ignorecase: "search and :s patterns ignore case",
+    smartcase: "&hellip;unless the pattern itself has a capital letter",
+    hlsearch: "highlight every match of the last search, not just the current one",
+    cursorline: "highlight the entire line the cursor is on",
+    list: "show tabs, trailing spaces, and line endings as visible characters",
+    wrap: "wrap long lines instead of letting them run past the edge"
+  };
+  const CONFIG_DEFAULTS = { number: false, relativenumber: false, tabstop: 8, shiftwidth: 8, expandtab: false, ignorecase: false, smartcase: false, hlsearch: false, cursorline: false, list: false, wrap: true, autoindent: false };
+  const CONFIG_VIMSCRIPT_LINE = {
+    number: (v) => v ? "set number" : "set nonumber",
+    relativenumber: (v) => v ? "set relativenumber" : "set norelativenumber",
+    tabstop: (v) => `set tabstop=${v}`,
+    shiftwidth: (v) => `set shiftwidth=${v}`,
+    expandtab: (v) => v ? "set expandtab" : "set noexpandtab",
+    ignorecase: (v) => v ? "set ignorecase" : "set noignorecase",
+    smartcase: (v) => v ? "set smartcase" : "set nosmartcase",
+    hlsearch: (v) => v ? "set hlsearch" : "set nohlsearch",
+    cursorline: (v) => v ? "set cursorline" : "set nocursorline",
+    list: (v) => v ? "set list" : "set nolist",
+    wrap: (v) => v ? "set wrap" : "set nowrap",
+    autoindent: (v) => v ? "set autoindent" : "set noautoindent"
+  };
+  const CONFIG_LUA_LINE = {
+    number: (v) => `vim.opt.number = ${v}`,
+    relativenumber: (v) => `vim.opt.relativenumber = ${v}`,
+    tabstop: (v) => `vim.opt.tabstop = ${v}`,
+    shiftwidth: (v) => `vim.opt.shiftwidth = ${v}`,
+    expandtab: (v) => `vim.opt.expandtab = ${v}`,
+    ignorecase: (v) => `vim.opt.ignorecase = ${v}`,
+    smartcase: (v) => `vim.opt.smartcase = ${v}`,
+    hlsearch: (v) => `vim.opt.hlsearch = ${v}`,
+    cursorline: (v) => `vim.opt.cursorline = ${v}`,
+    list: (v) => `vim.opt.list = ${v}`,
+    wrap: (v) => `vim.opt.wrap = ${v}`,
+    autoindent: (v) => `vim.opt.autoindent = ${v}`
+  };
+
+  function renderConfigSettingsPanel(ed) {
+    const DEFS = window.VimGrammar.SETTING_DEFS;
+    const rows = CONFIG_SETTING_ORDER.map((name) => {
+      const def = DEFS[name];
+      const val = ed.settings[name];
+      const control = def.type === "bool"
+        ? `<button class="cfg-toggle ${val ? "on" : ""}" data-cfgtoggle="${name}">${val ? "on" : "off"}</button>`
+        : `<input class="cfg-number-input" type="number" min="1" max="16" value="${val}" data-cfgnum="${name}" />`;
+      return `<div class="cfg-setting-row">
+        <div class="cfg-setting-info">
+          <span class="cfg-setting-name mono">${esc(name)}</span>
+          <span class="cfg-setting-desc">${CONFIG_SETTING_DESC[name] || ""}</span>
+        </div>
+        ${control}
+      </div>`;
+    }).join("");
+    return `<div class="cfg-settings-panel">${rows}</div>`;
+  }
+
+  function renderConfigFiles(ed) {
+    const changed = CONFIG_SETTING_ORDER.filter((name) => ed.settings[name] !== CONFIG_DEFAULTS[name]);
+    const vimrcBody = changed.length
+      ? changed.map((n) => CONFIG_VIMSCRIPT_LINE[n](ed.settings[n])).join("\n")
+      : `" (everything's still at its default — toggle a setting above)`;
+    const luaBody = changed.length
+      ? changed.map((n) => CONFIG_LUA_LINE[n](ed.settings[n])).join("\n")
+      : `-- (everything's still at its default — toggle a setting above)`;
+    return `<div class="cfg-grid">
+      <div class="cfg-file">
+        <div class="cfg-file-head mono">~/.vimrc</div>
+        <pre class="mono">${esc(vimrcBody)}</pre>
+      </div>
+      <div class="cfg-file">
+        <div class="cfg-file-head mono">~/.config/nvim/init.lua</div>
+        <pre class="mono">${esc(luaBody)}</pre>
+      </div>
+    </div>`;
+  }
+
+  function renderVimConfigWidget() {
+    const ed = ENGINE.state.editor;
+    const editorHtml = renderVimEditor();
+    return `${editorHtml}<div class="panel">
+      <div class="panel-header"><span class="title mono">${icon("keyboard", 15)} settings</span><span class="pill">toggle here, or type :set for real</span></div>
+      <div class="panel-body">
+        ${renderConfigSettingsPanel(ed)}
+        <div class="ved-hint mono" style="margin-top:12px">these buttons run the exact same <code>:set</code> command the editor above would &mdash; nothing here is a separate fake control.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="title mono">${icon("fileText", 15)} your config file</span><span class="pill">regenerates as you change settings</span></div>
+      <div class="panel-body">
+        <div class="ved-hint mono" style="margin-bottom:4px">whichever one your setup uses — Vimscript's ~/.vimrc, or Neovim's Lua init.lua — this is what would need to be in it for these settings to load automatically every time you open the editor, instead of you retyping :set commands by hand every session.</div>
+        ${renderConfigFiles(ed)}
       </div>
     </div>`;
   }
@@ -900,6 +1065,7 @@ window.VimWidgets = (function () {
     if (key === "buffers") return renderBufferWindowExplorer();
     if (key === "marks") return renderMarksExplorer();
     if (key === "undotree") return renderUndoTreeVisualizer();
+    if (key === "vimconfig") return renderVimConfigWidget();
     if (key === "golf") return renderGolfWidget();
     if (key === "games-menu") return renderGamesMenu();
     if (key.indexOf("game-") === 0) return renderGameWidget(key.slice(5));
@@ -963,6 +1129,16 @@ window.VimWidgets = (function () {
     Actions.register("click", "[data-tobjdemo]", (el) => {
       loadTextObjectDemo(ENGINE, el.getAttribute("data-tobjdemo"));
       ENGINE.state._focusSelector = '[data-vedinput="main"]';
+      ENGINE.render();
+    });
+
+    Actions.register("click", "[data-cfgtoggle]", (el) => {
+      window.VimGrammar.applySetCommand(ENGINE, el.getAttribute("data-cfgtoggle") + "!");
+      ENGINE.render();
+    });
+    Actions.register("change", "[data-cfgnum]", (el) => {
+      const n = parseInt(el.value, 10);
+      if (Number.isFinite(n) && n > 0) window.VimGrammar.applySetCommand(ENGINE, el.getAttribute("data-cfgnum") + "=" + n);
       ENGINE.render();
     });
 
