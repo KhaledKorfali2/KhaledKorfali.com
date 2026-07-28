@@ -65,6 +65,12 @@ const projects = [
     category: "programming"
   },
   {
+    name: "Arabic Morphology",
+    image: "screenshots/gatevis.png",
+    path: "./projects/arabic-morpho/index.html",
+    category: "arabic"
+  },
+  {
     name: "Facepaint",
     image: "screenshots/facepaint.png",
     path: "./projects/facepaint/index.html",
