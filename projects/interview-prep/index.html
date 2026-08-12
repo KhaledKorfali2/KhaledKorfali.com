@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern Trace — LeetCode Pattern Recognition Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0F1C;
+  --panel:#111A2B;
+  --panel-2:#0E1524;
+  --line:#223047;
+  --line-soft:#1A2439;
+  --text:#E7ECF5;
+  --text-dim:#8B97B0;
+  --text-faint:#5B667E;
+  --accent:#F5B84A;
+  --accent-dim:#8A6A2E;
+  --good:#4ADE9E;
+  --bad:#FB7185;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --radius: 3px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:"";
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(var(--line-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+  background-size: 42px 42px;
+  opacity:0.25;
+  pointer-events:none;
+  z-index:0;
+}
+#app{position:relative; z-index:1; display:flex; min-height:100vh;}
+
+/* ---------- Sidebar ---------- */
+.sidebar{
+  width:220px; flex-shrink:0;
+  background:var(--panel-2);
+  border-right:1px solid var(--line);
+  padding:24px 0;
+  position:sticky; top:0; height:100vh;
+  display:flex; flex-direction:column;
+}
+.brand{
+  padding:0 20px 20px 20px;
+  border-bottom:1px solid var(--line);
+  margin-bottom:8px;
+}
+.brand-mark{
+  font-family:var(--mono); font-size:13px; font-weight:600;
+  letter-spacing:0.08em; color:var(--accent);
+  display:flex; align-items:center; gap:8px;
+}
+.brand-mark .dot{width:7px;height:7px;border-radius:50%;background:var(--accent); box-shadow:0 0 8px var(--accent);}
+.brand-sub{font-family:var(--mono); font-size:10px; color:var(--text-faint); margin-top:4px; letter-spacing:0.06em;}
+.nav{padding:8px 12px; display:flex; flex-direction:column; gap:2px;}
+.nav-item{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px; border-radius:var(--radius);
+  color:var(--text-dim); font-family:var(--mono); font-size:12.5px;
+  letter-spacing:0.04em; cursor:pointer; border:1px solid transparent;
+  background:none; text-align:left; width:100%;
+}
+.nav-item .idx{color:var(--text-faint); font-size:11px;}
+.nav-item:hover{color:var(--text); background:var(--panel);}
+.nav-item.active{color:var(--accent); background:var(--panel); border-color:var(--line);}
+.nav-item.active .idx{color:var(--accent);}
+.sidebar-foot{margin-top:auto; padding:16px 20px; border-top:1px solid var(--line);}
+.sidebar-foot-label{font-family:var(--mono); font-size:10px; color:var(--text-faint); letter-spacing:0.05em; margin-bottom:8px;}
+.mini-bar{height:4px; background:var(--panel); border-radius:2px; overflow:hidden; border:1px solid var(--line);}
+.mini-bar-fill{height:100%; background:var(--accent);}
+.sidebar-foot-val{font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-top:6px;}
+
+/* ---------- Main ---------- */
+.main{flex:1; min-width:0; padding:36px 44px 80px; max-width:980px;}
+.view{display:none;}
+.view.active{display:block;}
+.page-eyebrow{font-family:var(--mono); font-size:11px; color:var(--accent); letter-spacing:0.1em; margin-bottom:8px;}
+h1{font-family:var(--sans); font-size:26px; font-weight:600; margin:0 0 6px; letter-spacing:-0.01em;}
+.page-desc{color:var(--text-dim); font-size:14px; margin:0 0 28px; max-width:620px; line-height:1.6;}
+
+/* ---------- Trace stepper (signature element) ---------- */
+.trace{display:flex; align-items:center; margin-bottom:32px; gap:0;}
+.trace-node{
+  width:26px; height:26px; border-radius:50%;
+  border:1.5px solid var(--line); background:var(--panel);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--mono); font-size:10.5px; color:var(--text-faint);
+  flex-shrink:0; transition:all .35s ease; position:relative;
+}
+.trace-node.done{border-color:var(--accent); color:var(--accent); box-shadow:0 0 10px rgba(245,184,74,0.35);}
+.trace-node.now{border-color:var(--accent); color:var(--accent); background:rgba(245,184,74,0.08);}
+.trace-seg{flex:1; height:1.5px; background:var(--line); margin:0 2px; position:relative; overflow:hidden; min-width:12px;}
+.trace-seg .fill{position:absolute; inset:0; background:var(--accent); width:0%; transition:width .5s ease; box-shadow:0 0 6px var(--accent);}
+.trace-seg.done .fill{width:100%;}
+.trace-labels{display:flex; justify-content:space-between; margin-top:6px; margin-bottom:28px; font-family:var(--mono); font-size:9.5px; color:var(--text-faint); letter-spacing:0.03em;}
+
+/* ---------- Cards ---------- */
+.card{
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:22px 24px; margin-bottom:18px;
+}
+.card-label{font-family:var(--mono); font-size:10.5px; color:var(--text-faint); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:12px;}
+.problem-title{font-size:19px; font-weight:600; margin:0 0 4px;}
+.problem-meta{display:flex; gap:10px; align-items:center; margin-bottom:16px;}
+.diff-badge{font-family:var(--mono); font-size:10.5px; padding:2px 8px; border-radius:2px; border:1px solid var(--line); letter-spacing:0.05em;}
+.diff-Easy{color:var(--good); border-color:#1f4d3a;}
+.diff-Medium{color:var(--accent); border-color:var(--accent-dim);}
+.diff-Hard{color:var(--bad); border-color:#5c2a33;}
+.problem-desc{font-size:14.5px; line-height:1.7; color:var(--text); white-space:pre-line;}
+.examples{margin-top:14px; display:flex; flex-direction:column; gap:8px;}
+.example{font-family:var(--mono); font-size:12.5px; background:var(--panel-2); border:1px solid var(--line-soft); border-radius:var(--radius); padding:10px 12px; color:var(--text-dim); line-height:1.6;}
+.constraints{margin-top:14px; font-family:var(--mono); font-size:12px; color:var(--text-dim); line-height:1.8;}
+.constraints li{margin-bottom:2px;}
+
+/* ---------- Quiz form elements ---------- */
+.step{margin-bottom:22px;}
+.step-q{font-size:14px; font-weight:600; margin-bottom:12px;}
+.options{display:flex; flex-direction:column; gap:8px;}
+.opt{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 14px; border:1px solid var(--line); border-radius:var(--radius);
+  cursor:pointer; font-size:13.5px; color:var(--text-dim); background:var(--panel-2);
+  transition:border-color .15s, color .15s, background .15s;
+}
+.opt:hover{border-color:var(--accent-dim); color:var(--text);}
+.opt input{accent-color:var(--accent);}
+.opt.selected{border-color:var(--accent); color:var(--text); background:rgba(245,184,74,0.06);}
+.opt.reveal-correct{border-color:var(--good); background:rgba(74,222,158,0.06); color:var(--text);}
+.opt.reveal-wrong{border-color:var(--bad); background:rgba(251,113,133,0.06); color:var(--text);}
+.opt-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+@media (max-width:640px){.opt-grid{grid-template-columns:1fr;}}
+
+.btn{
+  font-family:var(--mono); font-size:12.5px; letter-spacing:0.04em;
+  padding:11px 20px; border-radius:var(--radius); border:1px solid var(--accent);
+  background:var(--accent); color:#1A1206; font-weight:600; cursor:pointer;
+}
+.btn:hover{filter:brightness(1.08);}
+.btn.secondary{background:transparent; color:var(--text-dim); border-color:var(--line);}
+.btn.secondary:hover{color:var(--text); border-color:var(--accent-dim);}
+.btn:disabled{opacity:0.4; cursor:not-allowed;}
+.btn-row{display:flex; gap:10px; margin-top:24px; flex-wrap:wrap;}
+
+/* ---------- Review ---------- */
+.review-row{display:grid; grid-template-columns:130px 1fr; gap:14px; padding:10px 0; border-bottom:1px solid var(--line-soft); font-size:13.5px;}
+.review-row:last-child{border-bottom:none;}
+.review-key{font-family:var(--mono); font-size:11px; color:var(--text-faint); letter-spacing:0.05em; padding-top:2px;}
+.review-val{color:var(--text);}
+.tag{display:inline-block; font-family:var(--mono); font-size:11px; padding:2px 8px; border-radius:2px; margin:2px 4px 2px 0; border:1px solid var(--line);}
+.tag.good{color:var(--good); border-color:#1f4d3a; background:rgba(74,222,158,0.06);}
+.tag.bad{color:var(--bad); border-color:#5c2a33; background:rgba(251,113,133,0.06);}
+.explain-list{margin:0; padding-left:18px; font-size:13.5px; line-height:1.9; color:var(--text-dim);}
+.explain-list li::marker{color:var(--accent); font-family:var(--mono);}
+pre.template{
+  background:var(--panel-2); border:1px solid var(--line-soft); border-radius:var(--radius);
+  padding:16px; font-family:var(--mono); font-size:12.5px; line-height:1.7; color:var(--text);
+  overflow-x:auto; margin:0;
+}
+.score-banner{display:flex; align-items:center; gap:14px; margin-bottom:18px;}
+.score-num{font-family:var(--mono); font-size:30px; font-weight:700; color:var(--accent);}
+.score-label{font-size:12.5px; color:var(--text-dim);}
+
+/* ---------- Pattern library ---------- */
+.lib-controls{display:flex; gap:10px; margin-bottom:20px;}
+.search-input{
+  flex:1; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:10px 14px; color:var(--text); font-family:var(--sans); font-size:13.5px;
+}
+.search-input:focus{outline:none; border-color:var(--accent-dim);}
+.pattern-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px;}
+.pattern-card{
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:16px 18px; cursor:pointer; transition:border-color .15s;
+}
+.pattern-card:hover{border-color:var(--accent-dim);}
+.pattern-card-cat{font-family:var(--mono); font-size:9.5px; color:var(--text-faint); letter-spacing:0.08em; text-transform:uppercase;}
+.pattern-card-name{font-size:15px; font-weight:600; margin:6px 0 6px;}
+.pattern-card-desc{font-size:12.5px; color:var(--text-dim); line-height:1.5;}
+.pattern-card-acc{margin-top:10px; font-family:var(--mono); font-size:11px; color:var(--text-faint);}
+
+.back-link{font-family:var(--mono); font-size:11.5px; color:var(--text-dim); cursor:pointer; margin-bottom:18px; display:inline-block;}
+.back-link:hover{color:var(--accent);}
+.detail-section{margin-bottom:22px;}
+.detail-label{font-family:var(--mono); font-size:11px; color:var(--text-faint); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:10px;}
+.chip-row{display:flex; flex-wrap:wrap; gap:6px;}
+.chip{font-family:var(--mono); font-size:12px; padding:4px 10px; border:1px solid var(--line); border-radius:2px; color:var(--text-dim); background:var(--panel-2);}
+.comparison-table{width:100%; border-collapse:collapse; font-size:13px;}
+.comparison-table th{font-family:var(--mono); font-size:10.5px; color:var(--accent); text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); letter-spacing:0.04em;}
+.comparison-table td{padding:8px 10px; border-bottom:1px solid var(--line-soft); color:var(--text-dim); line-height:1.5;}
+.related-row{display:flex; gap:8px; flex-wrap:wrap;}
+.related-chip{font-family:var(--mono); font-size:12px; padding:5px 12px; border:1px solid var(--line); border-radius:20px; color:var(--text-dim); cursor:pointer;}
+.related-chip:hover{border-color:var(--accent); color:var(--accent);}
+.recognition-q{
+  font-style:italic; font-size:14px; color:var(--text); padding:14px 16px;
+  border-left:2px solid var(--accent); background:var(--panel-2); line-height:1.6;
+}
+
+/* ---------- Progress ---------- */
+.stat-row{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px;}
+.stat-box{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px;}
+.stat-num{font-family:var(--mono); font-size:24px; font-weight:700; color:var(--accent);}
+.stat-lbl{font-family:var(--mono); font-size:10.5px; color:var(--text-faint); letter-spacing:0.05em; margin-top:4px;}
+.perf-row{display:flex; align-items:center; gap:14px; padding:10px 0; border-bottom:1px solid var(--line-soft);}
+.perf-name{width:170px; flex-shrink:0; font-size:13px;}
+.perf-bar-track{flex:1; height:8px; background:var(--panel-2); border:1px solid var(--line); border-radius:4px; overflow:hidden;}
+.perf-bar-fill{height:100%; background:var(--accent);}
+.perf-bar-fill.weak{background:var(--bad);}
+.perf-bar-fill.strong{background:var(--good);}
+.perf-pct{width:44px; text-align:right; font-family:var(--mono); font-size:12px; color:var(--text-dim);}
+.history-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line-soft); font-size:13px;}
+.history-left{display:flex; align-items:center; gap:10px;}
+.history-dot{width:7px; height:7px; border-radius:50%;}
+.history-dot.ok{background:var(--good);}
+.history-dot.no{background:var(--bad);}
+.history-time{font-family:var(--mono); font-size:11px; color:var(--text-faint);}
+.empty-state{padding:40px 20px; text-align:center; color:var(--text-faint); font-size:13.5px; border:1px dashed var(--line); border-radius:var(--radius);}
+
+select.pattern-select{
+  background:var(--panel); border:1px solid var(--line); color:var(--text);
+  font-family:var(--mono); font-size:12.5px; padding:9px 12px; border-radius:var(--radius);
+}
+
+@media (max-width:800px){
+  #app{flex-direction:column;}
+  .sidebar{width:100%; height:auto; position:relative; flex-direction:row; overflow-x:auto; padding:12px;}
+  .brand{display:none;}
+  .nav{flex-direction:row; padding:0;}
+  .sidebar-foot{display:none;}
+  .main{padding:24px 18px 60px;}
+  .stat-row{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-mark"><span class="dot"></span>PATTERN // TRACE</div>
+      <div class="brand-sub">recognition drills</div>
+    </div>
+    <div class="nav">
+      <button class="nav-item active" data-view="practice"><span class="idx">01</span> Practice</button>
+      <button class="nav-item" data-view="patterns"><span class="idx">02</span> Pattern Library</button>
+      <button class="nav-item" data-view="progress"><span class="idx">03</span> Progress</button>
+    </div>
+    <div class="sidebar-foot">
+      <div class="sidebar-foot-label">OVERALL ACCURACY</div>
+      <div class="mini-bar"><div class="mini-bar-fill" id="sidebarBarFill" style="width:0%"></div></div>
+      <div class="sidebar-foot-val" id="sidebarAccVal">no attempts yet</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- PRACTICE VIEW -->
+    <div class="view active" id="view-practice"></div>
+    <!-- PATTERNS VIEW -->
+    <div class="view" id="view-patterns"></div>
+    <!-- PROGRESS VIEW -->
+    <div class="view" id="view-progress"></div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   DATA: PATTERNS
+========================================================= */
+const PATTERNS = [
+  {
+    id:"hash-map", name:"Hash Map / Hash Set", category:"Arrays & Strings",
+    description:"A technique for trading space for time by remembering what you've already seen so a later lookup is O(1) instead of a rescan.",
+    clues:["need fast lookup","have I seen this before","complement or pair exists","count frequency","duplicate detection","large input size"],
+    dataStructures:["Hash Map","Hash Set"],
+    complexity:{time:"O(n)", space:"O(n)"},
+    templates:[{name:"Frequency / Lookup Map", code:
+`const seen = new Map();
+
+for (const x of arr) {
+    const complement = target - x;
+    if (seen.has(complement)) {
+        // found a match — use seen.get(complement)
+    }
+    seen.set(x, /* index or count */ 1);
+}`}],
+    recognitionQuestion:"Am I repeatedly asking 'have I seen this value before' or 'does its complement exist'?",
+    relatedPatterns:["prefix-sum","sliding-window"],
+    comparisons:[{with:"prefix-sum", rows:[
+      ["Tracks individual values or counts","Tracks running totals over a range"],
+      ["Answers 'have I seen X'","Answers 'what is the sum of this range'"]
+    ]}]
+  },
+  {
+    id:"two-pointers", name:"Two Pointers", category:"Arrays & Strings",
+    description:"Two indices move through a (usually sorted) structure toward or away from each other, avoiding a nested loop.",
+    clues:["sorted input","pair with target sum","palindrome check","remove duplicates in place","compare from both ends"],
+    dataStructures:["Array"],
+    complexity:{time:"O(n)", space:"O(1)"},
+    templates:[{name:"Converging Pointers", code:
+`let left = 0;
+let right = nums.length - 1;
+
+while (left < right) {
+    const sum = nums[left] + nums[right];
+    if (sum === target) {
+        // found pair
+        break;
+    } else if (sum < target) {
+        left++;
+    } else {
+        right--;
+    }
+}`}],
+    recognitionQuestion:"Is the input sorted (or sortable) and am I comparing elements from opposite ends or at fixed offsets?",
+    relatedPatterns:["sliding-window","binary-search"],
+    comparisons:[{with:"sliding-window", rows:[
+      ["Usually focuses on relationships between positions","Usually focuses on a contiguous range"],
+      ["Often moves pointers based on comparisons","Often maintains a window condition"],
+      ["Common with sorted arrays, pairs, palindromes","Common with subarrays / substrings"]
+    ]}]
+  },
+  {
+    id:"sliding-window", name:"Sliding Window", category:"Arrays & Strings",
+    description:"A technique for efficiently examining a contiguous region of an array or string without repeatedly reprocessing the same elements.",
+    clues:["contiguous subarray","substring","longest or shortest","maximum or minimum over a range","at most k","at least k","fixed-size window","large input size"],
+    dataStructures:["Array","Hash Map","Hash Set","Deque"],
+    complexity:{time:"O(n)", space:"O(1) to O(k)"},
+    templates:[{name:"Variable Sliding Window", code:
+`let left = 0;
+let result = 0;
+
+for (let right = 0; right < nums.length; right++) {
+    // add nums[right] to the window
+
+    while (/* window is invalid */ false) {
+        // remove nums[left] from the window
+        left++;
+    }
+    // update result using the current window [left, right]
+}`},
+    {name:"Fixed Sliding Window", code:
+`let windowSum = 0;
+
+for (let i = 0; i < k; i++) windowSum += nums[i];
+let best = windowSum;
+
+for (let i = k; i < nums.length; i++) {
+    windowSum += nums[i] - nums[i - k];
+    best = Math.max(best, windowSum);
+}`}],
+    recognitionQuestion:"Am I repeatedly examining a contiguous range where the left and right boundaries can move without restarting the entire calculation?",
+    relatedPatterns:["two-pointers","prefix-sum"],
+    comparisons:[{with:"two-pointers", rows:[
+      ["Usually focuses on a contiguous range","Usually focuses on relationships between positions"],
+      ["Often maintains a window condition","Often moves pointers based on comparisons"],
+      ["Common with subarrays / substrings","Common with sorted arrays, pairs, palindromes"]
+    ]}]
+  },
+  {
+    id:"prefix-sum", name:"Prefix Sum", category:"Arrays & Strings",
+    description:"Precompute running totals so any range sum can be answered in O(1) instead of rescanning the range each time.",
+    clues:["range sum query","subarray sum equals k","cumulative total","many repeated range queries"],
+    dataStructures:["Array","Hash Map"],
+    complexity:{time:"O(n)", space:"O(n)"},
+    templates:[{name:"Prefix Sum + Hash Map", code:
+`const seenSums = new Map([[0, 1]]);
+let prefixSum = 0;
+let count = 0;
+
+for (const x of nums) {
+    prefixSum += x;
+    const needed = prefixSum - target;
+    count += seenSums.get(needed) || 0;
+    seenSums.set(prefixSum, (seenSums.get(prefixSum) || 0) + 1);
+}`}],
+    recognitionQuestion:"Do I need the sum of many different ranges, especially repeatedly, rather than just one pass?",
+    relatedPatterns:["hash-map","sliding-window"],
+    comparisons:[]
+  },
+  {
+    id:"binary-search", name:"Binary Search", category:"Arrays & Strings",
+    description:"Repeatedly halve a sorted search space (or a monotonic answer space) to find a target or boundary in logarithmic time.",
+    clues:["sorted input","find exact value","find boundary or threshold","minimize the maximum","search space is monotonic","logarithmic requirement"],
+    dataStructures:["Array"],
+    complexity:{time:"O(log n)", space:"O(1)"},
+    templates:[{name:"Boundary Binary Search", code:
+`let lo = 0, hi = nums.length;
+
+while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (/* condition(mid) is true */ false) {
+        hi = mid;
+    } else {
+        lo = mid + 1;
+    }
+}
+// lo is the boundary`}],
+    recognitionQuestion:"Is the search space sorted or monotonic, so that testing the middle tells me which half to discard?",
+    relatedPatterns:["two-pointers"],
+    comparisons:[]
+  },
+  {
+    id:"monotonic-stack", name:"Monotonic Stack", category:"Arrays & Strings",
+    description:"A stack kept in increasing or decreasing order so each element finds its 'next greater/smaller' neighbor in amortized O(1).",
+    clues:["next greater element","next smaller element","daily temperatures style","largest rectangle","span until a bigger value"],
+    dataStructures:["Stack"],
+    complexity:{time:"O(n)", space:"O(n)"},
+    templates:[{name:"Next Greater Element", code:
+`const stack = []; // stores indices
+const result = new Array(nums.length).fill(-1);
+
+for (let i = 0; i < nums.length; i++) {
+    while (stack.length && nums[i] > nums[stack[stack.length - 1]]) {
+        const idx = stack.pop();
+        result[idx] = nums[i];
+    }
+    stack.push(i);
+}`}],
+    recognitionQuestion:"Am I looking for the next element that is greater/smaller than the current one, for every element?",
+    relatedPatterns:["heap"],
+    comparisons:[]
+  },
+  {
+    id:"dfs", name:"DFS (Depth-First Search)", category:"Trees & Graphs",
+    description:"Explore as far as possible down one branch before backtracking — natural for trees, connected components, and path existence.",
+    clues:["tree structure","explore all paths","connected components","path from root to leaf","recursion feels natural"],
+    dataStructures:["Stack","Tree","Graph"],
+    complexity:{time:"O(V + E)", space:"O(H)"},
+    templates:[{name:"Recursive DFS", code:
+`function dfs(node, visited) {
+    if (!node || visited.has(node)) return;
+    visited.add(node);
+
+    // process node
+
+    for (const neighbor of node.neighbors) {
+        dfs(neighbor, visited);
+    }
+}`},
+    {name:"Iterative DFS", code:
+`const stack = [start];
+const visited = new Set();
+
+while (stack.length) {
+    const node = stack.pop();
+    if (visited.has(node)) continue;
+    visited.add(node);
+    // process node
+    for (const neighbor of node.neighbors) stack.push(neighbor);
+}`}],
+    recognitionQuestion:"Do I need to explore one full path before trying the next, e.g. down a tree or through a component?",
+    relatedPatterns:["bfs","backtracking"],
+    comparisons:[{with:"bfs", rows:[
+      ["Explores one branch fully before backtracking","Explores all neighbors level by level"],
+      ["Good for path existence, components, backtracking","Good for shortest path in unweighted graphs"],
+      ["Uses a stack (or recursion)","Uses a queue"]
+    ]}]
+  },
+  {
+    id:"bfs", name:"BFS (Breadth-First Search)", category:"Trees & Graphs",
+    description:"Explore level by level using a queue — the natural way to find shortest paths in unweighted graphs.",
+    clues:["shortest path unweighted","level order traversal","minimum number of steps","nearest neighbor first"],
+    dataStructures:["Queue","Tree","Graph"],
+    complexity:{time:"O(V + E)", space:"O(V)"},
+    templates:[{name:"BFS with Queue", code:
+`const queue = [start];
+const visited = new Set([start]);
+let steps = 0;
+
+while (queue.length) {
+    const size = queue.length;
+    for (let i = 0; i < size; i++) {
+        const node = queue.shift();
+        // process node
+        for (const neighbor of node.neighbors) {
+            if (!visited.has(neighbor)) {
+                visited.add(neighbor);
+                queue.push(neighbor);
+            }
+        }
+    }
+    steps++;
+}`}],
+    recognitionQuestion:"Do I need the shortest number of steps or a level-by-level view of an unweighted graph or tree?",
+    relatedPatterns:["dfs"],
+    comparisons:[{with:"dfs", rows:[
+      ["Explores all neighbors level by level","Explores one branch fully before backtracking"],
+      ["Good for shortest path in unweighted graphs","Good for path existence, components, backtracking"],
+      ["Uses a queue","Uses a stack (or recursion)"]
+    ]}]
+  },
+  {
+    id:"union-find", name:"Union-Find", category:"Trees & Graphs",
+    description:"Track and merge disjoint groups efficiently, answering 'are these connected' near O(1) with path compression.",
+    clues:["connected components","group merging","cycle detection in undirected graph","are these two things connected"],
+    dataStructures:["Array"],
+    complexity:{time:"O(α(n)) per op", space:"O(n)"},
+    templates:[{name:"Union-Find with Path Compression", code:
+`const parent = Array.from({length:n}, (_, i) => i);
+
+function find(x) {
+    if (parent[x] !== x) parent[x] = find(parent[x]);
+    return parent[x];
+}
+
+function union(a, b) {
+    const ra = find(a), rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
+}`}],
+    recognitionQuestion:"Do I repeatedly need to merge groups or check whether two items are already in the same group?",
+    relatedPatterns:["dfs","bfs"],
+    comparisons:[]
+  },
+  {
+    id:"heap", name:"Heap / Priority Queue", category:"Other",
+    description:"Keep the smallest or largest element accessible in O(log n) — ideal for 'top k' or 'always process the smallest next' problems.",
+    clues:["top k elements","kth largest or smallest","merge k sorted lists","always process smallest/largest next","running median"],
+    dataStructures:["Heap"],
+    complexity:{time:"O(n log k)", space:"O(k)"},
+    templates:[{name:"Top-K Min Heap", code:
+`// keep a min-heap of size k
+const heap = new MinHeap();
+
+for (const x of nums) {
+    heap.push(x);
+    if (heap.size() > k) heap.pop();
+}
+// heap now holds the k largest elements`}],
+    recognitionQuestion:"Do I only ever care about the current smallest/largest item, or the top k items, out of a changing set?",
+    relatedPatterns:["monotonic-stack"],
+    comparisons:[]
+  },
+  {
+    id:"backtracking", name:"Backtracking", category:"Other",
+    description:"Build candidates incrementally and abandon ('backtrack') a path as soon as it can't lead to a valid solution.",
+    clues:["all combinations","all permutations","all subsets","need all valid configurations","constraint satisfaction"],
+    dataStructures:["Array"],
+    complexity:{time:"O(2^n) or O(n!)", space:"O(n)"},
+    templates:[{name:"Generic Backtracking", code:
+`function backtrack(path, choices) {
+    if (/* path is a complete solution */ false) {
+        results.push([...path]);
+        return;
+    }
+    for (const choice of choices) {
+        if (/* choice is invalid here */ false) continue;
+        path.push(choice);
+        backtrack(path, remainingChoices(choices, choice));
+        path.pop(); // undo the choice
+    }
+}`}],
+    recognitionQuestion:"Do I need to generate every valid combination/permutation/subset, exploring and undoing choices?",
+    relatedPatterns:["dfs"],
+    comparisons:[]
+  },
+  {
+    id:"dynamic-programming", name:"Dynamic Programming", category:"Other",
+    description:"Break a problem into overlapping subproblems, solve each once, and reuse the results to avoid exponential recomputation.",
+    clues:["optimal substructure","overlapping subproblems","count the number of ways","minimum/maximum cost to reach a state","can be solved with smaller versions of itself"],
+    dataStructures:["Array"],
+    complexity:{time:"O(n) to O(n^2)", space:"O(n)"},
+    templates:[{name:"1D Bottom-Up DP", code:
+`const dp = new Array(n + 1).fill(0);
+dp[0] = /* base case */ 0;
+
+for (let i = 1; i <= n; i++) {
+    dp[i] = /* combine dp[i-1], dp[i-2], etc. */ dp[i - 1];
+}
+// dp[n] holds the answer`}],
+    recognitionQuestion:"Can I express the answer for size n in terms of the answer for smaller sizes, and will I recompute the same subproblem repeatedly if I don't cache it?",
+    relatedPatterns:["backtracking"],
+    comparisons:[]
+  },
+  {
+    id:"greedy", name:"Greedy", category:"Other",
+    description:"Make the locally optimal choice at each step, provable to lead to a globally optimal result for problems with the right structure.",
+    clues:["local optimal choice","interval scheduling","minimum number of resources","sort then choose"],
+    dataStructures:["Array"],
+    complexity:{time:"O(n log n)", space:"O(1)"},
+    templates:[{name:"Sort + Greedy Scan", code:
+`items.sort((a, b) => a.end - b.end);
+
+let count = 0;
+let lastEnd = -Infinity;
+
+for (const item of items) {
+    if (item.start >= lastEnd) {
+        count++;
+        lastEnd = item.end;
+    }
+}`}],
+    recognitionQuestion:"Can I sort by some criterion and then make one irrevocable, locally-best choice per step?",
+    relatedPatterns:["dynamic-programming"],
+    comparisons:[]
+  }
+];
+
+/* =========================================================
+   DATA: PROBLEMS
+========================================================= */
+const PROBLEMS = [
+  {
+    id:"sw-001", title:"Maximum Average Subarray I", difficulty:"Easy",
+    description:"You are given an integer array nums consisting of n elements, and an integer k.\nFind a contiguous subarray of length k that has the maximum average value, and return this value.",
+    examples:[{input:"nums = [1,12,-5,-6,50,3], k = 4", output:"12.75"}],
+    constraints:["1 <= k <= n <= 10^5","-10^4 <= nums[i] <= 10^4"],
+    primaryPattern:"sliding-window", dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["fixed-size window","contiguous subarray","large input size"],
+    explanation:[
+      "The problem asks for a fixed-size contiguous subarray (length k).",
+      "n can be up to 100,000, so recomputing the sum of every window from scratch is too slow.",
+      "A fixed sliding window lets us add the entering element and remove the leaving element in O(1) per step."
+    ],
+    template:"sliding-window-fixed"
+  },
+  {
+    id:"sw-002", title:"Longest Substring Without Repeating Characters", difficulty:"Medium",
+    description:"Given a string s, find the length of the longest substring without repeating characters.",
+    examples:[{input:'s = "abcabcbb"', output:"3"}],
+    constraints:["0 <= s.length <= 5 * 10^4"],
+    primaryPattern:"sliding-window", dataStructures:["Hash Set","Array"],
+    targetComplexity:{time:"O(n)", space:"O(k)"},
+    recognitionClues:["substring","longest or shortest","large input size"],
+    explanation:[
+      "We need the longest substring, and substrings are contiguous by definition.",
+      "As soon as a duplicate character enters the window, we only need to shrink from the left, not restart.",
+      "A variable sliding window with a set tracking the current window's characters gives O(n)."
+    ],
+    template:"sliding-window-variable"
+  },
+  {
+    id:"tp-001", title:"Two Sum II — Input Array Is Sorted", difficulty:"Medium",
+    description:"Given a 1-indexed array of integers numbers that is already sorted in non-decreasing order, find two numbers such that they add up to a specific target number.",
+    examples:[{input:"numbers = [2,7,11,15], target = 9", output:"[1,2]"}],
+    constraints:["2 <= numbers.length <= 3 * 10^4","numbers is sorted in non-decreasing order"],
+    primaryPattern:"two-pointers", dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["sorted input","pair with target sum","compare from both ends"],
+    explanation:[
+      "The array is explicitly sorted — a strong signal for two pointers rather than a hash map.",
+      "Starting from both ends, if the sum is too large we move the right pointer in; if too small, the left pointer forward.",
+      "This converges in a single O(n) pass with O(1) extra space, better than a hash map's O(n) space."
+    ],
+    template:"two-pointers-converge"
+  },
+  {
+    id:"tp-002", title:"Valid Palindrome", difficulty:"Easy",
+    description:"Given a string s, return true if it is a palindrome, considering only alphanumeric characters and ignoring case.",
+    examples:[{input:'s = "A man, a plan, a canal: Panama"', output:"true"}],
+    constraints:["1 <= s.length <= 2 * 10^5"],
+    primaryPattern:"two-pointers", dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["palindrome check","compare from both ends"],
+    explanation:[
+      "Palindrome checks are a textbook two-pointer signal: compare the first and last remaining characters.",
+      "Skipping non-alphanumeric characters while moving inward keeps the pass linear.",
+      "No extra data structure is needed beyond the two indices."
+    ],
+    template:"two-pointers-converge"
+  },
+  {
+    id:"hm-001", title:"Two Sum", difficulty:"Easy",
+    description:"Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+    examples:[{input:"nums = [2,7,11,15], target = 9", output:"[0,1]"}],
+    constraints:["2 <= nums.length <= 10^4","unsorted input"],
+    primaryPattern:"hash-map", dataStructures:["Hash Map"],
+    targetComplexity:{time:"O(n)", space:"O(n)"},
+    recognitionClues:["need fast lookup","complement or pair exists"],
+    explanation:[
+      "The array is not sorted, which rules out the two-pointer converging trick without an extra sort step.",
+      "For each element we just need to know if its complement (target - x) was seen before.",
+      "A hash map gives O(1) average lookup, so one linear pass finds the answer."
+    ],
+    template:"hash-map-lookup"
+  },
+  {
+    id:"hm-002", title:"Group Anagrams", difficulty:"Medium",
+    description:"Given an array of strings strs, group the anagrams together.",
+    examples:[{input:'strs = ["eat","tea","tan","ate","nat","bat"]', output:'[["bat"],["nat","tan"],["ate","eat","tea"]]'}],
+    constraints:["1 <= strs.length <= 10^4"],
+    primaryPattern:"hash-map", dataStructures:["Hash Map"],
+    targetComplexity:{time:"O(n * k log k)", space:"O(n * k)"},
+    recognitionClues:["duplicate detection","count frequency"],
+    explanation:[
+      "Anagrams share a canonical form (their sorted characters), which acts as a natural hash map key.",
+      "Grouping by key is exactly the 'have I seen this bucket before' pattern.",
+      "A single pass building a map from key to list of strings solves it."
+    ],
+    template:"hash-map-lookup"
+  },
+  {
+    id:"ps-001", title:"Subarray Sum Equals K", difficulty:"Medium",
+    description:"Given an array of integers nums and an integer k, return the total number of subarrays whose sum equals k.",
+    examples:[{input:"nums = [1,1,1], k = 2", output:"2"}],
+    constraints:["1 <= nums.length <= 2 * 10^4","array may contain negative numbers"],
+    primaryPattern:"prefix-sum", dataStructures:["Hash Map"],
+    targetComplexity:{time:"O(n)", space:"O(n)"},
+    recognitionClues:["subarray sum equals k","cumulative total"],
+    explanation:[
+      "Negative numbers are allowed, so a sliding window (which relies on monotonic growth) doesn't directly work.",
+      "The sum of any subarray [i, j] equals prefixSum[j] - prefixSum[i-1] — a prefix sum reframes the problem.",
+      "Storing how many times each prefix sum has occurred in a hash map lets each element be processed in O(1)."
+    ],
+    template:"prefix-sum-hashmap"
+  },
+  {
+    id:"bs-001", title:"Search in Rotated Sorted Array", difficulty:"Medium",
+    description:"Given the array nums after a possible rotation and an integer target, return the index of target if it is in nums, or -1 if it is not.",
+    examples:[{input:"nums = [4,5,6,7,0,1,2], target = 0", output:"4"}],
+    constraints:["1 <= nums.length <= 5000","nums was originally sorted then possibly rotated"],
+    primaryPattern:"binary-search", dataStructures:["Array"],
+    targetComplexity:{time:"O(log n)", space:"O(1)"},
+    recognitionClues:["sorted input","logarithmic requirement"],
+    explanation:[
+      "Even after rotation, at least one half of any subarray remains sorted — that's enough structure for binary search.",
+      "At each step we can determine which half is sorted and check if the target lies in that half's range.",
+      "This preserves the O(log n) halving despite the rotation."
+    ],
+    template:"binary-search-boundary"
+  },
+  {
+    id:"bs-002", title:"Koko Eating Bananas", difficulty:"Medium",
+    description:"Koko wants to eat all piles of bananas in h hours. Find the minimum eating speed k such that she can finish all bananas within h hours.",
+    examples:[{input:"piles = [3,6,7,11], h = 8", output:"4"}],
+    constraints:["1 <= piles.length <= 10^4","1 <= piles[i] <= 10^9"],
+    primaryPattern:"binary-search", dataStructures:["Array"],
+    targetComplexity:{time:"O(n log m)", space:"O(1)"},
+    recognitionClues:["minimize the maximum","search space is monotonic"],
+    explanation:[
+      "As eating speed k increases, hours needed always decreases — that monotonic relationship is the real signal.",
+      "This isn't binary search over the array itself, but over the answer space of possible speeds.",
+      "Binary searching for the smallest k where hours-needed(k) <= h gives O(n log m)."
+    ],
+    template:"binary-search-boundary"
+  },
+  {
+    id:"ms-001", title:"Daily Temperatures", difficulty:"Medium",
+    description:"Given an array of integers temperatures, return an array answer such that answer[i] is the number of days until a warmer temperature.",
+    examples:[{input:"temperatures = [73,74,75,71,69,72,76,73]", output:"[1,1,4,2,1,1,0,0]"}],
+    constraints:["1 <= temperatures.length <= 10^5"],
+    primaryPattern:"monotonic-stack", dataStructures:["Stack"],
+    targetComplexity:{time:"O(n)", space:"O(n)"},
+    recognitionClues:["next greater element","daily temperatures style"],
+    explanation:[
+      "For every day we need the next day with a strictly greater temperature — the canonical 'next greater element' shape.",
+      "A decreasing stack of indices lets each index be pushed and popped at most once.",
+      "Whenever a warmer day appears, it resolves every colder day still waiting on the stack."
+    ],
+    template:"monotonic-stack-next-greater"
+  },
+  {
+    id:"dfs-001", title:"Number of Islands", difficulty:"Medium",
+    description:"Given an m x n 2D binary grid which represents a map of '1's (land) and '0's (water), return the number of islands.",
+    examples:[{input:'grid = [["1","1","0"],["0","1","0"],["0","0","1"]]', output:"2"}],
+    constraints:["1 <= m, n <= 300"],
+    primaryPattern:"dfs", dataStructures:["Stack","Array"],
+    targetComplexity:{time:"O(m*n)", space:"O(m*n)"},
+    recognitionClues:["connected components","explore all paths"],
+    explanation:[
+      "An island is a connected component of land cells — a graph connectivity question in disguise.",
+      "From any unvisited land cell, DFS marks the entire connected chunk of land in one pass.",
+      "Each cell is visited once, giving O(m*n) with the grid itself acting as the implicit graph."
+    ],
+    template:"dfs-iterative"
+  },
+  {
+    id:"bfs-001", title:"Rotting Oranges", difficulty:"Medium",
+    description:"Return the minimum number of minutes until no cell has a fresh orange, given rotten oranges spread to adjacent fresh ones each minute.",
+    examples:[{input:'grid = [[2,1,1],[1,1,0],[0,1,1]]', output:"4"}],
+    constraints:["1 <= m, n <= 10"],
+    primaryPattern:"bfs", dataStructures:["Queue","Array"],
+    targetComplexity:{time:"O(m*n)", space:"O(m*n)"},
+    recognitionClues:["minimum number of steps","level order traversal","shortest path unweighted"],
+    explanation:[
+      "The rot spreads simultaneously to all adjacent cells each minute — a level-by-level process.",
+      "Starting a multi-source BFS from all initially rotten oranges naturally models minutes as BFS levels.",
+      "The answer is simply the number of levels processed before no fresh oranges remain."
+    ],
+    template:"bfs-queue"
+  },
+  {
+    id:"heap-001", title:"Kth Largest Element in an Array", difficulty:"Medium",
+    description:"Given an integer array nums and an integer k, return the kth largest element in the array.",
+    examples:[{input:"nums = [3,2,1,5,6,4], k = 2", output:"5"}],
+    constraints:["1 <= k <= nums.length <= 10^5"],
+    primaryPattern:"heap", dataStructures:["Heap"],
+    targetComplexity:{time:"O(n log k)", space:"O(k)"},
+    recognitionClues:["kth largest or smallest","top k elements"],
+    explanation:[
+      "We only need the kth largest value, not a full sort of the array.",
+      "A min-heap of size k, keeping only the k largest values seen so far, answers this without full sorting.",
+      "Each insertion/removal is O(log k), giving O(n log k) overall instead of O(n log n)."
+    ],
+    template:"heap-topk"
+  },
+  {
+    id:"bt-001", title:"Subsets", difficulty:"Medium",
+    description:"Given an integer array nums of unique elements, return all possible subsets (the power set).",
+    examples:[{input:"nums = [1,2,3]", output:"[[],[1],[2],[1,2],[3],[1,3],[2,3],[1,2,3]]"}],
+    constraints:["1 <= nums.length <= 10"],
+    primaryPattern:"backtracking", dataStructures:["Array"],
+    targetComplexity:{time:"O(2^n)", space:"O(n)"},
+    recognitionClues:["all subsets","need all valid configurations"],
+    explanation:[
+      "The problem explicitly wants every possible subset, not just one optimal one.",
+      "Small n (up to 10) is a strong signal that exponential O(2^n) enumeration is intended, not a polynomial trick.",
+      "Backtracking builds each subset incrementally, including or excluding each element, then undoes the choice."
+    ],
+    template:"backtracking-generic"
+  },
+  {
+    id:"dp-001", title:"Climbing Stairs", difficulty:"Easy",
+    description:"You are climbing a staircase with n steps. Each time you can climb 1 or 2 steps. In how many distinct ways can you climb to the top?",
+    examples:[{input:"n = 5", output:"8"}],
+    constraints:["1 <= n <= 45"],
+    primaryPattern:"dynamic-programming", dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["count the number of ways","can be solved with smaller versions of itself"],
+    explanation:[
+      "The number of ways to reach step n depends only on the ways to reach step n-1 and n-2.",
+      "This overlapping-subproblem structure is a direct signal for dynamic programming rather than brute-force recursion.",
+      "A simple bottom-up array (or two rolling variables) computes the answer in O(n) time and O(1) space."
+    ],
+    template:"dp-1d-bottom-up"
+  },
+  {
+    id:"dp-002", title:"Coin Change", difficulty:"Medium",
+    description:"Given coin denominations and an amount, return the fewest number of coins needed to make up that amount, or -1 if impossible.",
+    examples:[{input:"coins = [1,2,5], amount = 11", output:"3"}],
+    constraints:["1 <= coins.length <= 12","0 <= amount <= 10^4"],
+    primaryPattern:"dynamic-programming", dataStructures:["Array"],
+    targetComplexity:{time:"O(amount * coins)", space:"O(amount)"},
+    recognitionClues:["minimum/maximum cost to reach a state","overlapping subproblems"],
+    explanation:[
+      "The minimum coins to make amount reuses the minimum coins needed for every smaller amount.",
+      "Trying every combination directly would be exponential; caching results per amount avoids recomputation.",
+      "A 1D DP array indexed by amount, updated for each coin, reaches the answer in pseudo-polynomial time."
+    ],
+    template:"dp-1d-bottom-up"
+  },
+  {
+    id:"gr-001", title:"Non-overlapping Intervals", difficulty:"Medium",
+    description:"Given an array of intervals, return the minimum number of intervals you need to remove to make the rest non-overlapping.",
+    examples:[{input:"intervals = [[1,2],[2,3],[3,4],[1,3]]", output:"1"}],
+    constraints:["1 <= intervals.length <= 10^5"],
+    primaryPattern:"greedy", dataStructures:["Array"],
+    targetComplexity:{time:"O(n log n)", space:"O(1)"},
+    recognitionClues:["interval scheduling","sort then choose","local optimal choice"],
+    explanation:[
+      "Interval scheduling problems are a classic greedy signature.",
+      "Sorting by end time and always keeping the interval that ends earliest maximizes room for future intervals.",
+      "This locally greedy choice is provably globally optimal for this problem shape, avoiding exponential search."
+    ],
+    template:"greedy-sort-scan"
+  },
+  {
+    id:"uf-001", title:"Number of Provinces", difficulty:"Medium",
+    description:"Given an n x n adjacency matrix isConnected where cities are directly connected, return the number of provinces (connected groups of cities).",
+    examples:[{input:"isConnected = [[1,1,0],[1,1,0],[0,0,1]]", output:"2"}],
+    constraints:["1 <= n <= 200"],
+    primaryPattern:"union-find", dataStructures:["Array"],
+    targetComplexity:{time:"O(n^2 * α(n))", space:"O(n)"},
+    recognitionClues:["connected components","group merging","are these two things connected"],
+    explanation:[
+      "The question directly asks how many separate connected groups exist.",
+      "Union-Find lets us merge cities as we scan the matrix and cheaply track which group each city belongs to.",
+      "After processing all connections, counting distinct roots gives the number of provinces."
+    ],
+    template:"union-find"
+  }
+];
+
+const TEMPLATE_LOOKUP = {
+  "sliding-window-fixed": PATTERNS.find(p=>p.id==="sliding-window").templates[1],
+  "sliding-window-variable": PATTERNS.find(p=>p.id==="sliding-window").templates[0],
+  "two-pointers-converge": PATTERNS.find(p=>p.id==="two-pointers").templates[0],
+  "hash-map-lookup": PATTERNS.find(p=>p.id==="hash-map").templates[0],
+  "prefix-sum-hashmap": PATTERNS.find(p=>p.id==="prefix-sum").templates[0],
+  "binary-search-boundary": PATTERNS.find(p=>p.id==="binary-search").templates[0],
+  "monotonic-stack-next-greater": PATTERNS.find(p=>p.id==="monotonic-stack").templates[0],
+  "dfs-iterative": PATTERNS.find(p=>p.id==="dfs").templates[1],
+  "bfs-queue": PATTERNS.find(p=>p.id==="bfs").templates[0],
+  "heap-topk": PATTERNS.find(p=>p.id==="heap").templates[0],
+  "backtracking-generic": PATTERNS.find(p=>p.id==="backtracking").templates[0],
+  "dp-1d-bottom-up": PATTERNS.find(p=>p.id==="dynamic-programming").templates[0],
+  "greedy-sort-scan": PATTERNS.find(p=>p.id==="greedy").templates[0],
+  "union-find": PATTERNS.find(p=>p.id==="union-find").templates[0]
+};
+
+const CLUE_POOL = Array.from(new Set(PATTERNS.flatMap(p => p.clues)));
+const DS_POOL = ["Hash Map","Hash Set","Stack","Queue","Heap","Array","Deque","Tree","Graph"];
+const COMPLEXITY_OPTIONS = ["O(1)","O(log n)","O(n)","O(n log n)","O(n^2)","O(2^n)"];
+
+/* =========================================================
+   STORAGE
+========================================================= */
+const STORAGE_KEY = "lpt_attempts_v1";
+function loadAttempts(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+function saveAttempt(attempt){
+  const all = loadAttempts();
+  all.push(attempt);
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(all)); }catch(e){}
+}
+
+/* =========================================================
+   STATE
+========================================================= */
+let currentView = "practice";
+let currentProblem = null;
+let quizState = null; // {step, clues:Set, pattern, ds:Set, complexity, complexityDone}
+
+function pickRandomProblem(filterPatternId){
+  const pool = filterPatternId ? PROBLEMS.filter(p=>p.primaryPattern===filterPatternId) : PROBLEMS;
+  if(!pool.length) return null;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function computePatternStats(){
+  const attempts = loadAttempts();
+  const stats = {};
+  PATTERNS.forEach(p => stats[p.id] = {attempts:0, correct:0});
+  attempts.forEach(a => {
+    if(!stats[a.pattern]) stats[a.pattern] = {attempts:0, correct:0};
+    stats[a.pattern].attempts++;
+    if(a.patternCorrect) stats[a.pattern].correct++;
+  });
+  return stats;
+}
+
+function overallAccuracy(){
+  const attempts = loadAttempts();
+  if(!attempts.length) return null;
+  const correct = attempts.filter(a=>a.patternCorrect).length;
+  return Math.round((correct/attempts.length)*100);
+}
+
+function weakestPattern(){
+  const stats = computePatternStats();
+  let weakest = null, weakestAcc = 101;
+  Object.entries(stats).forEach(([id, s]) => {
+    if(s.attempts >= 1){
+      const acc = (s.correct/s.attempts)*100;
+      if(acc < weakestAcc){ weakestAcc = acc; weakest = id; }
+    }
+  });
+  return weakest;
+}
+
+/* =========================================================
+   RENDER: NAV
+========================================================= */
+function setView(view){
+  currentView = view;
+  document.querySelectorAll(".nav-item").forEach(el=>{
+    el.classList.toggle("active", el.dataset.view===view);
+  });
+  document.querySelectorAll(".view").forEach(el=>el.classList.remove("active"));
+  document.getElementById("view-"+view).classList.add("active");
+  if(view==="practice") renderPractice();
+  if(view==="patterns") renderPatternLibrary();
+  if(view==="progress") renderProgress();
+  renderSidebarFoot();
+}
+document.querySelectorAll(".nav-item").forEach(el=>{
+  el.addEventListener("click", ()=> setView(el.dataset.view));
+});
+
+function renderSidebarFoot(){
+  const acc = overallAccuracy();
+  document.getElementById("sidebarBarFill").style.width = (acc===null?0:acc)+"%";
+  document.getElementById("sidebarAccVal").textContent = acc===null ? "no attempts yet" : acc+"% across "+loadAttempts().length+" attempts";
+}
+
+/* =========================================================
+   RENDER: PRACTICE
+========================================================= */
+function startNewProblem(problem){
+  currentProblem = problem;
+  quizState = { clues:new Set(), pattern:null, ds:new Set(), complexity:null, complexityDone:false, submitted:false };
+  renderPractice();
+}
+
+function stepDone(n){
+  if(!quizState) return false;
+  if(n===2) return quizState.clues.size>0;
+  if(n===3) return !!quizState.pattern;
+  if(n===4) return quizState.ds.size>0;
+  if(n===5) return !!quizState.complexity || quizState.complexityDone;
+  if(n===6) return quizState.submitted;
+  return true;
+}
+
+function renderTrace(activeStep){
+  const labels = ["Problem","Clues","Pattern","D. Struct.","Complexity","Review"];
+  let nodes = "";
+  let labelsHtml = "";
+  for(let i=1;i<=6;i++){
+    const done = stepDone(i) && i!==activeStep;
+    const now = i===activeStep;
+    nodes += `<div class="trace-node ${done?'done':''} ${now?'now':''}">${i}</div>`;
+    if(i<6){
+      const segDone = stepDone(i);
+      nodes += `<div class="trace-seg ${segDone?'done':''}"><div class="fill"></div></div>`;
+    }
+    labelsHtml += `<span>${labels[i-1]}</span>`;
+  }
+  return `<div class="trace">${nodes}</div><div class="trace-labels">${labelsHtml}</div>`;
+}
+
+function renderPractice(){
+  const el = document.getElementById("view-practice");
+  if(!currentProblem){
+    el.innerHTML = `
+      <div class="page-eyebrow">01 / PRACTICE</div>
+      <h1>Pattern Recognition Session</h1>
+      <p class="page-desc">See a problem, name the clues, name the pattern, name the data structure and target complexity — before you see the answer. Then review why.</p>
+      <div class="card">
+        <div class="card-label">Start a session</div>
+        <div class="btn-row" style="margin-top:0;">
+          <button class="btn" id="btnRandom">Random Practice</button>
+          <button class="btn secondary" id="btnWeak">Weak Areas</button>
+        </div>
+        <div style="margin-top:18px; display:flex; align-items:center; gap:10px;">
+          <label style="font-family:var(--mono); font-size:11.5px; color:var(--text-faint);">PRACTICE A SPECIFIC PATTERN</label>
+          <select class="pattern-select" id="patternPicker">
+            <option value="">Choose pattern…</option>
+            ${PATTERNS.map(p=>`<option value="${p.id}">${p.name}</option>`).join("")}
+          </select>
+          <button class="btn secondary" id="btnPatternPractice">Go</button>
+        </div>
+      </div>
+    `;
+    document.getElementById("btnRandom").onclick = ()=> startNewProblem(pickRandomProblem());
+    document.getElementById("btnWeak").onclick = ()=>{
+      const w = weakestPattern();
+      startNewProblem(pickRandomProblem(w) || pickRandomProblem());
+    };
+    document.getElementById("btnPatternPractice").onclick = ()=>{
+      const val = document.getElementById("patternPicker").value;
+      if(val) startNewProblem(pickRandomProblem(val));
+    };
+    return;
+  }
+
+  const p = currentProblem;
+  const activeStep = quizState.submitted ? 6 : (quizState.complexity||quizState.complexityDone ? 6 : (quizState.ds.size>0 ? 5 : (quizState.pattern ? 4 : (quizState.clues.size>0 ? 3 : 2))));
+
+  let html = `
+    <div class="page-eyebrow">01 / PRACTICE</div>
+    <h1>${p.title}</h1>
+    <p class="page-desc">Work through each step before submitting. Nothing is revealed until you review.</p>
+    ${renderTrace(quizState.submitted?6:activeStep)}
+
+    <div class="card">
+      <div class="card-label">Problem</div>
+      <div class="problem-meta"><span class="diff-badge diff-${p.difficulty}">${p.difficulty}</span></div>
+      <div class="problem-desc">${p.description}</div>
+      <div class="examples">
+        ${p.examples.map(ex=>`<div class="example">Input: ${ex.input}<br>Output: ${ex.output}</div>`).join("")}
+      </div>
+      <ul class="constraints">${p.constraints.map(c=>`<li>${c}</li>`).join("")}</ul>
+    </div>
+  `;
+
+  if(!quizState.submitted){
+    // Step 2: clues
+    const clueOptions = getClueOptions(p);
+    html += `
+    <div class="card">
+      <div class="step">
+        <div class="step-q">Which clues stand out?</div>
+        <div class="opt-grid" id="clueOptions">
+          ${clueOptions.map((c,i)=>`
+            <label class="opt ${quizState.clues.has(c)?'selected':''}" data-clue="${escapeAttr(c)}">
+              <input type="checkbox" ${quizState.clues.has(c)?'checked':''}> ${c}
+            </label>`).join("")}
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-q">What pattern is this?</div>
+        <div class="opt-grid">
+          ${PATTERNS.map(pt=>`
+            <label class="opt ${quizState.pattern===pt.id?'selected':''}" data-pattern="${pt.id}">
+              <input type="radio" name="pattern" ${quizState.pattern===pt.id?'checked':''}> ${pt.name}
+            </label>`).join("")}
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-q">Likely data structure(s)</div>
+        <div class="opt-grid">
+          ${DS_POOL.map(d=>`
+            <label class="opt ${quizState.ds.has(d)?'selected':''}" data-ds="${escapeAttr(d)}">
+              <input type="checkbox" ${quizState.ds.has(d)?'checked':''}> ${d}
+            </label>`).join("")}
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-q">Target time complexity</div>
+        <div class="opt-grid">
+          ${COMPLEXITY_OPTIONS.map(c=>`
+            <label class="opt ${quizState.complexity===c?'selected':''}" data-complexity="${escapeAttr(c)}">
+              <input type="radio" name="complexity" ${quizState.complexity===c?'checked':''}> ${c}
+            </label>`).join("")}
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="btnSubmit" ${(!quizState.pattern)?'disabled':''}>Submit & Review</button>
+        <button class="btn secondary" id="btnAbandon">Choose a different problem</button>
+      </div>
+    </div>
+    `;
+  } else {
+    html += renderReview(p);
+    html += `
+    <div class="btn-row">
+      <button class="btn" id="btnNext">Next Problem</button>
+      <button class="btn secondary" id="btnMenu">Back to Practice Menu</button>
+    </div>`;
+  }
+
+  el.innerHTML = html;
+  wirePracticeEvents(p);
+}
+
+function getClueOptions(problem){
+  const correct = problem.recognitionClues;
+  const distractorsPool = CLUE_POOL.filter(c=>!correct.includes(c));
+  const shuffledDistractors = shuffle([...distractorsPool]).slice(0, Math.max(3, 7-correct.length));
+  return shuffle([...correct, ...shuffledDistractors]);
+}
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+function escapeAttr(s){ return s.replace(/"/g,'&quot;'); }
+
+function wirePracticeEvents(p){
+  document.querySelectorAll("[data-clue]").forEach(el=>{
+    el.onclick = (e)=>{
+      e.preventDefault();
+      const c = el.dataset.clue;
+      if(quizState.clues.has(c)) quizState.clues.delete(c); else quizState.clues.add(c);
+      renderPractice();
+    };
+  });
+  document.querySelectorAll("[data-pattern]").forEach(el=>{
+    el.onclick = (e)=>{
+      e.preventDefault();
+      quizState.pattern = el.dataset.pattern;
+      renderPractice();
+    };
+  });
+  document.querySelectorAll("[data-ds]").forEach(el=>{
+    el.onclick = (e)=>{
+      e.preventDefault();
+      const d = el.dataset.ds;
+      if(quizState.ds.has(d)) quizState.ds.delete(d); else quizState.ds.add(d);
+      renderPractice();
+    };
+  });
+  document.querySelectorAll("[data-complexity]").forEach(el=>{
+    el.onclick = (e)=>{
+      e.preventDefault();
+      quizState.complexity = el.dataset.complexity;
+      renderPractice();
+    };
+  });
+  const submitBtn = document.getElementById("btnSubmit");
+  if(submitBtn) submitBtn.onclick = ()=> submitQuiz(p);
+  const abandonBtn = document.getElementById("btnAbandon");
+  if(abandonBtn) abandonBtn.onclick = ()=>{ currentProblem=null; quizState=null; renderPractice(); };
+  const nextBtn = document.getElementById("btnNext");
+  if(nextBtn) nextBtn.onclick = ()=> startNewProblem(pickRandomProblem());
+  const menuBtn = document.getElementById("btnMenu");
+  if(menuBtn) menuBtn.onclick = ()=>{ currentProblem=null; quizState=null; renderPractice(); };
+}
+
+function submitQuiz(p){
+  const patternCorrect = quizState.pattern === p.primaryPattern;
+  const dsCorrectSet = new Set(p.dataStructures);
+  const dsSelected = quizState.ds;
+  const dsCorrect = dsSelected.size===dsCorrectSet.size && [...dsSelected].every(d=>dsCorrectSet.has(d));
+  const complexityCorrect = quizState.complexity === p.targetComplexity.time;
+  const cluesCorrectSet = new Set(p.recognitionClues);
+  const cluesCorrect = [...quizState.clues].filter(c=>cluesCorrectSet.has(c)).length;
+
+  quizState.submitted = true;
+  quizState.result = { patternCorrect, dsCorrect, complexityCorrect, cluesCorrect, cluesTotal:p.recognitionClues.length };
+
+  saveAttempt({
+    problemId:p.id,
+    pattern:p.primaryPattern,
+    patternCorrect,
+    dsCorrect,
+    complexityCorrect,
+    timestamp: Date.now()
+  });
+
+  renderPractice();
+}
+
+function renderReview(p){
+  const r = quizState.result;
+  const scoreParts = [r.patternCorrect, r.dsCorrect, r.complexityCorrect];
+  const scoreCount = scoreParts.filter(Boolean).length;
+
+  const pattern = PATTERNS.find(x=>x.id===p.primaryPattern);
+  const tmpl = TEMPLATE_LOOKUP[p.template];
+
+  return `
+    <div class="card">
+      <div class="card-label">Review</div>
+      <div class="score-banner">
+        <div class="score-num">${scoreCount}/3</div>
+        <div class="score-label">core answers correct<br>(pattern, data structure, complexity)</div>
+      </div>
+
+      <div class="review-row">
+        <div class="review-key">CLUES</div>
+        <div class="review-val">
+          You selected ${r.cluesCorrect} of ${r.cluesTotal} key clues.<br>
+          ${p.recognitionClues.map(c=>`<span class="tag ${quizState.clues.has(c)?'good':'bad'}">${c}</span>`).join("")}
+        </div>
+      </div>
+      <div class="review-row">
+        <div class="review-key">PATTERN</div>
+        <div class="review-val">
+          <span class="tag ${r.patternCorrect?'good':'bad'}">You said: ${PATTERNS.find(x=>x.id===quizState.pattern)?.name || "—"}</span>
+          ${!r.patternCorrect?`<span class="tag good">Correct: ${pattern.name}</span>`:''}
+        </div>
+      </div>
+      <div class="review-row">
+        <div class="review-key">DATA STRUCTURE</div>
+        <div class="review-val">
+          ${p.dataStructures.map(d=>`<span class="tag ${quizState.ds.has(d)?'good':'bad'}">${d}</span>`).join("")}
+          ${[...quizState.ds].filter(d=>!p.dataStructures.includes(d)).map(d=>`<span class="tag bad">${d} (not needed)</span>`).join("")}
+        </div>
+      </div>
+      <div class="review-row">
+        <div class="review-key">COMPLEXITY</div>
+        <div class="review-val">
+          <span class="tag ${r.complexityCorrect?'good':'bad'}">You said: ${quizState.complexity || '—'}</span>
+          ${!r.complexityCorrect?`<span class="tag good">Target: ${p.targetComplexity.time} time, ${p.targetComplexity.space} space</span>`:`<span class="tag good">Space: ${p.targetComplexity.space}</span>`}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Why ${pattern.name}?</div>
+      <ol class="explain-list">
+        ${p.explanation.map(e=>`<li>${e}</li>`).join("")}
+      </ol>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Generalized Template — ${tmpl.name}</div>
+      <pre class="template">${tmpl.code}</pre>
+    </div>
+  `;
+}
+
+/* =========================================================
+   RENDER: PATTERN LIBRARY
+========================================================= */
+let libraryFilter = "";
+let selectedPatternId = null;
+
+function renderPatternLibrary(){
+  const el = document.getElementById("view-patterns");
+  if(selectedPatternId){
+    renderPatternDetail(selectedPatternId);
+    return;
+  }
+  const stats = computePatternStats();
+  const filtered = PATTERNS.filter(p =>
+    !libraryFilter ||
+    p.name.toLowerCase().includes(libraryFilter.toLowerCase()) ||
+    p.category.toLowerCase().includes(libraryFilter.toLowerCase()) ||
+    p.clues.some(c=>c.toLowerCase().includes(libraryFilter.toLowerCase()))
+  );
+
+  el.innerHTML = `
+    <div class="page-eyebrow">02 / PATTERN LIBRARY</div>
+    <h1>Reference Patterns</h1>
+    <p class="page-desc">One canonical page per pattern — clues, data structures, complexity, and a template. Built for recognition, not full tutorials.</p>
+    <div class="lib-controls">
+      <input class="search-input" id="libSearch" placeholder="Search patterns, categories, or clues…" value="${libraryFilter}">
+    </div>
+    <div class="pattern-grid">
+      ${filtered.map(p=>{
+        const s = stats[p.id];
+        const acc = s.attempts ? Math.round((s.correct/s.attempts)*100)+"%" : "not attempted";
+        return `
+        <div class="pattern-card" data-pid="${p.id}">
+          <div class="pattern-card-cat">${p.category}</div>
+          <div class="pattern-card-name">${p.name}</div>
+          <div class="pattern-card-desc">${p.description}</div>
+          <div class="pattern-card-acc">RECOGNITION: ${acc}</div>
+        </div>`;
+      }).join("") || `<div class="empty-state">No patterns match "${libraryFilter}".</div>`}
+    </div>
+  `;
+  document.getElementById("libSearch").oninput = (e)=>{ libraryFilter = e.target.value; renderPatternLibrary(); };
+  document.querySelectorAll("[data-pid]").forEach(el2=>{
+    el2.onclick = ()=>{ selectedPatternId = el2.dataset.pid; renderPatternLibrary(); };
+  });
+}
+
+function renderPatternDetail(pid){
+  const el = document.getElementById("view-patterns");
+  const p = PATTERNS.find(x=>x.id===pid);
+  const stats = computePatternStats()[pid];
+  const acc = stats.attempts ? Math.round((stats.correct/stats.attempts)*100)+"%" : "not attempted yet";
+
+  el.innerHTML = `
+    <span class="back-link" id="backToLib">← Back to library</span>
+    <div class="page-eyebrow">${p.category.toUpperCase()}</div>
+    <h1>${p.name}</h1>
+    <p class="page-desc">${p.description}</p>
+
+    <div class="detail-section">
+      <div class="detail-label">Strong Clues</div>
+      <div class="chip-row">${p.clues.map(c=>`<span class="chip">${c}</span>`).join("")}</div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-label">Typical Data Structures</div>
+      <div class="chip-row">${p.dataStructures.map(d=>`<span class="chip">${d}</span>`).join("")}</div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-label">Typical Complexity</div>
+      <div class="chip-row"><span class="chip">Time: ${p.complexity.time}</span><span class="chip">Space: ${p.complexity.space}</span></div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-label">Recognition Question</div>
+      <div class="recognition-q">"${p.recognitionQuestion}"</div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-label">General Template${p.templates.length>1?'s':''}</div>
+      ${p.templates.map(t=>`<div style="margin-bottom:12px;"><div style="font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:6px;">${t.name}</div><pre class="template">${t.code}</pre></div>`).join("")}
+    </div>
+
+    ${p.comparisons.length ? `
+    <div class="detail-section">
+      <div class="detail-label">Comparison</div>
+      ${p.comparisons.map(c=>{
+        const other = PATTERNS.find(x=>x.id===c.with);
+        return `
+        <div style="margin-bottom:14px;">
+          <div style="font-size:13px; margin-bottom:8px; color:var(--text-dim);">${p.name} vs ${other.name}</div>
+          <table class="comparison-table">
+            <tr><th>${p.name}</th><th>${other.name}</th></tr>
+            ${c.rows.map(row=>`<tr><td>${row[0]}</td><td>${row[1]}</td></tr>`).join("")}
+          </table>
+        </div>`;
+      }).join("")}
+    </div>` : ''}
+
+    <div class="detail-section">
+      <div class="detail-label">Similar Patterns</div>
+      <div class="related-row">
+        ${p.relatedPatterns.map(rid=>{
+          const rp = PATTERNS.find(x=>x.id===rid);
+          return rp ? `<span class="related-chip" data-pid="${rp.id}">${rp.name}</span>` : '';
+        }).join("")}
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-label">Your Recognition Accuracy</div>
+      <div class="chip-row"><span class="chip">${acc} ${stats.attempts?`(${stats.correct}/${stats.attempts})`:''}</span></div>
+    </div>
+  `;
+  document.getElementById("backToLib").onclick = ()=>{ selectedPatternId=null; renderPatternLibrary(); };
+  document.querySelectorAll(".related-chip").forEach(el2=>{
+    el2.onclick = ()=>{ selectedPatternId = el2.dataset.pid; renderPatternLibrary(); };
+  });
+}
+
+/* =========================================================
+   RENDER: PROGRESS
+========================================================= */
+function renderProgress(){
+  const el = document.getElementById("view-progress");
+  const attempts = loadAttempts();
+  const stats = computePatternStats();
+  const totalAttempts = attempts.length;
+  const totalCorrect = attempts.filter(a=>a.patternCorrect).length;
+  const overallAcc = totalAttempts ? Math.round((totalCorrect/totalAttempts)*100) : 0;
+  const patternsAttempted = Object.values(stats).filter(s=>s.attempts>0).length;
+
+  const sortedPatterns = PATTERNS
+    .map(p=>({p, s:stats[p.id]}))
+    .filter(x=>x.s.attempts>0)
+    .sort((a,b)=> (b.s.correct/b.s.attempts) - (a.s.correct/a.s.attempts));
+
+  el.innerHTML = `
+    <div class="page-eyebrow">03 / PROGRESS</div>
+    <h1>Recognition Performance</h1>
+    <p class="page-desc">Tracks whether you named the right pattern — the core recognition skill this app trains toward.</p>
+
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-num">${totalAttempts}</div><div class="stat-lbl">TOTAL ATTEMPTS</div></div>
+      <div class="stat-box"><div class="stat-num">${totalAttempts?overallAcc+'%':'—'}</div><div class="stat-lbl">PATTERN ACCURACY</div></div>
+      <div class="stat-box"><div class="stat-num">${patternsAttempted}/${PATTERNS.length}</div><div class="stat-lbl">PATTERNS TOUCHED</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Your Pattern Performance</div>
+      ${sortedPatterns.length ? sortedPatterns.map(({p,s})=>{
+        const acc = Math.round((s.correct/s.attempts)*100);
+        const cls = acc<60?'weak':(acc>=85?'strong':'');
+        return `
+        <div class="perf-row">
+          <div class="perf-name">${p.name}</div>
+          <div class="perf-bar-track"><div class="perf-bar-fill ${cls}" style="width:${acc}%"></div></div>
+          <div class="perf-pct">${acc}%</div>
+        </div>`;
+      }).join("") : `<div class="empty-state">No attempts yet. Head to Practice to start a session.</div>`}
+    </div>
+
+    ${sortedPatterns.length ? `
+    <div class="card">
+      <div class="card-label">Weak Areas</div>
+      <p style="font-size:13px; color:var(--text-dim); margin:0 0 14px;">Patterns below 60% recognition accuracy — good candidates for your next session.</p>
+      <div class="btn-row" style="margin-top:0;">
+        <button class="btn" id="btnPracticeWeak">Practice Weakest Pattern</button>
+      </div>
+    </div>` : ''}
+
+    <div class="card">
+      <div class="card-label">Attempt History</div>
+      ${attempts.length ? [...attempts].reverse().slice(0,25).map(a=>{
+        const p = PROBLEMS.find(x=>x.id===a.problemId);
+        const pat = PATTERNS.find(x=>x.id===a.pattern);
+        const d = new Date(a.timestamp);
+        return `
+        <div class="history-row">
+          <div class="history-left">
+            <span class="history-dot ${a.patternCorrect?'ok':'no'}"></span>
+            <span>${p?p.title:'Unknown problem'}</span>
+            <span style="color:var(--text-faint);">— ${pat?pat.name:a.pattern}</span>
+          </div>
+          <span class="history-time">${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+        </div>`;
+      }).join("") : `<div class="empty-state">Nothing here yet.</div>`}
+    </div>
+  `;
+
+  const weakBtn = document.getElementById("btnPracticeWeak");
+  if(weakBtn) weakBtn.onclick = ()=>{
+    const w = weakestPattern();
+    currentProblem = null; quizState = null;
+    setView("practice");
+    startNewProblem(pickRandomProblem(w) || pickRandomProblem());
+  };
+}
+
+/* =========================================================
+   INIT
+========================================================= */
+renderPractice();
+renderPatternLibrary();
+renderProgress();
+renderSidebarFoot();
+</script>
+</body>
+</html>
