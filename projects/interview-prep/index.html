@@ -183,6 +183,7 @@ pre.template{
   padding:10px 14px; color:var(--text); font-family:var(--sans); font-size:13.5px;
 }
 .search-input:focus{outline:none; border-color:var(--accent-dim);}
+.textarea-input{width:100%; font-family:var(--mono); font-size:13px; line-height:1.6; resize:vertical; min-height:70px;}
 .pattern-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px;}
 .pattern-card{
   background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
@@ -236,6 +237,64 @@ select.pattern-select{
   font-family:var(--mono); font-size:12.5px; padding:9px 12px; border-radius:var(--radius);
 }
 
+/* ---------- Interactive Diagrams ---------- */
+.diag-controls{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;}
+.diag-field{display:flex; flex-direction:column; gap:5px;}
+.diag-field label{font-family:var(--mono); font-size:10px; color:var(--text-faint); letter-spacing:0.05em; text-transform:uppercase;}
+.diag-field input{background:var(--panel-2); border:1px solid var(--line); color:var(--text); font-family:var(--mono); font-size:12.5px; padding:8px 10px; border-radius:var(--radius); width:170px;}
+.diag-field input:focus{outline:none; border-color:var(--accent-dim);}
+.diag-stage{background:var(--panel-2); border:1px solid var(--line-soft); border-radius:var(--radius); padding:26px 20px 20px;}
+.diag-array-row{display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start; justify-content:center;}
+.diag-box{
+  width:46px; height:46px; display:flex; align-items:center; justify-content:center;
+  border:1.5px solid var(--line); border-radius:4px; font-family:var(--mono); font-size:13px;
+  color:var(--text-dim); background:var(--panel); position:relative; flex-shrink:0;
+  transition:border-color .25s ease, background .25s ease, color .25s ease, opacity .25s ease;
+}
+.diag-box .idx{position:absolute; bottom:-19px; font-size:9.5px; color:var(--text-faint); left:50%; transform:translateX(-50%);}
+.diag-box .sub{position:absolute; top:-20px; font-size:9px; color:var(--accent); white-space:nowrap; left:50%; transform:translateX(-50%);}
+.diag-box.active{border-color:var(--accent); color:var(--text); box-shadow:0 0 8px rgba(245,184,74,0.35);}
+.diag-box.window{background:rgba(245,184,74,0.10); border-color:var(--accent-dim); color:var(--text);}
+.diag-box.good{border-color:var(--good); color:var(--text); background:rgba(74,222,158,0.10);}
+.diag-box.bad{border-color:var(--bad); color:var(--text); background:rgba(251,113,133,0.10);}
+.diag-box.dim{opacity:0.3;}
+.diag-col{display:flex; flex-direction:column; align-items:center; margin-bottom:22px;}
+.diag-ptr{font-family:var(--mono); font-size:10px; color:var(--accent); margin-top:24px; height:14px;}
+.diag-status{font-family:var(--mono); font-size:12.5px; color:var(--text-dim); margin-top:16px; min-height:38px; line-height:1.6;}
+.diag-transport{display:flex; align-items:center; gap:10px; margin-top:16px; flex-wrap:wrap;}
+.diag-slider{flex:1; min-width:120px; accent-color:var(--accent);}
+.diag-count{font-family:var(--mono); font-size:11px; color:var(--text-faint); white-space:nowrap;}
+.diag-side-panel{margin-top:16px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+.diag-side-label{font-family:var(--mono); font-size:10px; color:var(--text-faint); letter-spacing:0.05em; margin-right:4px;}
+.diag-chip{font-family:var(--mono); font-size:11.5px; padding:4px 9px; border:1px solid var(--line); border-radius:3px; color:var(--text-dim); background:var(--panel);}
+.diag-sandbox-note{font-size:12.5px; color:var(--text-dim); margin-bottom:16px; line-height:1.5;}
+
+/* Grid-based diagrams (DFS / BFS) */
+.diag-grid-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:2px;}
+.diag-grid-wrap{display:flex; flex-direction:column; gap:4px; align-items:center; width:max-content; margin:0 auto;}
+.diag-grid-row{display:flex; gap:4px;}
+.diag-cell{
+  width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+  border:1.5px solid var(--line); border-radius:4px; font-family:var(--mono); font-size:11px;
+  color:var(--text-dim); background:var(--panel); transition:all .25s ease; flex-shrink:0;
+}
+.diag-cell.water{opacity:0.35;}
+/* Node-based diagrams (Union-Find) */
+.diag-node{
+  width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-family:var(--mono); font-size:12px; border:1.5px solid var(--line); background:var(--panel);
+  color:var(--text-dim); transition:all .25s ease; flex-shrink:0;
+}
+.diag-cell.active, .diag-node.active{border-color:var(--accent) !important; box-shadow:0 0 8px rgba(245,184,74,0.4);}
+.diag-cell.c0, .diag-node.c0{background:rgba(94,234,212,0.18); border-color:#5EEAD4; color:var(--text);}
+.diag-cell.c1, .diag-node.c1{background:rgba(245,184,74,0.18); border-color:var(--accent); color:var(--text);}
+.diag-cell.c2, .diag-node.c2{background:rgba(251,113,133,0.18); border-color:var(--bad); color:var(--text);}
+.diag-cell.c3, .diag-node.c3{background:rgba(129,140,248,0.18); border-color:#818CF8; color:var(--text);}
+.diag-cell.c4, .diag-node.c4{background:rgba(74,222,158,0.18); border-color:var(--good); color:var(--text);}
+.diag-cell.c5, .diag-node.c5{background:rgba(244,114,182,0.18); border-color:#F472B6; color:var(--text);}
+/* Wide box for interval/text labels (Greedy) */
+.diag-box-wide{width:auto; min-width:60px; padding:0 10px;}
+
 @media (max-width:800px){
   #app{flex-direction:column;}
   .sidebar{width:100%; height:auto; position:relative; flex-direction:row; overflow-x:auto; padding:12px;}
@@ -244,6 +303,23 @@ select.pattern-select{
   .sidebar-foot{display:none;}
   .main{padding:24px 18px 60px;}
   .stat-row{grid-template-columns:1fr;}
+
+  /* Prevent iOS Safari auto-zoom on focus (triggers below 16px). */
+  .search-input, .textarea-input, .diag-field input, select.pattern-select{ font-size:16px; }
+
+  /* Stack diagram controls to full width instead of wrapping several fixed-width fields. */
+  .diag-controls{flex-direction:column; align-items:stretch;}
+  .diag-field, .diag-field input, .diag-field textarea{width:100%;}
+
+  /* Give the progress bars breathing room instead of squeezing a fixed-width label + bar + pct. */
+  .perf-row{flex-wrap:wrap; row-gap:6px;}
+  .perf-name{width:100%;}
+  .perf-bar-track{order:2; width:auto;}
+  .perf-pct{order:3; margin-left:0;}
+
+  /* Let long history rows wrap onto their own line rather than compressing against the timestamp. */
+  .history-row{flex-wrap:wrap; row-gap:4px;}
+  .history-time{margin-left:auto;}
 }
 </style>
 </head>
@@ -902,7 +978,6 @@ const TEMPLATE_LOOKUP = {
   "union-find": PATTERNS.find(p=>p.id==="union-find").templates[0]
 };
 
-const CLUE_POOL = Array.from(new Set(PATTERNS.flatMap(p => p.clues)));
 const DS_POOL = ["Hash Map","Hash Set","Stack","Queue","Heap","Array","Deque","Tree","Graph"];
 const COMPLEXITY_OPTIONS = ["O(1)","O(log n)","O(n)","O(n log n)","O(n^2)","O(2^n)"];
 
@@ -927,7 +1002,7 @@ function saveAttempt(attempt){
 ========================================================= */
 let currentView = "practice";
 let currentProblem = null;
-let quizState = null; // {step, clues:Set, pattern, ds:Set, complexity, complexityDone}
+let quizState = null; // {keywordsText, pattern, ds:Set, complexity, submitted, result}
 
 function pickRandomProblem(filterPatternId){
   const pool = filterPatternId ? PROBLEMS.filter(p=>p.primaryPattern===filterPatternId) : PROBLEMS;
@@ -970,6 +1045,7 @@ function weakestPattern(){
    RENDER: NAV
 ========================================================= */
 function setView(view){
+  if(typeof stopActiveDiagram === "function"){ stopActiveDiagram(); }
   currentView = view;
   document.querySelectorAll(".nav-item").forEach(el=>{
     el.classList.toggle("active", el.dataset.view===view);
@@ -982,7 +1058,15 @@ function setView(view){
   renderSidebarFoot();
 }
 document.querySelectorAll(".nav-item").forEach(el=>{
-  el.addEventListener("click", ()=> setView(el.dataset.view));
+  el.addEventListener("click", ()=>{
+    if(typeof stopActiveDiagram === "function"){ stopActiveDiagram(); }
+    if(el.dataset.view === "patterns"){
+      // Always land on the full library list, not the last-viewed pattern detail.
+      selectedPatternId = null;
+      libraryFilter = "";
+    }
+    setView(el.dataset.view);
+  });
 });
 
 function renderSidebarFoot(){
@@ -996,35 +1080,8 @@ function renderSidebarFoot(){
 ========================================================= */
 function startNewProblem(problem){
   currentProblem = problem;
-  quizState = { clues:new Set(), pattern:null, ds:new Set(), complexity:null, complexityDone:false, submitted:false };
+  quizState = { keywordsText:"", pattern:null, ds:new Set(), complexity:null, submitted:false };
   renderPractice();
-}
-
-function stepDone(n){
-  if(!quizState) return false;
-  if(n===2) return quizState.clues.size>0;
-  if(n===3) return !!quizState.pattern;
-  if(n===4) return quizState.ds.size>0;
-  if(n===5) return !!quizState.complexity || quizState.complexityDone;
-  if(n===6) return quizState.submitted;
-  return true;
-}
-
-function renderTrace(activeStep){
-  const labels = ["Problem","Clues","Pattern","D. Struct.","Complexity","Review"];
-  let nodes = "";
-  let labelsHtml = "";
-  for(let i=1;i<=6;i++){
-    const done = stepDone(i) && i!==activeStep;
-    const now = i===activeStep;
-    nodes += `<div class="trace-node ${done?'done':''} ${now?'now':''}">${i}</div>`;
-    if(i<6){
-      const segDone = stepDone(i);
-      nodes += `<div class="trace-seg ${segDone?'done':''}"><div class="fill"></div></div>`;
-    }
-    labelsHtml += `<span>${labels[i-1]}</span>`;
-  }
-  return `<div class="trace">${nodes}</div><div class="trace-labels">${labelsHtml}</div>`;
 }
 
 function renderPractice(){
@@ -1063,13 +1120,11 @@ function renderPractice(){
   }
 
   const p = currentProblem;
-  const activeStep = quizState.submitted ? 6 : (quizState.complexity||quizState.complexityDone ? 6 : (quizState.ds.size>0 ? 5 : (quizState.pattern ? 4 : (quizState.clues.size>0 ? 3 : 2))));
 
   let html = `
     <div class="page-eyebrow">01 / PRACTICE</div>
     <h1>${p.title}</h1>
     <p class="page-desc">Work through each step before submitting. Nothing is revealed until you review.</p>
-    ${renderTrace(quizState.submitted?6:activeStep)}
 
     <div class="card">
       <div class="card-label">Problem</div>
@@ -1083,18 +1138,12 @@ function renderPractice(){
   `;
 
   if(!quizState.submitted){
-    // Step 2: clues
-    const clueOptions = getClueOptions(p);
     html += `
     <div class="card">
       <div class="step">
-        <div class="step-q">Which clues stand out?</div>
-        <div class="opt-grid" id="clueOptions">
-          ${clueOptions.map((c,i)=>`
-            <label class="opt ${quizState.clues.has(c)?'selected':''}" data-clue="${escapeAttr(c)}">
-              <input type="checkbox" ${quizState.clues.has(c)?'checked':''}> ${c}
-            </label>`).join("")}
-        </div>
+        <div class="step-q">What are the key words in the question?</div>
+        <div style="font-size:12.5px; color:var(--text-dim); margin-bottom:10px;">Type the words or phrases from the problem that stood out to you — separate them with commas or new lines.</div>
+        <textarea class="search-input textarea-input" id="keywordsInput" rows="3" placeholder="e.g. contiguous subarray, large input size…">${escapeHtml(quizState.keywordsText)}</textarea>
       </div>
 
       <div class="step">
@@ -1144,32 +1193,22 @@ function renderPractice(){
 
   el.innerHTML = html;
   wirePracticeEvents(p);
+  if(quizState.submitted){
+    mountDiagram(document.getElementById("diagramMount"), p.primaryPattern);
+  }
 }
 
-function getClueOptions(problem){
-  const correct = problem.recognitionClues;
-  const distractorsPool = CLUE_POOL.filter(c=>!correct.includes(c));
-  const shuffledDistractors = shuffle([...distractorsPool]).slice(0, Math.max(3, 7-correct.length));
-  return shuffle([...correct, ...shuffledDistractors]);
-}
-function shuffle(arr){
-  for(let i=arr.length-1;i>0;i--){
-    const j = Math.floor(Math.random()*(i+1));
-    [arr[i],arr[j]]=[arr[j],arr[i]];
-  }
-  return arr;
-}
 function escapeAttr(s){ return s.replace(/"/g,'&quot;'); }
+function escapeHtml(s){
+  return (s||"").replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 function wirePracticeEvents(p){
-  document.querySelectorAll("[data-clue]").forEach(el=>{
-    el.onclick = (e)=>{
-      e.preventDefault();
-      const c = el.dataset.clue;
-      if(quizState.clues.has(c)) quizState.clues.delete(c); else quizState.clues.add(c);
-      renderPractice();
-    };
-  });
+  const keywordsInput = document.getElementById("keywordsInput");
+  if(keywordsInput){
+    // Update state on input WITHOUT re-rendering, so typing doesn't lose focus/cursor.
+    keywordsInput.oninput = (e)=>{ quizState.keywordsText = e.target.value; };
+  }
   document.querySelectorAll("[data-pattern]").forEach(el=>{
     el.onclick = (e)=>{
       e.preventDefault();
@@ -1202,17 +1241,25 @@ function wirePracticeEvents(p){
   if(menuBtn) menuBtn.onclick = ()=>{ currentProblem=null; quizState=null; renderPractice(); };
 }
 
+function matchKeywords(userText, expectedClues){
+  const userLower = (userText||"").toLowerCase();
+  return expectedClues.filter(clue=>{
+    const words = clue.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+    if(!words.length) return userLower.includes(clue.toLowerCase());
+    return words.every(w=>userLower.includes(w));
+  });
+}
+
 function submitQuiz(p){
   const patternCorrect = quizState.pattern === p.primaryPattern;
   const dsCorrectSet = new Set(p.dataStructures);
   const dsSelected = quizState.ds;
   const dsCorrect = dsSelected.size===dsCorrectSet.size && [...dsSelected].every(d=>dsCorrectSet.has(d));
   const complexityCorrect = quizState.complexity === p.targetComplexity.time;
-  const cluesCorrectSet = new Set(p.recognitionClues);
-  const cluesCorrect = [...quizState.clues].filter(c=>cluesCorrectSet.has(c)).length;
+  const matchedClues = matchKeywords(quizState.keywordsText, p.recognitionClues);
 
   quizState.submitted = true;
-  quizState.result = { patternCorrect, dsCorrect, complexityCorrect, cluesCorrect, cluesTotal:p.recognitionClues.length };
+  quizState.result = { patternCorrect, dsCorrect, complexityCorrect, matchedClues, cluesTotal:p.recognitionClues.length };
 
   saveAttempt({
     problemId:p.id,
@@ -1224,6 +1271,759 @@ function submitQuiz(p){
   });
 
   renderPractice();
+  renderSidebarFoot();
+}
+
+/* =========================================================
+   INTERACTIVE DIAGRAMS
+========================================================= */
+function parseArray(str){
+  return String(str).split(",").map(s=>parseInt(s.trim(),10)).filter(n=>!isNaN(n)).slice(0,12);
+}
+
+function arrayStageHTML(arr, opts){
+  opts = opts || {};
+  const boxClass = opts.boxClass || (()=>"");
+  const subLabel = opts.subLabel || (()=>"");
+  const ptrLabel = opts.ptrLabel || (()=>"");
+  if(!arr.length) return `<div class="empty-state">Array is empty — enter some numbers and hit Apply.</div>`;
+  let html = `<div class="diag-array-row">`;
+  arr.forEach((v,i)=>{
+    html += `
+      <div class="diag-col">
+        <div class="diag-box ${boxClass(i)}">
+          ${subLabel(i) ? `<span class="sub">${subLabel(i)}</span>` : ''}
+          ${v}
+          <span class="idx">${i}</span>
+        </div>
+        <div class="diag-ptr">${ptrLabel(i)}</div>
+      </div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function diagControlsHTML(fields){
+  return fields.map(f=>{
+    if(f.type==="textarea"){
+      return `<div class="diag-field" style="min-width:220px;"><label>${f.label}</label><textarea id="ctrl_${f.key}" class="textarea-input" rows="${f.rows||4}">${escapeHtml(String(f.value))}</textarea></div>`;
+    }
+    return `<div class="diag-field"><label>${f.label}</label><input type="text" id="ctrl_${f.key}" value="${escapeAttr(String(f.value))}"></div>`;
+  }).join("") +
+    `<div class="diag-field"><label>&nbsp;</label><button class="btn secondary" id="ctrlApply">Apply</button></div>`;
+}
+function wireDiagControls(el, applyInput, build){
+  el.querySelector("#ctrlApply").onclick = ()=>{
+    const vals = {};
+    el.querySelectorAll("input[id^='ctrl_'], textarea[id^='ctrl_']").forEach(inp=>{ vals[inp.id.replace("ctrl_","")] = inp.value; });
+    const newInput = build(vals);
+    if(newInput) applyInput(newInput);
+  };
+}
+
+/* ---- Sliding Window: longest window with sum <= maxSum ---- */
+function computeSlidingWindow({array, maxSum}){
+  const steps=[]; let left=0, sum=0, bestLen=0, bestRange=[-1,-1];
+  steps.push({left:0,right:-1,bestRange:[-1,-1],message:`Start: left=0, sum=0. Expand right to grow the window.`});
+  for(let right=0; right<array.length; right++){
+    sum += array[right];
+    let msg = `right→${right}: add nums[${right}]=${array[right]}, window sum=${sum}.`;
+    while(sum>maxSum && left<=right){
+      sum -= array[left];
+      msg += ` Sum exceeds ${maxSum} — shrink: remove nums[${left}]=${array[left]}, left→${left+1}.`;
+      left++;
+    }
+    const len = right-left+1;
+    if(len>bestLen){ bestLen=len; bestRange=[left,right]; msg += ` New best length ${bestLen}.`; }
+    steps.push({left,right,bestRange:[...bestRange],message:msg});
+  }
+  steps.push({left,right:array.length-1,bestRange:[...bestRange],final:true,message:`Done. Longest window with sum ≤ ${maxSum} has length ${bestLen} (indices [${bestRange[0]},${bestRange[1]}]).`});
+  return steps;
+}
+function renderSlidingWindow(stage, step, input){
+  stage.innerHTML = arrayStageHTML(input.array, {
+    boxClass:(i)=>{
+      let c="";
+      if(!step.final && i>=step.left && i<=step.right) c+=" window";
+      if(step.final && i>=step.bestRange[0] && i<=step.bestRange[1]) c+=" good";
+      if((i===step.left || i===step.right) && !step.final) c+=" active";
+      return c;
+    },
+    ptrLabel:(i)=>{
+      if(step.final) return "";
+      const l=[]; if(i===step.left) l.push("L"); if(i===step.right) l.push("R"); return l.join("/");
+    }
+  });
+}
+
+/* ---- Two Pointers: pair summing to target on a sorted array ---- */
+function computeTwoPointers({array, target}){
+  const arr = array; const steps=[]; let left=0, right=arr.length-1;
+  if(!arr.length) return [{left:0,right:-1,message:"Array is empty."}];
+  steps.push({left,right,found:null,message:`Start: left=0 (${arr[left]}), right=${arr.length-1} (${arr[right]}).`});
+  while(left<right){
+    const sum = arr[left]+arr[right];
+    let msg = `left=${left}(${arr[left]}) + right=${right}(${arr[right]}) = ${sum}.`;
+    if(sum===target){ msg+=` Equals target ${target} — found!`; steps.push({left,right,found:[left,right],message:msg}); left=right; break; }
+    else if(sum<target){ msg+=` Less than ${target}, move left→${left+1}.`; left++; steps.push({left,right,found:null,message:msg}); }
+    else { msg+=` Greater than ${target}, move right→${right-1}.`; right--; steps.push({left,right,found:null,message:msg}); }
+  }
+  const last = steps[steps.length-1];
+  if(!last.found){ steps.push({left,right,found:null,final:true,message:`Pointers crossed — no pair sums to ${target}.`}); }
+  return steps;
+}
+function renderTwoPointers(stage, step, input){
+  stage.innerHTML = arrayStageHTML(input.array, {
+    boxClass:(i)=>{
+      if(step.found && (i===step.found[0]||i===step.found[1])) return " good";
+      if(i===step.left || i===step.right) return " active";
+      return "";
+    },
+    ptrLabel:(i)=>{
+      const l=[]; if(i===step.left) l.push("L"); if(i===step.right) l.push("R"); return l.join("/");
+    }
+  });
+}
+
+/* ---- Binary Search ---- */
+function computeBinarySearch({array, target}){
+  const arr = array; const steps=[]; let lo=0, hi=arr.length-1;
+  if(!arr.length) return [{lo:0,hi:-1,mid:null,message:"Array is empty."}];
+  steps.push({lo,hi,mid:null,found:false,message:`Start: lo=0, hi=${hi}.`});
+  while(lo<=hi){
+    const mid = Math.floor((lo+hi)/2);
+    let msg = `mid=${mid} (value ${arr[mid]}).`;
+    if(arr[mid]===target){ msg+=` Equals target ${target} — found at index ${mid}!`; steps.push({lo,hi,mid,found:true,message:msg}); lo=hi+1; break; }
+    else if(arr[mid]<target){ msg+=` Less than target ${target} — discard left half, lo→${mid+1}.`; steps.push({lo,hi,mid,found:false,message:msg}); lo=mid+1; }
+    else { msg+=` Greater than target ${target} — discard right half, hi→${mid-1}.`; steps.push({lo,hi,mid,found:false,message:msg}); hi=mid-1; }
+  }
+  const last = steps[steps.length-1];
+  if(!last.found){ steps.push({lo,hi,mid:null,found:false,final:true,message:`Search space is empty — ${target} is not in the array.`}); }
+  return steps;
+}
+function renderBinarySearch(stage, step, input){
+  stage.innerHTML = arrayStageHTML(input.array, {
+    boxClass:(i)=>{
+      let c="";
+      if(i<step.lo || i>step.hi) c+=" dim";
+      if(i===step.mid) c += step.found ? " good" : " active";
+      return c;
+    },
+    ptrLabel:(i)=>{
+      const l=[]; if(i===step.lo) l.push("lo"); if(i===step.hi) l.push("hi"); if(i===step.mid) l.push("mid"); return l.join("/");
+    }
+  });
+}
+
+/* ---- Monotonic Stack: Next Greater Element ---- */
+function computeMonotonicStack({array}){
+  const arr = array; const steps=[]; const stack=[]; const result=new Array(arr.length).fill(-1);
+  if(!arr.length) return [{i:-1,stack:[],result:[],message:"Array is empty."}];
+  steps.push({i:-1,stack:[],result:[...result],message:`Start with an empty stack.`});
+  for(let i=0;i<arr.length;i++){
+    while(stack.length && arr[i]>arr[stack[stack.length-1]]){
+      const idx = stack.pop();
+      result[idx] = arr[i];
+      steps.push({i,stack:[...stack],result:[...result],poppedIdx:idx,message:`i=${i}(${arr[i]}): pop index ${idx} (${arr[idx]}) — its next greater element is ${arr[i]}.`});
+    }
+    stack.push(i);
+    steps.push({i,stack:[...stack],result:[...result],message:`i=${i}(${arr[i]}): push index ${i} onto the stack.`});
+  }
+  steps.push({i:arr.length,stack:[...stack],result:[...result],final:true,message:`Done. Remaining indices in the stack have no next greater element (-1).`});
+  return steps;
+}
+function renderMonotonicStack(stage, step, input){
+  const arr = input.array;
+  let html = arrayStageHTML(arr, {
+    boxClass:(i)=>{
+      let c="";
+      if(step.stack.includes(i)) c+=" window";
+      if(i===step.i) c+=" active";
+      if(i===step.poppedIdx) c+=" good";
+      return c;
+    }
+  });
+  html += `<div class="diag-side-panel"><span class="diag-side-label">STACK (bottom→top)</span> ${step.stack.length ? step.stack.map(idx=>`<span class="diag-chip">idx ${idx} (${arr[idx]})</span>`).join("") : `<span class="diag-chip">empty</span>`}</div>`;
+  html += `<div class="diag-side-panel"><span class="diag-side-label">RESULT</span> ${step.result.map((r,i)=>`<span class="diag-chip">${i}:${r}</span>`).join("")}</div>`;
+  stage.innerHTML = html;
+}
+
+/* ---- Prefix Sum ---- */
+function computePrefixSum({array, qi, qj}){
+  const arr = array; const steps=[]; const prefix=new Array(arr.length+1).fill(0);
+  if(!arr.length) return [{builtUpTo:-1,prefix:[0],message:"Array is empty."}];
+  steps.push({builtUpTo:-1,prefix:[...prefix],message:`prefix[0] = 0 (sum of zero elements).`});
+  for(let i=0;i<arr.length;i++){
+    prefix[i+1] = prefix[i]+arr[i];
+    steps.push({builtUpTo:i,prefix:[...prefix],message:`prefix[${i+1}] = prefix[${i}] + nums[${i}] = ${prefix[i]} + ${arr[i]} = ${prefix[i+1]}.`});
+  }
+  const i = Math.max(0, Math.min(qi, arr.length-1));
+  const j = Math.max(i, Math.min(qj, arr.length-1));
+  const rangeSum = prefix[j+1]-prefix[i];
+  steps.push({builtUpTo:arr.length-1,prefix:[...prefix],query:[i,j],final:true,message:`Range sum [${i},${j}] = prefix[${j+1}] − prefix[${i}] = ${prefix[j+1]} − ${prefix[i]} = ${rangeSum}. No rescanning needed.`});
+  return steps;
+}
+function renderPrefixSum(stage, step, input){
+  stage.innerHTML = arrayStageHTML(input.array, {
+    boxClass:(i)=>{
+      let c="";
+      if(i<=step.builtUpTo) c+=" good";
+      if(step.query && i>=step.query[0] && i<=step.query[1]) c+=" active";
+      return c;
+    },
+    subLabel:(i)=> i<=step.builtUpTo ? `Σ=${step.prefix[i+1]}` : ""
+  });
+}
+
+/* ---- Hash Map: Two Sum ---- */
+function computeHashMap({array, target}){
+  const arr = array; const steps=[]; const seen = new Map();
+  if(!arr.length) return [{i:-1,seen:new Map(),message:"Array is empty."}];
+  steps.push({i:-1,seen:new Map(),found:null,message:`Start with an empty map of value→index.`});
+  for(let i=0;i<arr.length;i++){
+    const complement = target-arr[i];
+    if(seen.has(complement)){
+      steps.push({i,seen:new Map(seen),found:[seen.get(complement), i],final:true,message:`i=${i}(${arr[i]}): need complement ${complement} — found at index ${seen.get(complement)}! Pair (${seen.get(complement)}, ${i}).`});
+      return steps;
+    }
+    seen.set(arr[i], i);
+    steps.push({i,seen:new Map(seen),found:null,message:`i=${i}(${arr[i]}): need complement ${complement} — not seen yet. Store seen[${arr[i]}]=${i}.`});
+  }
+  steps.push({i:arr.length,seen:new Map(seen),found:null,final:true,message:`Done scanning — no pair sums to ${target}.`});
+  return steps;
+}
+function renderHashMap(stage, step, input){
+  const arr = input.array;
+  let html = arrayStageHTML(arr, {
+    boxClass:(i)=>{
+      if(step.found && (i===step.found[0]||i===step.found[1])) return " good";
+      if(i===step.i) return " active";
+      return "";
+    }
+  });
+  const entries = [...step.seen.entries()];
+  html += `<div class="diag-side-panel"><span class="diag-side-label">SEEN MAP</span> ${entries.length ? entries.map(([v,idx])=>`<span class="diag-chip">${v} → idx ${idx}</span>`).join("") : `<span class="diag-chip">empty</span>`}</div>`;
+  stage.innerHTML = html;
+}
+
+/* ---- shared grid/interval/edge parsing helpers ---- */
+function parseGrid(str, allowed){
+  const rows = String(str).replace(/\r/g,"").split("\n").map(r=>r.trim()).filter(r=>r.length>0).slice(0,8);
+  return rows.map(r=>r.split("").filter(ch=>allowed.includes(ch)).slice(0,8));
+}
+function normalizeGrid(grid, fillChar){
+  const maxLen = Math.max(1, ...grid.map(r=>r.length));
+  return grid.map(r=> r.length<maxLen ? [...r, ...new Array(maxLen-r.length).fill(fillChar)] : r);
+}
+function cloneGrid(g){ return g.map(row=>[...row]); }
+function parseIntervals(str){
+  return String(str).split(",").map(s=>s.trim()).filter(Boolean).map(pair=>{
+    const [s,e] = pair.split("-").map(x=>parseInt(x.trim(),10));
+    return {start:s, end:e};
+  }).filter(iv=>!isNaN(iv.start) && !isNaN(iv.end)).slice(0,10);
+}
+function parseEdges(str){
+  return String(str).split(",").map(s=>s.trim()).filter(Boolean).map(pair=>{
+    const parts = pair.split("-").map(x=>parseInt(x.trim(),10));
+    return [parts[0], parts[1]];
+  }).filter(e=>!isNaN(e[0]) && !isNaN(e[1])).slice(0,15);
+}
+const GRID_PALETTE = ["c0","c1","c2","c3","c4","c5"];
+
+/* ---- DFS: Number of Islands (iterative, stack-based flood fill) ---- */
+function computeDFSGrid({grid}){
+  const rows=grid.length, cols=grid[0]?grid[0].length:0;
+  const visited = Array.from({length:rows},()=>new Array(cols).fill(false));
+  const compId = Array.from({length:rows},()=>new Array(cols).fill(-1));
+  const steps=[]; let islandCount=0;
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+  steps.push({visited:cloneGrid(visited), compId:cloneGrid(compId), stack:[], current:null, islandCount, message:`Scan for an unvisited land cell to start a new island.`});
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(grid[r][c]==="1" && !visited[r][c]){
+        islandCount++;
+        const myId = islandCount-1;
+        const stack=[[r,c]];
+        visited[r][c]=true;
+        steps.push({visited:cloneGrid(visited), compId:cloneGrid(compId), stack:[...stack], current:[r,c], islandCount, message:`Unvisited land at (${r},${c}) — start island #${islandCount}, push onto stack.`});
+        while(stack.length){
+          const [cr,cc] = stack.pop();
+          compId[cr][cc]=myId;
+          steps.push({visited:cloneGrid(visited), compId:cloneGrid(compId), stack:[...stack], current:[cr,cc], islandCount, message:`Pop (${cr},${cc}) — mark as island #${islandCount}.`});
+          for(const [dr,dc] of dirs){
+            const nr=cr+dr, nc=cc+dc;
+            if(nr>=0 && nr<rows && nc>=0 && nc<cols && grid[nr][nc]==="1" && !visited[nr][nc]){
+              visited[nr][nc]=true;
+              stack.push([nr,nc]);
+              steps.push({visited:cloneGrid(visited), compId:cloneGrid(compId), stack:[...stack], current:[cr,cc], islandCount, message:`Neighbor (${nr},${nc}) is unvisited land — push it.`});
+            }
+          }
+        }
+      }
+    }
+  }
+  steps.push({visited:cloneGrid(visited), compId:cloneGrid(compId), stack:[], current:null, islandCount, final:true, message:`Done. Found ${islandCount} island(s).`});
+  return steps;
+}
+function renderDFSGrid(stage, step, input){
+  const grid = input.grid;
+  let html = `<div class="diag-grid-scroll"><div class="diag-grid-wrap">`;
+  for(let r=0;r<grid.length;r++){
+    html += `<div class="diag-grid-row">`;
+    for(let c=0;c<grid[r].length;c++){
+      const isLand = grid[r][c]==="1";
+      const id = step.compId[r][c];
+      const isCurrent = step.current && step.current[0]===r && step.current[1]===c;
+      let cls = "diag-cell";
+      if(!isLand) cls += " water";
+      if(id>=0) cls += " "+GRID_PALETTE[id % GRID_PALETTE.length];
+      if(isCurrent) cls += " active";
+      html += `<div class="${cls}">${isLand?'▲':'·'}</div>`;
+    }
+    html += `</div>`;
+  }
+  html += `</div></div>`;
+  html += `<div class="diag-side-panel"><span class="diag-side-label">STACK (bottom→top)</span> ${step.stack.length?step.stack.map(([r,c])=>`<span class="diag-chip">(${r},${c})</span>`).join(""):'<span class="diag-chip">empty</span>'}</div>`;
+  html += `<div class="diag-side-panel"><span class="diag-side-label">ISLANDS FOUND</span> <span class="diag-chip">${step.islandCount}</span></div>`;
+  stage.innerHTML = html;
+}
+
+/* ---- BFS: Rotting Oranges (multi-source, level by level) ---- */
+function computeBFSGrid({grid}){
+  const rows=grid.length, cols=grid[0]?grid[0].length:0;
+  const state = cloneGrid(grid);
+  const level = Array.from({length:rows},()=>new Array(cols).fill(-1));
+  let queue=[];
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) if(state[r][c]==="2"){ queue.push([r,c]); level[r][c]=0; }
+  const steps=[];
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+  let minute=0;
+  let freshRemaining = state.flat().filter(v=>v==="1").length;
+  steps.push({state:cloneGrid(state), level:cloneGrid(level), frontier:[...queue], minute:0, message:`Minute 0: start with ${queue.length} rotten orange(s) as sources.`});
+  while(queue.length && freshRemaining>0){
+    minute++;
+    const next=[]; let rotted=0;
+    for(const [r,c] of queue){
+      for(const [dr,dc] of dirs){
+        const nr=r+dr, nc=c+dc;
+        if(nr>=0 && nr<rows && nc>=0 && nc<cols && state[nr][nc]==="1"){
+          state[nr][nc]="2"; level[nr][nc]=minute; next.push([nr,nc]); rotted++; freshRemaining--;
+        }
+      }
+    }
+    queue=next;
+    steps.push({state:cloneGrid(state), level:cloneGrid(level), frontier:[...queue], minute, message: rotted ? `Minute ${minute}: rot spreads to ${rotted} adjacent fresh orange(s).` : `Minute ${minute}: no new oranges rot.`});
+  }
+  const stillFresh = state.flat().filter(v=>v==="1").length;
+  let maxLevel = 0;
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) if(level[r][c]>maxLevel) maxLevel=level[r][c];
+  steps.push({state:cloneGrid(state), level:cloneGrid(level), frontier:[], minute, final:true, message: stillFresh>0 ? `Done. ${stillFresh} fresh orange(s) unreachable — result is -1.` : `Done. All oranges rotten after ${maxLevel} minute(s).`});
+  return steps;
+}
+function renderBFSGrid(stage, step){
+  let html = `<div class="diag-grid-scroll"><div class="diag-grid-wrap">`;
+  for(let r=0;r<step.state.length;r++){
+    html += `<div class="diag-grid-row">`;
+    for(let c=0;c<step.state[r].length;c++){
+      const v = step.state[r][c];
+      let cls="diag-cell", content="·";
+      if(v==="1"){ content="●"; }
+      else if(v==="2"){ cls+=" c2"; content = step.level[r][c]>=0 ? String(step.level[r][c]) : "✕"; }
+      else { cls+=" water"; }
+      if(step.frontier.some(([fr,fc])=>fr===r && fc===c)) cls+=" active";
+      html += `<div class="${cls}">${content}</div>`;
+    }
+    html += `</div>`;
+  }
+  html += `</div></div>`;
+  html += `<div class="diag-side-panel"><span class="diag-side-label">MINUTE</span> <span class="diag-chip">${step.minute}</span> <span class="diag-side-label">FRONTIER</span> ${step.frontier.length?step.frontier.map(([r,c])=>`<span class="diag-chip">(${r},${c})</span>`).join(""):'<span class="diag-chip">none</span>'}</div>`;
+  stage.innerHTML = html;
+}
+
+/* ---- Heap: maintain top-K largest (kept sorted for clarity) ---- */
+function computeHeapTopK({array, k}){
+  const steps=[]; let kept=[];
+  steps.push({kept:[...kept], i:-1, message:`Start with an empty top-${k} list.`});
+  array.forEach((x,i)=>{
+    kept.push(x); kept.sort((a,b)=>a-b);
+    let msg = `Insert ${x} into the heap.`;
+    if(kept.length>k){ const popped=kept.shift(); msg+=` Size exceeds ${k} — pop the smallest (${popped}).`; }
+    steps.push({kept:[...kept], i, message:msg});
+  });
+  steps.push({kept:[...kept], i:array.length, final:true, message:`Done. The ${k} largest elements are: [${[...kept].sort((a,b)=>b-a).join(", ")}].`});
+  return steps;
+}
+function renderHeapTopK(stage, step, input){
+  let html = arrayStageHTML(input.array, {
+    boxClass:(i)=> i===step.i ? " active" : (i<step.i ? " dim" : "")
+  });
+  html += `<div class="diag-side-panel"><span class="diag-side-label">HEAP CONTENTS (size ${input.k}, shown sorted)</span> ${step.kept.length? step.kept.map(v=>`<span class="diag-chip">${v}</span>`).join(""):'<span class="diag-chip">empty</span>'}</div>`;
+  stage.innerHTML = html;
+}
+
+/* ---- Backtracking: generate all subsets ---- */
+function computeBacktracking({array}){
+  const steps=[]; const subsetsFound=[];
+  function rec(index, path){
+    if(index===array.length){
+      subsetsFound.push([...path]);
+      steps.push({path:[...path], subsetsFound:subsetsFound.map(s=>[...s]), message:`Reached the end — record subset [${path.join(",")}]${path.length?"":" (empty set)"}.`});
+      return;
+    }
+    path.push(array[index]);
+    steps.push({path:[...path], subsetsFound:subsetsFound.map(s=>[...s]), message:`Include ${array[index]} → path=[${path.join(",")}]. Recurse.`});
+    rec(index+1, path);
+    path.pop();
+    steps.push({path:[...path], subsetsFound:subsetsFound.map(s=>[...s]), message:`Backtrack: remove ${array[index]} → path=[${path.join(",")}].`});
+    steps.push({path:[...path], subsetsFound:subsetsFound.map(s=>[...s]), message:`Exclude ${array[index]} → path=[${path.join(",")}]. Recurse.`});
+    rec(index+1, path);
+  }
+  steps.push({path:[], subsetsFound:[], message:`Start with an empty path.`});
+  rec(0, []);
+  steps.push({path:[], subsetsFound:subsetsFound.map(s=>[...s]), final:true, message:`Done. Found ${subsetsFound.length} subsets total (2^${array.length}).`});
+  return steps;
+}
+function renderBacktracking(stage, step){
+  let html = `<div style="font-family:var(--mono); font-size:12.5px; color:var(--text-dim); margin-bottom:16px;">CURRENT PATH: ${step.path.length? step.path.map(v=>`<span class="diag-chip good">${v}</span>`).join(""):'<span class="diag-chip">empty</span>'}</div>`;
+  html += `<div class="diag-side-panel"><span class="diag-side-label">SUBSETS FOUND (${step.subsetsFound.length})</span></div>`;
+  html += `<div class="diag-side-panel">${step.subsetsFound.length? step.subsetsFound.map(s=>`<span class="diag-chip">[${s.join(",")}]</span>`).join(""):'<span class="diag-chip">none yet</span>'}</div>`;
+  stage.innerHTML = html;
+}
+
+/* ---- Dynamic Programming: Climbing Stairs (1D bottom-up) ---- */
+function computeDP({n}){
+  const dp = new Array(n+1).fill(null);
+  const steps=[];
+  dp[0]=1; if(n>=1) dp[1]=1;
+  steps.push({dp:[...dp], i:1, message:`Base cases: dp[0]=1 (one way — stay put), dp[1]=1 (one way — a single step).`});
+  for(let i=2;i<=n;i++){
+    dp[i]=dp[i-1]+dp[i-2];
+    steps.push({dp:[...dp], i, message:`dp[${i}] = dp[${i-1}] + dp[${i-2}] = ${dp[i-1]} + ${dp[i-2]} = ${dp[i]}.`});
+  }
+  steps.push({dp:[...dp], i:n, final:true, message:`Done. dp[${n}] = ${dp[n]} distinct ways to climb ${n} stairs.`});
+  return steps;
+}
+function renderDP(stage, step){
+  const displayArr = step.dp.map(v => v===null ? "?" : v);
+  stage.innerHTML = arrayStageHTML(displayArr, {
+    boxClass:(i)=>{
+      let c="";
+      if(i===step.i) c+=" active";
+      if(i===step.i-1 || i===step.i-2) c+=" good";
+      return c;
+    },
+    subLabel:(i)=> "dp["+i+"]"
+  });
+}
+
+/* ---- Greedy: Non-overlapping Intervals (sort by end, scan) ---- */
+function computeGreedy({intervals}){
+  const withOrig = intervals.map((iv,i)=>({...iv, orig:i}));
+  const sorted = [...withOrig].sort((a,b)=>a.end-b.end);
+  const steps=[];
+  steps.push({sorted:sorted.map(s=>({...s})), selected:[], removed:[], cursor:-1, message:`Sort intervals by end time: [${sorted.map(s=>`${s.start}–${s.end}`).join(", ")}].`});
+  let lastEnd=-Infinity; const selected=[]; const removed=[];
+  sorted.forEach((iv,idx)=>{
+    if(iv.start>=lastEnd){
+      selected.push(iv.orig); const prevEnd=lastEnd; lastEnd=iv.end;
+      steps.push({sorted:sorted.map(s=>({...s})), selected:[...selected], removed:[...removed], cursor:idx, message:`[${iv.start}–${iv.end}] starts at/after lastEnd — keep it. lastEnd→${iv.end}.`});
+    } else {
+      removed.push(iv.orig);
+      steps.push({sorted:sorted.map(s=>({...s})), selected:[...selected], removed:[...removed], cursor:idx, message:`[${iv.start}–${iv.end}] overlaps (starts before lastEnd=${lastEnd}) — remove it.`});
+    }
+  });
+  steps.push({sorted:sorted.map(s=>({...s})), selected:[...selected], removed:[...removed], cursor:sorted.length, final:true, message:`Done. Removed ${removed.length} interval(s) to make the rest non-overlapping.`});
+  return steps;
+}
+function renderGreedy(stage, step){
+  let html = `<div class="diag-array-row">`;
+  step.sorted.forEach((iv,idx)=>{
+    let cls = "diag-box diag-box-wide";
+    if(step.selected.includes(iv.orig)) cls += " good";
+    else if(step.removed.includes(iv.orig)) cls += " bad";
+    if(idx===step.cursor) cls += " active";
+    html += `<div class="diag-col"><div class="${cls}">${iv.start}–${iv.end}</div></div>`;
+  });
+  html += `</div>`;
+  html += `<div class="diag-side-panel"><span class="diag-side-label">KEPT</span> <span class="diag-chip">${step.selected.length}</span> <span class="diag-side-label">REMOVED</span> <span class="diag-chip">${step.removed.length}</span></div>`;
+  stage.innerHTML = html;
+}
+
+/* ---- Union-Find: merge components across a list of edges ---- */
+function computeUnionFind({n, edges}){
+  const parent = Array.from({length:n}, (_,i)=>i);
+  function find(x){ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; }
+  const steps=[];
+  steps.push({parent:[...parent], a:null, b:null, message:`Start: each of the ${n} nodes is its own parent (its own component).`});
+  edges.forEach(([a,b])=>{
+    const ra=find(a), rb=find(b);
+    let msg = `Union(${a}, ${b}): find(${a})=${ra}, find(${b})=${rb}.`;
+    if(ra!==rb){ parent[ra]=rb; msg += ` Different roots — merge: parent[${ra}]=${rb}.`; }
+    else { msg += ` Already in the same component — no merge needed.`; }
+    steps.push({parent:[...parent], a, b, message:msg});
+  });
+  function rootOf(arr,x){ let c=x; while(arr[c]!==c) c=arr[c]; return c; }
+  const roots = new Set(parent.map((_,i)=>rootOf(parent,i)));
+  steps.push({parent:[...parent], a:null, b:null, final:true, message:`Done. ${roots.size} connected component(s) remain.`});
+  return steps;
+}
+function renderUnionFind(stage, step, input){
+  const n = input.n;
+  function root(x){ let c=x; while(step.parent[c]!==c) c=step.parent[c]; return c; }
+  const rootColorMap = {};
+  let html = `<div class="diag-array-row">`;
+  for(let i=0;i<n;i++){
+    const r = root(i);
+    if(!(r in rootColorMap)) rootColorMap[r] = GRID_PALETTE[Object.keys(rootColorMap).length % GRID_PALETTE.length];
+    let cls = "diag-node "+rootColorMap[r];
+    if(step.a===i || step.b===i) cls += " active";
+    html += `<div class="diag-col"><div class="${cls}">${i}</div></div>`;
+  }
+  html += `</div>`;
+  html += `<div class="diag-side-panel"><span class="diag-side-label">PARENT[]</span> ${step.parent.map((p,i)=>`<span class="diag-chip">${i}→${p}</span>`).join("")}</div>`;
+  stage.innerHTML = html;
+}
+
+const DIAGRAM_REGISTRY = {
+  "sliding-window": {
+    intro:"Sandbox: find the longest window whose sum stays ≤ a target.",
+    defaultInput:()=>({array:[2,1,5,2,3,2], maxSum:7}),
+    compute:computeSlidingWindow,
+    renderStep:renderSlidingWindow,
+    controlsHtml:(input)=>diagControlsHTML([{key:"array",label:"Array",value:input.array.join(",")},{key:"maxSum",label:"Max Sum",value:input.maxSum}]),
+    wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
+      const array = parseArray(v.array); if(!array.length) return null;
+      return {array, maxSum: parseInt(v.maxSum,10)||0};
+    })
+  },
+  "two-pointers": {
+    intro:"Sandbox: find a pair in a sorted array that sums to a target.",
+    defaultInput:()=>({array:[2,7,11,15,20], target:22}),
+    compute:computeTwoPointers,
+    renderStep:renderTwoPointers,
+    controlsHtml:(input)=>diagControlsHTML([{key:"array",label:"Array (auto-sorted)",value:input.array.join(",")},{key:"target",label:"Target",value:input.target}]),
+    wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
+      const array = parseArray(v.array).sort((a,b)=>a-b); if(!array.length) return null;
+      return {array, target: parseInt(v.target,10)||0};
+    })
+  },
+  "binary-search": {
+    intro:"Sandbox: binary search for a target in a sorted array.",
+    defaultInput:()=>({array:[-4,-1,0,3,10,24,45,66], target:10}),
+    compute:computeBinarySearch,
+    renderStep:renderBinarySearch,
+    controlsHtml:(input)=>diagControlsHTML([{key:"array",label:"Array (auto-sorted)",value:input.array.join(",")},{key:"target",label:"Target",value:input.target}]),
+    wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
+      const array = parseArray(v.array).sort((a,b)=>a-b); if(!array.length) return null;
+      return {array, target: parseInt(v.target,10)||0};
+    })
+  },
+  "monotonic-stack": {
+    intro:"Sandbox: find the next greater element for every index.",
+    defaultInput:()=>({array:[2,1,2,4,3]}),
+    compute:computeMonotonicStack,
+    renderStep:renderMonotonicStack,
+    controlsHtml:(input)=>diagControlsHTML([{key:"array",label:"Array",value:input.array.join(",")}]),
+    wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
+      const array = parseArray(v.array); if(!array.length) return null;
+      return {array};
+    })
+  },
+  "prefix-sum": {
+    intro:"Sandbox: build a prefix sum array, then answer a range-sum query in O(1).",
+    defaultInput:()=>({array:[3,1,4,1,5,9,2,6], qi:2, qj:5}),
+    compute:computePrefixSum,
+    renderStep:renderPrefixSum,
+    controlsHtml:(input)=>diagControlsHTML([{key:"array",label:"Array",value:input.array.join(",")},{key:"qi",label:"Range Start i",value:input.qi},{key:"qj",label:"Range End j",value:input.qj}]),
+    wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
+      const array = parseArray(v.array); if(!array.length) return null;
+      return {array, qi: parseInt(v.qi,10)||0, qj: parseInt(v.qj,10)||0};
+    })
+  },
+  "hash-map": {
+    intro:"Sandbox: the classic Two Sum — find a pair that sums to a target using a map.",
+    defaultInput:()=>({array:[2,7,11,15], target:9}),
+    compute:computeHashMap,
+    renderStep:renderHashMap,
+    controlsHtml:(input)=>diagControlsHTML([{key:"array",label:"Array",value:input.array.join(",")},{key:"target",label:"Target",value:input.target}]),
+    wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
+      const array = parseArray(v.array); if(!array.length) return null;
+      return {array, target: parseInt(v.target,10)||0};
+    })
+  },
+  "dfs": {
+    intro:"Sandbox: count connected islands of land in a grid using iterative DFS.",
+    defaultInput:()=>({grid: parseGrid("11000\n11000\n00100\n00011", ["0","1"])}),
+    compute:computeDFSGrid,
+    renderStep:renderDFSGrid,
+    controlsHtml:(input)=>diagControlsHTML([{key:"grid", label:"Grid (rows of 0/1, 1=land)", value:input.grid.map(r=>r.join("")).join("\n"), type:"textarea", rows:5}]),
+    wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
+      const grid = normalizeGrid(parseGrid(v.grid, ["0","1"]), "0");
+      if(!grid.length || !grid[0].length) return null;
+      return {grid};
+    })
+  },
+  "bfs": {
+    intro:"Sandbox: multi-source BFS — rot spreads from seed cells (2) to fresh cells (1), level by level.",
+    defaultInput:()=>({grid: parseGrid("2100\n1100\n0011", ["0","1","2"])}),
+    compute:computeBFSGrid,
+    renderStep:renderBFSGrid,
+    controlsHtml:(input)=>diagControlsHTML([{key:"grid", label:"Grid rows (0=empty, 1=fresh, 2=rotten)", value:input.grid.map(r=>r.join("")).join("\n"), type:"textarea", rows:5}]),
+    wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
+      const grid = normalizeGrid(parseGrid(v.grid, ["0","1","2"]), "0");
+      if(!grid.length || !grid[0].length) return null;
+      return {grid};
+    })
+  },
+  "heap": {
+    intro:"Sandbox: maintain the top-K largest elements seen so far with a min-heap.",
+    defaultInput:()=>({array:[3,2,1,5,6,4], k:2}),
+    compute:computeHeapTopK,
+    renderStep:renderHeapTopK,
+    controlsHtml:(input)=>diagControlsHTML([{key:"array",label:"Array",value:input.array.join(",")},{key:"k",label:"K",value:input.k}]),
+    wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
+      const array = parseArray(v.array); if(!array.length) return null;
+      const k = Math.max(1, Math.min(array.length, parseInt(v.k,10)||1));
+      return {array, k};
+    })
+  },
+  "backtracking": {
+    intro:"Sandbox: generate every subset of a small array by including/excluding each element.",
+    defaultInput:()=>({array:[1,2,3]}),
+    compute:computeBacktracking,
+    renderStep:renderBacktracking,
+    controlsHtml:(input)=>diagControlsHTML([{key:"array",label:"Array (max 4 elements)",value:input.array.join(",")}]),
+    wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
+      const array = parseArray(v.array).slice(0,4); if(!array.length) return null;
+      return {array};
+    })
+  },
+  "dynamic-programming": {
+    intro:"Sandbox: fill a 1D DP table for Climbing Stairs — dp[i] = dp[i-1] + dp[i-2].",
+    defaultInput:()=>({n:6}),
+    compute:computeDP,
+    renderStep:renderDP,
+    controlsHtml:(input)=>diagControlsHTML([{key:"n",label:"Stairs (n)",value:input.n}]),
+    wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
+      const n = Math.max(2, Math.min(12, parseInt(v.n,10)||2));
+      return {n};
+    })
+  },
+  "greedy": {
+    intro:"Sandbox: sort intervals by end time and greedily keep the ones that don't overlap.",
+    defaultInput:()=>({intervals: parseIntervals("1-2,2-3,3-4,1-3")}),
+    compute:computeGreedy,
+    renderStep:renderGreedy,
+    controlsHtml:(input)=>diagControlsHTML([{key:"intervals",label:"Intervals (start-end, comma-separated)",value:input.intervals.map(iv=>`${iv.start}-${iv.end}`).join(",")}]),
+    wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
+      const intervals = parseIntervals(v.intervals); if(!intervals.length) return null;
+      return {intervals};
+    })
+  },
+  "union-find": {
+    intro:"Sandbox: union nodes edge by edge and watch components merge.",
+    defaultInput:()=>({n:6, edges: parseEdges("0-1,1-2,3-4")}),
+    compute:computeUnionFind,
+    renderStep:renderUnionFind,
+    controlsHtml:(input)=>diagControlsHTML([{key:"n",label:"Nodes (n)",value:input.n},{key:"edges",label:"Edges (a-b, comma-separated)",value:input.edges.map(e=>`${e[0]}-${e[1]}`).join(",")}]),
+    wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
+      const n = Math.max(1, Math.min(12, parseInt(v.n,10)||1));
+      const edges = parseEdges(v.edges).filter(([a,b])=>a>=0 && a<n && b>=0 && b<n);
+      return {n, edges};
+    })
+  }
+};
+
+let diagramInstanceCounter = 0;
+let stopActiveDiagram = null; // set by the currently mounted diagram; called before mounting a new one or leaving Practice
+
+function mountDiagram(container, patternId){
+  const spec = DIAGRAM_REGISTRY[patternId];
+  const pattern = PATTERNS.find(x=>x.id===patternId);
+
+  // Stop any previously mounted diagram's auto-play timer so it can never keep writing
+  // into a hidden/replaced view after the user moves on.
+  if(stopActiveDiagram){ stopActiveDiagram(); stopActiveDiagram = null; }
+
+  if(!spec){
+    container.innerHTML = `<div class="empty-state">Interactive diagram for ${pattern?pattern.name:'this pattern'} is coming soon. For now, use the template and explanation above.</div>`;
+    return;
+  }
+
+  // Unique per-mount id suffix so this instance's elements can never collide with another
+  // diagram instance's elements of the same pattern (e.g. if one was left running).
+  diagramInstanceCounter++;
+  const uid = "d"+diagramInstanceCounter;
+  const id = (name)=> `${name}_${uid}`;
+
+  let input = spec.defaultInput();
+  let steps = spec.compute(input);
+  let idx = 0;
+  let playing = false;
+  let timer = null;
+
+  function render(){
+    container.innerHTML = `
+      <p class="diag-sandbox-note">${spec.intro} This is a standalone sandbox — edit the values and Apply, independent of the problem above.</p>
+      <div class="diag-controls" id="${id('diagControls')}"></div>
+      <div class="diag-stage" id="${id('diagStage')}"></div>
+      <div class="diag-status" id="${id('diagStatus')}"></div>
+      <div class="diag-transport">
+        <button class="btn secondary" id="${id('diagPrev')}">◀ Step</button>
+        <button class="btn" id="${id('diagPlay')}">▶ Play</button>
+        <button class="btn secondary" id="${id('diagNext')}">Step ▶</button>
+        <input type="range" class="diag-slider" id="${id('diagSlider')}" min="0" max="${Math.max(0,steps.length-1)}" value="${idx}">
+        <span class="diag-count" id="${id('diagCount')}"></span>
+        <button class="btn secondary" id="${id('diagReset')}">Reset</button>
+      </div>
+    `;
+    const controlsEl = document.getElementById(id('diagControls'));
+    controlsEl.innerHTML = spec.controlsHtml(input);
+    spec.wireControls(controlsEl, input, applyInput);
+    draw();
+    wireTransport();
+  }
+  function applyInput(newInput){
+    stopPlay();
+    input = newInput;
+    steps = spec.compute(input);
+    idx = 0;
+    render();
+  }
+  function draw(){
+    const stageEl = document.getElementById(id('diagStage'));
+    if(!stageEl) { stopPlay(); return; } // instance's DOM is gone — nothing left to update
+    spec.renderStep(stageEl, steps[idx], input);
+    document.getElementById(id('diagStatus')).textContent = steps[idx].message || "";
+    document.getElementById(id('diagSlider')).max = Math.max(0, steps.length-1);
+    document.getElementById(id('diagSlider')).value = idx;
+    document.getElementById(id('diagCount')).textContent = (idx+1)+" / "+steps.length;
+    document.getElementById(id('diagPrev')).disabled = idx===0;
+    document.getElementById(id('diagNext')).disabled = idx===steps.length-1;
+  }
+  function stopPlay(){
+    playing=false; clearInterval(timer);
+    const btn = document.getElementById(id('diagPlay'));
+    if(btn) btn.textContent = "▶ Play";
+  }
+  function wireTransport(){
+    document.getElementById(id('diagPrev')).onclick = ()=>{ stopPlay(); if(idx>0){ idx--; draw(); } };
+    document.getElementById(id('diagNext')).onclick = ()=>{ stopPlay(); if(idx<steps.length-1){ idx++; draw(); } };
+    document.getElementById(id('diagReset')).onclick = ()=>{ stopPlay(); idx=0; draw(); };
+    document.getElementById(id('diagSlider')).oninput = (e)=>{ stopPlay(); idx=parseInt(e.target.value,10)||0; draw(); };
+    document.getElementById(id('diagPlay')).onclick = ()=>{
+      if(playing){ stopPlay(); return; }
+      if(idx>=steps.length-1) idx=0;
+      playing=true;
+      document.getElementById(id('diagPlay')).textContent = "⏸ Pause";
+      timer = setInterval(()=>{
+        if(idx<steps.length-1){ idx++; draw(); } else { stopPlay(); }
+      }, 850);
+    };
+  }
+
+  stopActiveDiagram = stopPlay;
+  render();
 }
 
 function renderReview(p){
@@ -1243,10 +2043,11 @@ function renderReview(p){
       </div>
 
       <div class="review-row">
-        <div class="review-key">CLUES</div>
+        <div class="review-key">KEY WORDS</div>
         <div class="review-val">
-          You selected ${r.cluesCorrect} of ${r.cluesTotal} key clues.<br>
-          ${p.recognitionClues.map(c=>`<span class="tag ${quizState.clues.has(c)?'good':'bad'}">${c}</span>`).join("")}
+          You identified ${r.matchedClues.length} of ${r.cluesTotal} key words/phrases.<br>
+          ${p.recognitionClues.map(c=>`<span class="tag ${r.matchedClues.includes(c)?'good':'bad'}">${c}</span>`).join("")}
+          <div style="margin-top:10px; font-family:var(--mono); font-size:11.5px; color:var(--text-faint);">Your words: ${escapeHtml(quizState.keywordsText) || '(none entered)'}</div>
         </div>
       </div>
       <div class="review-row">
@@ -1282,6 +2083,11 @@ function renderReview(p){
     <div class="card">
       <div class="card-label">Generalized Template — ${tmpl.name}</div>
       <pre class="template">${tmpl.code}</pre>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Try It — Interactive Diagram</div>
+      <div id="diagramMount"></div>
     </div>
   `;
 }
