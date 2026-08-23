@@ -5,6 +5,12 @@ function goToProjects() {
 // Project list with category metadata
 const projects = [
   {
+    name: "Interview Prep",
+    image: "screenshots/placeholder.png",
+    path: "./projects/interview-prep/index.html",
+    category: "programming"
+  },
+  {
     name: "Falling Sand Simulator",
     image: "screenshots/falling-sand.png",
     path: "./projects/falling-sand/index.html",
@@ -63,12 +69,6 @@ const projects = [
     image: "screenshots/gatevis.png",
     path: "./projects/gatevis/index.html",
     category: "programming"
-  },
-  {
-    name: "Interview Prep",
-    image: "screenshots/placeholder.png",
-    path: "./projects/interview-prep/index.html",
-    category: "arabic"
   },
   {
     name: "Facepaint",
