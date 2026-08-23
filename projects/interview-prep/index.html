@@ -656,7 +656,17 @@ dp[0] = /* base case */ 0;
 for (let i = 1; i <= n; i++) {
     dp[i] = /* combine dp[i-1], dp[i-2], etc. */ dp[i - 1];
 }
-// dp[n] holds the answer`}],
+// dp[n] holds the answer`},
+    {name:"2D Bottom-Up DP", code:
+`const dp = Array.from({length: m + 1}, () => new Array(n + 1).fill(0));
+// base case: dp[0][*] and dp[*][0] set as needed
+
+for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+        dp[i][j] = /* combine dp[i-1][j], dp[i][j-1], dp[i-1][j-1] */ dp[i - 1][j];
+    }
+}
+// dp[m][n] holds the answer`}],
     recognitionQuestion:"Can I express the answer for size n in terms of the answer for smaller sizes, and will I recompute the same subproblem repeatedly if I don't cache it?",
     relatedPatterns:["backtracking"],
     comparisons:[]
@@ -681,6 +691,119 @@ for (const item of items) {
 }`}],
     recognitionQuestion:"Can I sort by some criterion and then make one irrevocable, locally-best choice per step?",
     relatedPatterns:["dynamic-programming"],
+    comparisons:[]
+  },
+  {
+    id:"stack-matching", name:"Stack (Matching / Nesting)", category:"Other",
+    description:"A plain LIFO stack that pairs up nested or matching elements — every 'open' waits for its corresponding 'close' in reverse order.",
+    clues:["matching pairs","nested structure","valid parentheses","undo the most recent action","evaluate an expression"],
+    dataStructures:["Stack"],
+    complexity:{time:"O(n)", space:"O(n)"},
+    templates:[{name:"Matching Stack", code:
+`const stack = [];
+const pairs = { ')': '(', ']': '[', '}': '{' };
+
+for (const ch of s) {
+    if (!(ch in pairs)) {
+        stack.push(ch); // an "opener"
+    } else {
+        if (stack.pop() !== pairs[ch]) return false; // mismatched or empty
+    }
+}
+return stack.length === 0;`}],
+    recognitionQuestion:"Does the most recently opened/pushed item need to be the first one resolved or matched?",
+    relatedPatterns:["monotonic-stack"],
+    comparisons:[{with:"monotonic-stack", rows:[
+      ["Cares only about matching/nesting order","Cares about relative value order (increasing/decreasing)"],
+      ["Every push has exactly one matching pop","Pops happen conditionally based on comparisons"]
+    ]}]
+  },
+  {
+    id:"linked-list", name:"Linked List Pointers", category:"Linked List",
+    description:"Manipulate node.next references directly, often with two pointers moving at different speeds or a small window of nodes to relink.",
+    clues:["reverse a linked list","detect a cycle","find the middle node","merge sorted lists","remove the nth node from the end"],
+    dataStructures:["Linked List"],
+    complexity:{time:"O(n)", space:"O(1)"},
+    templates:[{name:"Reverse In Place", code:
+`let prev = null;
+let curr = head;
+
+while (curr) {
+    const next = curr.next;
+    curr.next = prev;
+    prev = curr;
+    curr = next;
+}
+// prev is the new head`},
+    {name:"Fast & Slow Pointers", code:
+`let slow = head;
+let fast = head;
+
+while (fast && fast.next) {
+    slow = slow.next;
+    fast = fast.next.next;
+    if (slow === fast) {
+        // cycle detected (or slow is now the middle when fast hits the end)
+    }
+}`}],
+    recognitionQuestion:"Am I rewiring next pointers, or do I need two pointers moving through the list at different speeds/offsets?",
+    relatedPatterns:["two-pointers"],
+    comparisons:[]
+  },
+  {
+    id:"bit-manipulation", name:"Bit Manipulation", category:"Bit Manipulation",
+    description:"Use bitwise operators (XOR, AND, OR, shifts) to solve problems in O(1) per element or avoid extra space entirely.",
+    clues:["without using extra space","without arithmetic operators","count set bits","find the unique/missing element","binary representation"],
+    dataStructures:["Array"],
+    complexity:{time:"O(n) or O(log n)", space:"O(1)"},
+    templates:[{name:"XOR Accumulate", code:
+`let result = 0;
+for (const x of nums) {
+    result ^= x; // XOR cancels out pairs, leaving the odd one out
+}
+// or, for missing-number style problems:
+// result ^= index; result ^= value;`},
+    {name:"Bit-by-Bit Scan", code:
+`let count = 0;
+let x = n;
+while (x) {
+    count += x & 1; // check the lowest bit
+    x >>>= 1;       // shift right
+}`}],
+    recognitionQuestion:"Would XOR-ing or shifting values let me avoid extra space, extra passes, or arithmetic overflow?",
+    relatedPatterns:["hash-map"],
+    comparisons:[]
+  },
+  {
+    id:"trie", name:"Trie (Prefix Tree)", category:"Trie",
+    description:"A tree where each path from the root spells out a prefix, letting prefix/word lookups run in O(word length) regardless of how many words are stored.",
+    clues:["prefix matching","many words share prefixes","autocomplete","word search with wildcards","dictionary of words"],
+    dataStructures:["Tree","Hash Map"],
+    complexity:{time:"O(L) per operation", space:"O(total characters)"},
+    templates:[{name:"Trie Insert / Search", code:
+`class TrieNode {
+    constructor() { this.children = {}; this.isWord = false; }
+}
+
+function insert(root, word) {
+    let node = root;
+    for (const ch of word) {
+        if (!node.children[ch]) node.children[ch] = new TrieNode();
+        node = node.children[ch];
+    }
+    node.isWord = true;
+}
+
+function search(root, word) {
+    let node = root;
+    for (const ch of word) {
+        if (!node.children[ch]) return false;
+        node = node.children[ch];
+    }
+    return node.isWord;
+}`}],
+    recognitionQuestion:"Do many words in my input share common prefixes that I'd otherwise rescan from scratch for every query?",
+    relatedPatterns:["backtracking","dfs"],
     comparisons:[]
   }
 ];
@@ -958,6 +1081,1014 @@ const PROBLEMS = [
       "After processing all connections, counting distinct roots gives the number of provinces."
     ],
     template:"union-find"
+  },
+  {
+    id:"b75-001", title:"Contains Duplicate", difficulty:"Easy",
+    blind75Category:"Arrays & Hashing",
+    description:"Given an integer array nums, return true if any value appears at least twice in the array, and return false if every element is distinct.",
+    examples:[{input:"nums = [1,2,3,1]", output:"true"}, {input:"nums = [1,2,3,4]", output:"false"}],
+    constraints:["1 <= nums.length <= 10^5","-10^9 <= nums[i] <= 10^9"],
+    primaryPattern:"hash-map", secondaryPatterns:[], dataStructures:["Hash Set"],
+    targetComplexity:{time:"O(n)", space:"O(n)"},
+    recognitionClues:["duplicate detection","need fast lookup"],
+    explanation:[
+      "The question is literally 'have I seen this value before' — the defining hash-set clue.",
+      "Sorting first would work too, but costs O(n log n); a set answers each lookup in O(1).",
+      "One pass: add each value, and if it's already present, return true immediately."
+    ],
+    template:"hash-map-lookup"
+  },
+  {
+    id:"b75-002", title:"Valid Anagram", difficulty:"Easy",
+    blind75Category:"Arrays & Hashing",
+    description:"Given two strings s and t, return true if t is an anagram of s, and false otherwise.",
+    examples:[{input:'s = "anagram", t = "nagaram"', output:"true"}, {input:'s = "rat", t = "car"', output:"false"}],
+    constraints:["1 <= s.length, t.length <= 5 * 10^4","s and t consist of lowercase English letters"],
+    primaryPattern:"hash-map", secondaryPatterns:[], dataStructures:["Hash Map"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["count frequency","duplicate detection"],
+    explanation:[
+      "Two strings are anagrams exactly when their character counts match.",
+      "A frequency map (or fixed-size count array, since only 26 letters) tracks 'have I seen this many of each character'.",
+      "Incrementing for s and decrementing for t, then checking all counts are zero, is O(n) with O(1) extra space."
+    ],
+    template:"hash-map-lookup"
+  },
+  {
+    id:"b75-003", title:"Product of Array Except Self", difficulty:"Medium",
+    blind75Category:"Arrays & Hashing",
+    description:"Given an integer array nums, return an array answer such that answer[i] is equal to the product of all the elements of nums except nums[i]. You must write an algorithm that runs in O(n) time without using the division operation.",
+    examples:[{input:"nums = [1,2,3,4]", output:"[24,12,8,6]"}],
+    constraints:["2 <= nums.length <= 10^5","the product of any prefix or suffix fits in a 32-bit integer"],
+    primaryPattern:"prefix-sum", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1) extra (excluding output)"},
+    recognitionClues:["range sum query","cumulative total","without using the division operation"],
+    explanation:[
+      "answer[i] needs the running product of everything before i and everything after i — a prefix/suffix aggregate, just like prefix sums but with multiplication.",
+      "Being told not to use division rules out the 'divide the total product' shortcut, pointing straight at prefix/suffix accumulation.",
+      "One pass builds prefix products into the answer array, a second pass (right to left) multiplies in the suffix products in O(1) extra space."
+    ],
+    template:"prefix-sum-hashmap"
+  },
+  {
+    id:"b75-004", title:"Maximum Subarray", difficulty:"Medium",
+    blind75Category:"1-D Dynamic Programming",
+    description:"Given an integer array nums, find the subarray with the largest sum, and return its sum.",
+    examples:[{input:"nums = [-2,1,-3,4,-1,2,1,-5,4]", output:"6"}],
+    constraints:["1 <= nums.length <= 10^5","-10^4 <= nums[i] <= 10^4"],
+    primaryPattern:"dynamic-programming", secondaryPatterns:["greedy"], dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["maximum or minimum over a range","optimal substructure","large input size"],
+    explanation:[
+      "The best subarray ending at index i is either just nums[i] alone, or nums[i] appended to the best subarray ending at i-1 — a one-step recurrence.",
+      "Whenever the running sum goes negative it can only hurt future sums, so it's reset — that's the greedy insight riding on top of the DP recurrence.",
+      "Tracking a single rolling 'best sum ending here' value gives Kadane's algorithm: O(n) time, O(1) space."
+    ],
+    template:"dp-1d-bottom-up"
+  },
+  {
+    id:"b75-005", title:"Maximum Product Subarray", difficulty:"Medium",
+    blind75Category:"1-D Dynamic Programming",
+    description:"Given an integer array nums, find a subarray that has the largest product, and return the product.",
+    examples:[{input:"nums = [2,3,-2,4]", output:"6"}],
+    constraints:["1 <= nums.length <= 2 * 10^4","-10 <= nums[i] <= 10"],
+    primaryPattern:"dynamic-programming", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["maximum or minimum over a range","optimal substructure"],
+    explanation:[
+      "This looks like Maximum Subarray, but a single negative number can flip the best product into the worst and vice versa.",
+      "Because of that flip, the recurrence needs to track both the max AND min product ending at each index, not just the max.",
+      "At each step, the new max/min is computed from nums[i] combined with the previous max, previous min, and nums[i] alone — still O(n) time, O(1) space."
+    ],
+    template:"dp-1d-bottom-up"
+  },
+  {
+    id:"b75-006", title:"Find Minimum in Rotated Sorted Array", difficulty:"Medium",
+    blind75Category:"Binary Search",
+    description:"Given the sorted rotated array nums of unique elements, return the minimum element of this array. You must write an algorithm that runs in O(log n) time.",
+    examples:[{input:"nums = [3,4,5,1,2]", output:"1"}],
+    constraints:["1 <= nums.length <= 5000","nums was originally sorted then possibly rotated"],
+    primaryPattern:"binary-search", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(log n)", space:"O(1)"},
+    recognitionClues:["sorted input","logarithmic requirement","search space is monotonic"],
+    explanation:[
+      "The array is sorted-then-rotated, and an explicit O(log n) requirement rules out a linear scan.",
+      "Comparing the middle element to the rightmost element reveals which half is guaranteed sorted, letting half the search space be discarded each step.",
+      "The minimum is the one 'inflection point' where the rotation happened, findable by always moving toward the unsorted half."
+    ],
+    template:"binary-search-boundary"
+  },
+  {
+    id:"b75-007", title:"3Sum", difficulty:"Medium",
+    blind75Category:"Two Pointers",
+    description:"Given an integer array nums, return all the triplets [nums[i], nums[j], nums[k]] such that i != j, i != k, and j != k, and nums[i] + nums[j] + nums[k] == 0. The solution set must not contain duplicate triplets.",
+    examples:[{input:"nums = [-1,0,1,2,-1,-4]", output:"[[-1,-1,2],[-1,0,1]]"}],
+    constraints:["3 <= nums.length <= 3000","-10^5 <= nums[i] <= 10^5"],
+    primaryPattern:"two-pointers", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(n^2)", space:"O(1) extra (excluding output/sort)"},
+    recognitionClues:["pair with target sum","sorted input","compare from both ends"],
+    explanation:[
+      "Fixing the first number turns the remaining problem into 'find a pair summing to -nums[i]' — exactly Two Sum on a sorted array.",
+      "Sorting first (O(n log n)) unlocks the converging two-pointer scan for the inner pair, and also makes skipping duplicate values trivial.",
+      "One O(n) two-pointer pass per fixed first element gives O(n^2) total, far better than the brute-force O(n^3)."
+    ],
+    template:"two-pointers-converge"
+  },
+  {
+    id:"b75-008", title:"Container With Most Water", difficulty:"Medium",
+    blind75Category:"Two Pointers",
+    description:"Given n non-negative integers height representing vertical lines, find two lines that together with the x-axis form a container that holds the most water.",
+    examples:[{input:"height = [1,8,6,2,5,4,8,3,7]", output:"49"}],
+    constraints:["2 <= height.length <= 10^5","0 <= height[i] <= 10^4"],
+    primaryPattern:"two-pointers", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["compare from both ends","large input size"],
+    explanation:[
+      "The area is bounded by the shorter of the two lines times the distance between them — a relationship between two positions, not a single contiguous range.",
+      "Starting from the widest possible container (both ends) and always moving the pointer at the shorter line guarantees no better answer is skipped.",
+      "This single converging pass beats the brute-force O(n^2) check of every pair."
+    ],
+    template:"two-pointers-converge"
+  },
+  {
+    id:"b75-009", title:"Number of 1 Bits", difficulty:"Easy",
+    blind75Category:"Bit Manipulation",
+    description:"Given a positive integer n, write a function that returns the number of set bits it has (also known as the Hamming weight).",
+    examples:[{input:"n = 11 (binary 1011)", output:"3"}],
+    constraints:["1 <= n <= 2^31 - 1"],
+    primaryPattern:"bit-manipulation", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(1) (32 bits)", space:"O(1)"},
+    recognitionClues:["count set bits","binary representation"],
+    explanation:[
+      "The question directly asks about the binary representation, which is the strongest possible bit-manipulation clue.",
+      "Repeatedly checking the lowest bit with `n & 1` and shifting right visits each bit exactly once.",
+      "A neat trick, `n & (n-1)`, clears the lowest set bit each time, looping only as many times as there are set bits."
+    ],
+    template:"bit-scan"
+  },
+  {
+    id:"b75-010", title:"Counting Bits", difficulty:"Easy",
+    blind75Category:"Bit Manipulation",
+    description:"Given an integer n, return an array ans of length n + 1 such that for each i, ans[i] is the number of set bits in the binary representation of i.",
+    examples:[{input:"n = 5", output:"[0,1,1,2,1,2]"}],
+    constraints:["0 <= n <= 10^5"],
+    primaryPattern:"bit-manipulation", secondaryPatterns:["dynamic-programming"], dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(n) (output)"},
+    recognitionClues:["count set bits","binary representation","can be solved with smaller versions of itself"],
+    explanation:[
+      "Recomputing set bits from scratch for every i would be O(n log n); noticing that i and i>>1 share almost the same bits hints at reuse.",
+      "ans[i] = ans[i >> 1] + (i & 1): dropping the lowest bit of i gives i>>1, whose answer is already known, plus 1 if the dropped bit was set.",
+      "This turns a per-number bit count into an O(1) lookup per index, an O(n) DP built on top of a bit trick."
+    ],
+    template:"bit-scan"
+  },
+  {
+    id:"b75-011", title:"Missing Number", difficulty:"Easy",
+    blind75Category:"Bit Manipulation",
+    description:"Given an array nums containing n distinct numbers in the range [0, n], return the only number in the range that is missing from the array.",
+    examples:[{input:"nums = [3,0,1]", output:"2"}],
+    constraints:["n == nums.length","1 <= n <= 10^4"],
+    primaryPattern:"bit-manipulation", secondaryPatterns:["hash-map"], dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["find the unique/missing element","without using extra space"],
+    explanation:[
+      "A hash set would spot the missing value in O(n) time but O(n) extra space — worth noticing as the naive baseline.",
+      "XOR-ing every index 0..n with every array value cancels every number that appears in both, leaving only the missing one (since XOR is its own inverse).",
+      "This achieves O(n) time and O(1) extra space, better than the hash-set approach."
+    ],
+    template:"bit-xor"
+  },
+  {
+    id:"b75-012", title:"Longest Increasing Subsequence", difficulty:"Medium",
+    blind75Category:"1-D Dynamic Programming",
+    description:"Given an integer array nums, return the length of the longest strictly increasing subsequence.",
+    examples:[{input:"nums = [10,9,2,5,3,7,101,18]", output:"4"}],
+    constraints:["1 <= nums.length <= 2500"],
+    primaryPattern:"dynamic-programming", secondaryPatterns:["binary-search"], dataStructures:["Array"],
+    targetComplexity:{time:"O(n log n)", space:"O(n)"},
+    recognitionClues:["optimal substructure","can be solved with smaller versions of itself","overlapping subproblems"],
+    explanation:[
+      "The longest increasing subsequence ending at index i depends on the best subsequence ending at every earlier smaller value — a classic O(n^2) DP recurrence.",
+      "n up to 2500 suggests O(n^2) may already be acceptable, but maintaining a sorted array of 'smallest tail for each subsequence length' and binary-searching for where each new element belongs improves this to O(n log n).",
+      "This is a case where the initial recognition is DP, and binary search is the optimization layered on top once the DP shape is clear."
+    ],
+    template:"dp-1d-bottom-up"
+  },
+  {
+    id:"b75-013", title:"Longest Common Subsequence", difficulty:"Medium",
+    blind75Category:"2-D Dynamic Programming",
+    description:"Given two strings text1 and text2, return the length of their longest common subsequence, or 0 if there is no common subsequence.",
+    examples:[{input:'text1 = "abcde", text2 = "ace"', output:"3"}],
+    constraints:["1 <= text1.length, text2.length <= 1000"],
+    primaryPattern:"dynamic-programming", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(m*n)", space:"O(m*n)"},
+    recognitionClues:["optimal substructure","overlapping subproblems","can be solved with smaller versions of itself"],
+    explanation:[
+      "Comparing two strings character by character, where a match extends a smaller solution and a mismatch takes the best of two smaller subproblems, is the signature of a 2D DP over (i, j) positions.",
+      "dp[i][j] represents the LCS length of the first i characters of text1 and first j characters of text2, built from dp[i-1][j-1], dp[i-1][j], and dp[i][j-1].",
+      "A 2D table of size (m+1) x (n+1) fills in O(m*n), comfortably within the 1000x1000 constraint."
+    ],
+    template:"dp-2d-grid"
+  },
+  {
+    id:"b75-014", title:"Word Break", difficulty:"Medium",
+    blind75Category:"1-D Dynamic Programming",
+    description:"Given a string s and a dictionary of strings wordDict, return true if s can be segmented into a space-separated sequence of one or more dictionary words.",
+    examples:[{input:'s = "leetcode", wordDict = ["leet","code"]', output:"true"}],
+    constraints:["1 <= s.length <= 300","1 <= wordDict.length <= 1000"],
+    primaryPattern:"dynamic-programming", secondaryPatterns:["hash-map"], dataStructures:["Array","Hash Set"],
+    targetComplexity:{time:"O(n^2)", space:"O(n)"},
+    recognitionClues:["can be solved with smaller versions of itself","overlapping subproblems"],
+    explanation:[
+      "Whether s[0:i] is breakable depends only on whether some earlier prefix s[0:j] was breakable AND s[j:i] is a dictionary word — smaller subproblems reused.",
+      "A hash set gives O(1) dictionary lookups for each candidate substring, avoiding rescanning the word list.",
+      "dp[i] = true if any valid split point j exists; trying brute-force recursion without caching would recompute the same prefixes exponentially."
+    ],
+    template:"dp-1d-bottom-up"
+  },
+  {
+    id:"b75-015", title:"Combination Sum", difficulty:"Medium",
+    blind75Category:"Backtracking",
+    description:"Given an array of distinct integers candidates and a target integer target, return a list of all unique combinations where the chosen numbers sum to target. The same number may be chosen an unlimited number of times.",
+    examples:[{input:"candidates = [2,3,6,7], target = 7", output:"[[2,2,3],[7]]"}],
+    constraints:["1 <= candidates.length <= 30","2 <= candidates[i] <= 40","1 <= target <= 40"],
+    primaryPattern:"backtracking", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(2^target) worst case", space:"O(target)"},
+    recognitionClues:["all combinations","need all valid configurations","constraint satisfaction"],
+    explanation:[
+      "The problem wants every valid combination, not just one — an immediate backtracking signal.",
+      "Small bounds (target <= 40) confirm exponential exploration is expected rather than a polynomial trick.",
+      "Backtracking tries including each candidate (allowing reuse by not advancing the index), subtracts it from the remaining target, and undoes the choice once a branch is exhausted."
+    ],
+    template:"backtracking-generic"
+  },
+  {
+    id:"b75-016", title:"Word Search", difficulty:"Medium",
+    blind75Category:"Backtracking",
+    description:"Given an m x n grid of characters board and a string word, return true if word exists in the grid, formed by adjacent cells (horizontally or vertically neighboring), without reusing the same cell twice.",
+    examples:[{input:'board = [["A","B","C","E"],["S","F","C","S"],["A","D","E","E"]], word = "ABCCED"', output:"true"}],
+    constraints:["1 <= m, n <= 6","1 <= word.length <= 15"],
+    primaryPattern:"backtracking", secondaryPatterns:["dfs"], dataStructures:["Array"],
+    targetComplexity:{time:"O(m*n*4^L)", space:"O(L)"},
+    recognitionClues:["explore all paths","constraint satisfaction","need all valid configurations"],
+    explanation:[
+      "Building a path cell by cell and undoing a choice (unmarking a visited cell) the moment a branch fails to match the next letter is a backtracking DFS on the grid.",
+      "The tiny grid bound (up to 6x6) and short word length (up to 15) both confirm that exponential branching along 4 directions per cell is intended.",
+      "Each recursive call tries up to 4 neighbors, marking the current cell visited before recursing and unmarking it on backtrack so it can be reused on a different path."
+    ],
+    template:"backtracking-generic"
+  },
+  {
+    id:"b75-017", title:"House Robber", difficulty:"Medium",
+    blind75Category:"1-D Dynamic Programming",
+    description:"Given an integer array nums representing money at each house (adjacent houses have connected security systems), return the maximum amount you can rob without robbing two adjacent houses.",
+    examples:[{input:"nums = [1,2,3,1]", output:"4"}],
+    constraints:["1 <= nums.length <= 100","0 <= nums[i] <= 400"],
+    primaryPattern:"dynamic-programming", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["minimum/maximum cost to reach a state","optimal substructure"],
+    explanation:[
+      "At each house there's a binary choice — rob it (and skip the previous) or skip it — and the best outcome for house i depends only on the best outcomes for houses i-1 and i-2.",
+      "This 'take it or leave it, constrained by the previous choice' shape is a direct one-dimensional DP recurrence.",
+      "Two rolling variables (best-including-previous, best-excluding-previous) replace a full array, giving O(n) time and O(1) space."
+    ],
+    template:"dp-1d-bottom-up"
+  },
+  {
+    id:"b75-018", title:"House Robber II", difficulty:"Medium",
+    blind75Category:"1-D Dynamic Programming",
+    description:"Houses are arranged in a circle, so the first and last houses are adjacent. Return the maximum amount you can rob without robbing two adjacent houses.",
+    examples:[{input:"nums = [2,3,2]", output:"3"}],
+    constraints:["1 <= nums.length <= 100","0 <= nums[i] <= 1000"],
+    primaryPattern:"dynamic-programming", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["minimum/maximum cost to reach a state","optimal substructure"],
+    explanation:[
+      "This is House Robber with one added constraint (first and last house are adjacent), which breaks the simple linear DP if applied directly to the whole circle.",
+      "The fix is to run the exact same linear House Robber DP twice — once excluding the first house, once excluding the last — and take the better result.",
+      "Recognizing that a circular constraint can often be handled by splitting into two linear subcases is the key insight, not a new pattern."
+    ],
+    template:"dp-1d-bottom-up"
+  },
+  {
+    id:"b75-019", title:"Decode Ways", difficulty:"Medium",
+    blind75Category:"1-D Dynamic Programming",
+    description:"A message containing letters A-Z can be encoded as digits (A=1, ..., Z=26). Given a string s of digits, return the number of ways to decode it.",
+    examples:[{input:'s = "226"', output:"3"}],
+    constraints:["1 <= s.length <= 100"],
+    primaryPattern:"dynamic-programming", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["count the number of ways","can be solved with smaller versions of itself"],
+    explanation:[
+      "The number of ways to decode s[0:i] depends on whether the last one digit is valid (reuses ways(i-1)) and/or the last two digits form a valid letter (reuses ways(i-2)).",
+      "This is structurally identical to Climbing Stairs, but each 'step' of size 1 or 2 is only allowed if it forms a valid letter code — the counting-ways DP recurrence with an added validity check.",
+      "A simple forward scan with two rolling variables handles it in O(n) time and O(1) space."
+    ],
+    template:"dp-1d-bottom-up"
+  },
+  {
+    id:"b75-020", title:"Unique Paths", difficulty:"Medium",
+    blind75Category:"2-D Dynamic Programming",
+    description:"A robot is located at the top-left corner of an m x n grid and can only move down or right. Return the number of possible unique paths to the bottom-right corner.",
+    examples:[{input:"m = 3, n = 7", output:"28"}],
+    constraints:["1 <= m, n <= 100"],
+    primaryPattern:"dynamic-programming", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(m*n)", space:"O(n)"},
+    recognitionClues:["count the number of ways","optimal substructure"],
+    explanation:[
+      "The number of ways to reach any cell equals the ways to reach the cell above it plus the ways to reach the cell to its left — a 2D grid DP recurrence.",
+      "The grid structure (down/right only) and the request to count paths (not find one) are strong 2D DP signals rather than a graph search, since there's no need to explore, only to count.",
+      "A single row can be reused and updated left to right, reducing the space from O(m*n) to O(n)."
+    ],
+    template:"dp-2d-grid"
+  },
+  {
+    id:"b75-021", title:"Jump Game", difficulty:"Medium",
+    blind75Category:"Greedy",
+    description:"Given an array nums where nums[i] is the maximum jump length from index i, return true if you can reach the last index starting from index 0.",
+    examples:[{input:"nums = [2,3,1,1,4]", output:"true"}, {input:"nums = [3,2,1,0,4]", output:"false"}],
+    constraints:["1 <= nums.length <= 10^4","0 <= nums[i] <= 10^5"],
+    primaryPattern:"greedy", secondaryPatterns:["dynamic-programming"], dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["local optimal choice","large input size"],
+    explanation:[
+      "A DP formulation (is index i reachable) would work but costs O(n^2) in the worst case, which starts to strain at n = 10,000.",
+      "Only one number matters at each step: the farthest index reachable so far — tracking and greedily extending that single running maximum is enough.",
+      "If the farthest-reachable value ever falls behind the current index, the end is unreachable; otherwise extending it to the end confirms success in one O(n) pass."
+    ],
+    template:"greedy-sort-scan"
+  },
+  {
+    id:"b75-022", title:"Best Time to Buy and Sell Stock", difficulty:"Easy",
+    blind75Category:"Sliding Window",
+    description:"Given an array prices where prices[i] is the price on day i, return the maximum profit from choosing a single day to buy and a later day to sell.",
+    examples:[{input:"prices = [7,1,5,3,6,4]", output:"5"}],
+    constraints:["1 <= prices.length <= 10^5"],
+    primaryPattern:"sliding-window", secondaryPatterns:["greedy"], dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["maximum or minimum over a range","large input size"],
+    explanation:[
+      "This is a one-pointer variant of sliding window: the 'window' is [minimum price so far, current price], expanding right and only ever updating the left edge when a new minimum appears.",
+      "At each day, the best possible profit if selling today is today's price minus the lowest price seen on any earlier day — a greedy running minimum.",
+      "One linear scan tracking a running minimum and a running best-profit-so-far solves it without any nested loop."
+    ],
+    template:"sliding-window-variable"
+  },
+  {
+    id:"b75-023", title:"Merge Intervals", difficulty:"Medium",
+    blind75Category:"Intervals",
+    description:"Given an array of intervals, merge all overlapping intervals and return an array of the non-overlapping intervals that cover all the intervals in the input.",
+    examples:[{input:"intervals = [[1,3],[2,6],[8,10],[15,18]]", output:"[[1,6],[8,10],[15,18]]"}],
+    constraints:["1 <= intervals.length <= 10^4"],
+    primaryPattern:"greedy", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(n log n)", space:"O(n)"},
+    recognitionClues:["interval scheduling","sort then choose"],
+    explanation:[
+      "Sorting intervals by start time means any interval that overlaps the one currently being built must come immediately after it in the sorted order.",
+      "A single greedy left-to-right scan can then extend the current merged interval's end whenever the next interval starts before (or at) that end, or start a new merged interval otherwise.",
+      "The dominant cost is the initial sort, giving O(n log n) overall."
+    ],
+    template:"greedy-sort-scan"
+  },
+  {
+    id:"b75-024", title:"Insert Interval", difficulty:"Medium",
+    blind75Category:"Intervals",
+    description:"Given a set of non-overlapping intervals sorted by start time and a new interval, insert the new interval and merge if necessary. Return the resulting array of intervals.",
+    examples:[{input:"intervals = [[1,3],[6,9]], newInterval = [2,5]", output:"[[1,5],[6,9]]"}],
+    constraints:["0 <= intervals.length <= 10^4","intervals is sorted by start time"],
+    primaryPattern:"greedy", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(n)", space:"O(n)"},
+    recognitionClues:["interval scheduling","sort then choose"],
+    explanation:[
+      "Because the input is already sorted, this is Merge Intervals with a single new interval dropped in — no full re-sort is required.",
+      "Three phases in one pass: copy every interval that ends before the new one starts, merge every interval that overlaps the new one by expanding its bounds, then copy the rest.",
+      "This is a single O(n) linear scan rather than the O(n log n) needed when sorting from scratch."
+    ],
+    template:"greedy-sort-scan"
+  },
+  {
+    id:"b75-025", title:"Meeting Rooms II", difficulty:"Medium",
+    blind75Category:"Intervals",
+    description:"Given an array of meeting time intervals, return the minimum number of conference rooms required so that no two overlapping meetings share a room.",
+    examples:[{input:"intervals = [[0,30],[5,10],[15,20]]", output:"2"}],
+    constraints:["1 <= intervals.length <= 10^4"],
+    primaryPattern:"heap", secondaryPatterns:["greedy"], dataStructures:["Heap"],
+    targetComplexity:{time:"O(n log n)", space:"O(n)"},
+    recognitionClues:["minimum number of resources","always process smallest/largest next"],
+    explanation:[
+      "The question asks for the maximum number of meetings ever happening simultaneously — a running count of overlapping intervals, not just whether any two overlap.",
+      "Sorting meetings by start time and using a min-heap of currently-occupied rooms' end times means the heap top always tells you the soonest room to free up.",
+      "For each meeting, popping any room that has already freed (heap top's end <= current start) before pushing the new end time keeps room usage minimal, using O(n log n) for the sort plus heap operations."
+    ],
+    template:"heap-topk"
+  },
+  {
+    id:"b75-026", title:"Clone Graph", difficulty:"Medium",
+    blind75Category:"Graphs",
+    description:"Given a reference to a node in a connected undirected graph, return a deep copy (clone) of the graph.",
+    examples:[{input:"adjList = [[2,4],[1,3],[2,4],[1,3]]", output:"a structurally identical cloned graph"}],
+    constraints:["the number of nodes is in the range [0, 100]","no repeated edges or self-loops"],
+    primaryPattern:"dfs", secondaryPatterns:["hash-map"], dataStructures:["Hash Map","Graph"],
+    targetComplexity:{time:"O(V + E)", space:"O(V)"},
+    recognitionClues:["connected components","explore all paths","need fast lookup"],
+    explanation:[
+      "Cloning requires visiting every reachable node exactly once, which is a graph traversal — DFS (or BFS) either works.",
+      "A hash map from original node to cloned node is essential so that when a node is revisited through a different edge, the existing clone is reused instead of creating a duplicate.",
+      "Each node and edge is processed once, giving O(V + E), with the map contributing O(V) extra space."
+    ],
+    template:"dfs-iterative"
+  },
+  {
+    id:"b75-027", title:"Course Schedule", difficulty:"Medium",
+    blind75Category:"Graphs",
+    description:"There are numCourses courses labeled 0 to numCourses - 1, with prerequisites given as pairs. Return true if you can finish all courses given the prerequisites.",
+    examples:[{input:"numCourses = 2, prerequisites = [[1,0]]", output:"true"}, {input:"numCourses = 2, prerequisites = [[1,0],[0,1]]", output:"false"}],
+    constraints:["1 <= numCourses <= 2000","0 <= prerequisites.length <= 5000"],
+    primaryPattern:"dfs", secondaryPatterns:["bfs"], dataStructures:["Graph","Hash Set"],
+    targetComplexity:{time:"O(V + E)", space:"O(V + E)"},
+    recognitionClues:["connected components","explore all paths"],
+    explanation:[
+      "'Can all courses be finished' given prerequisites is exactly 'does this directed graph contain a cycle' — completing courses is only impossible if a cycle of dependencies exists.",
+      "A DFS that tracks nodes in the current recursion path (not just globally visited nodes) detects a cycle the moment it revisits a node still on that path.",
+      "Equivalently, Kahn's algorithm (BFS processing nodes with zero remaining prerequisites) succeeds only if every node is eventually processed — both traversals run in O(V + E)."
+    ],
+    template:"dfs-iterative"
+  },
+  {
+    id:"b75-028", title:"Pacific Atlantic Water Flow", difficulty:"Medium",
+    blind75Category:"Graphs",
+    description:"Given an m x n grid of heights, water can flow to neighboring cells with height less than or equal to the current cell. Return the list of cells from which water can flow to both the Pacific and Atlantic oceans.",
+    examples:[{input:"heights = [[1,2,2,3,5],[3,2,3,4,4],[2,4,5,3,1],[6,7,1,4,5],[5,1,1,2,4]]", output:"[[0,4],[1,3],[1,4],[2,2],[3,0],[3,1],[4,0]]"}],
+    constraints:["1 <= m, n <= 200"],
+    primaryPattern:"dfs", secondaryPatterns:[], dataStructures:["Array","Hash Set"],
+    targetComplexity:{time:"O(m*n)", space:"O(m*n)"},
+    recognitionClues:["connected components","explore all paths"],
+    explanation:[
+      "Checking, for every cell, whether water flowing downhill from it can reach both oceans would mean a DFS from every one of the m*n cells — far too slow.",
+      "Reversing the direction (flowing uphill FROM each ocean's border cells) means only two DFS sweeps are needed — one from all Pacific-adjacent cells, one from all Atlantic-adjacent cells.",
+      "The answer is simply the intersection of the two reachable sets, keeping the whole algorithm at O(m*n)."
+    ],
+    template:"dfs-iterative"
+  },
+  {
+    id:"b75-029", title:"Longest Consecutive Sequence", difficulty:"Medium",
+    blind75Category:"Arrays & Hashing",
+    description:"Given an unsorted array of integers nums, return the length of the longest consecutive elements sequence. You must write an algorithm that runs in O(n) time.",
+    examples:[{input:"nums = [100,4,200,1,3,2]", output:"4"}],
+    constraints:["0 <= nums.length <= 10^5"],
+    primaryPattern:"hash-map", secondaryPatterns:[], dataStructures:["Hash Set"],
+    targetComplexity:{time:"O(n)", space:"O(n)"},
+    recognitionClues:["need fast lookup","large input size"],
+    explanation:[
+      "Sorting first would give an easy O(n log n) solution, but the explicit O(n) requirement rules that out.",
+      "Putting every number in a hash set gives O(1) checks for 'is num - 1 present' — only numbers that are the START of a sequence (no num-1 in the set) begin an O(1)-amortized inner expansion.",
+      "Because every number is only ever expanded from as part of one sequence, the total work across all starts is O(n) despite the nested-looking loop."
+    ],
+    template:"hash-map-lookup"
+  },
+  {
+    id:"b75-030", title:"Graph Valid Tree", difficulty:"Medium",
+    blind75Category:"Graphs",
+    description:"Given n nodes labeled 0 to n - 1 and a list of undirected edges, determine if these edges form a valid tree.",
+    examples:[{input:"n = 5, edges = [[0,1],[0,2],[0,3],[1,4]]", output:"true"}],
+    constraints:["1 <= n <= 2000"],
+    primaryPattern:"union-find", secondaryPatterns:["dfs"], dataStructures:["Array"],
+    targetComplexity:{time:"O(n * α(n))", space:"O(n)"},
+    recognitionClues:["connected components","cycle detection in undirected graph","are these two things connected"],
+    explanation:[
+      "A valid tree needs exactly two properties: no cycles, and full connectivity (every node reachable) — both are Union-Find's specialty.",
+      "Unioning each edge's endpoints: if the two endpoints are already in the same set before the union, that edge closes a cycle, so the graph can't be a tree.",
+      "After processing all edges, exactly n - 1 successful unions with no cycle detected confirms a valid tree in near-O(n) time."
+    ],
+    template:"union-find"
+  },
+  {
+    id:"b75-031", title:"Number of Connected Components in an Undirected Graph", difficulty:"Medium",
+    blind75Category:"Graphs",
+    description:"Given n nodes labeled 0 to n - 1 and a list of undirected edges, return the number of connected components.",
+    examples:[{input:"n = 5, edges = [[0,1],[1,2],[3,4]]", output:"2"}],
+    constraints:["1 <= n <= 2000"],
+    primaryPattern:"union-find", secondaryPatterns:["dfs"], dataStructures:["Array"],
+    targetComplexity:{time:"O(n * α(n))", space:"O(n)"},
+    recognitionClues:["connected components","group merging"],
+    explanation:[
+      "This asks directly for a count of separate connected groups — the core Union-Find use case.",
+      "Every edge triggers a union of its two endpoints' groups; nodes that are never connected by any edge simply stay their own group.",
+      "Counting the number of distinct roots left at the end (or tracking a running component count that decrements on each successful union) gives the answer."
+    ],
+    template:"union-find"
+  },
+  {
+    id:"b75-032", title:"Reverse Linked List", difficulty:"Easy",
+    blind75Category:"Linked List",
+    description:"Given the head of a singly linked list, reverse the list, and return the reversed list's head.",
+    examples:[{input:"head = [1,2,3,4,5]", output:"[5,4,3,2,1]"}],
+    constraints:["the number of nodes is in the range [0, 5000]"],
+    primaryPattern:"linked-list", secondaryPatterns:[], dataStructures:["Linked List"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["reverse a linked list"],
+    explanation:[
+      "The problem states directly what's needed: flipping every next pointer, which is the defining linked-list pointer-manipulation clue.",
+      "A single forward pass keeps track of the previous node, redirects each node's next pointer backward to it, then advances both pointers.",
+      "No extra data structure is needed — just three pointers (prev, curr, next) moving together, giving O(n) time and O(1) space."
+    ],
+    template:"linked-list-reverse"
+  },
+  {
+    id:"b75-033", title:"Linked List Cycle", difficulty:"Easy",
+    blind75Category:"Linked List",
+    description:"Given the head of a linked list, determine if the linked list has a cycle in it.",
+    examples:[{input:"head = [3,2,0,-4], with a cycle", output:"true"}],
+    constraints:["the number of nodes is in the range [0, 10^4]"],
+    primaryPattern:"linked-list", secondaryPatterns:["two-pointers"], dataStructures:["Linked List"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["detect a cycle","without using extra space"],
+    explanation:[
+      "A hash set of visited nodes would detect a cycle in O(n) time but uses O(n) extra space — the memory-conscious alternative is the classic tell.",
+      "Two pointers moving at different speeds (one step vs two steps) are guaranteed to meet if and only if a cycle exists, since the faster pointer 'laps' the slower one inside any cycle.",
+      "This 'tortoise and hare' technique detects the cycle in O(n) time using only O(1) extra space."
+    ],
+    template:"linked-list-fast-slow"
+  },
+  {
+    id:"b75-034", title:"Merge Two Sorted Lists", difficulty:"Easy",
+    blind75Category:"Linked List",
+    description:"Merge two sorted linked lists list1 and list2 into one sorted list by splicing together their nodes, and return the head of the merged list.",
+    examples:[{input:"list1 = [1,2,4], list2 = [1,3,4]", output:"[1,1,2,3,4]"}],
+    constraints:["the number of nodes in both lists is in the range [0, 50]"],
+    primaryPattern:"linked-list", secondaryPatterns:["two-pointers"], dataStructures:["Linked List"],
+    targetComplexity:{time:"O(m + n)", space:"O(1)"},
+    recognitionClues:["merge sorted lists","sorted input"],
+    explanation:[
+      "Both lists are already sorted, so this is a two-pointer style merge (like the merge step of merge sort) but rewiring next pointers instead of writing to a new array.",
+      "A dummy head node simplifies the logic: repeatedly attach whichever current node is smaller, then advance that list's pointer.",
+      "Once one list is exhausted, the remainder of the other list is spliced on directly — O(m + n) time, O(1) extra space since existing nodes are reused."
+    ],
+    template:"linked-list-fast-slow"
+  },
+  {
+    id:"b75-035", title:"Merge k Sorted Lists", difficulty:"Hard",
+    blind75Category:"Heap / Priority Queue",
+    description:"You are given an array of k linked-lists, each sorted in ascending order. Merge all the linked-lists into one sorted linked list and return it.",
+    examples:[{input:"lists = [[1,4,5],[1,3,4],[2,6]]", output:"[1,1,2,3,4,4,5,6]"}],
+    constraints:["0 <= k <= 10^4","total nodes across all lists is at most 10^4"],
+    primaryPattern:"heap", secondaryPatterns:["linked-list"], dataStructures:["Heap","Linked List"],
+    targetComplexity:{time:"O(n log k)", space:"O(k)"},
+    recognitionClues:["merge k sorted lists","always process smallest/largest next"],
+    explanation:[
+      "Merging just two lists is an O(1)-per-step pointer comparison, but merging k lists needs to repeatedly find the smallest head among all k lists.",
+      "A min-heap holding one node from each list gives that 'smallest of k candidates' in O(log k) instead of scanning all k heads each time.",
+      "Popping the minimum, appending it to the result, and pushing its successor from the same list keeps the heap size at k, giving O(n log k) overall for N total nodes."
+    ],
+    template:"heap-topk"
+  },
+  {
+    id:"b75-036", title:"Remove Nth Node From End of List", difficulty:"Medium",
+    blind75Category:"Linked List",
+    description:"Given the head of a linked list, remove the nth node from the end of the list and return its head. Do it in one pass.",
+    examples:[{input:"head = [1,2,3,4,5], n = 2", output:"[1,2,3,5]"}],
+    constraints:["the number of nodes is at most 30","1 <= n <= number of nodes"],
+    primaryPattern:"linked-list", secondaryPatterns:["two-pointers"], dataStructures:["Linked List"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["remove the nth node from the end","compare from both ends"],
+    explanation:[
+      "Finding the nth-from-end node normally needs the total length first — a two-pass approach — but the problem explicitly asks for one pass.",
+      "Advancing a lead pointer n steps ahead first, then moving both pointers together until the lead reaches the end, leaves the trailing pointer exactly one node before the target.",
+      "This fixed-gap two-pointer technique on a linked list solves it in a single O(n) pass with O(1) space."
+    ],
+    template:"linked-list-fast-slow"
+  },
+  {
+    id:"b75-037", title:"Reorder List", difficulty:"Medium",
+    blind75Category:"Linked List",
+    description:"Given the head of a singly linked list L0 → L1 → ... → Ln-1 → Ln, reorder it to L0 → Ln → L1 → Ln-1 → L2 → Ln-2 → ..., in place.",
+    examples:[{input:"head = [1,2,3,4]", output:"[1,4,2,3]"}],
+    constraints:["the number of nodes is in the range [1, 5 * 10^4]"],
+    primaryPattern:"linked-list", secondaryPatterns:["two-pointers"], dataStructures:["Linked List"],
+    targetComplexity:{time:"O(n)", space:"O(1)"},
+    recognitionClues:["find the middle node","reverse a linked list"],
+    explanation:[
+      "The interleaving pattern (first half forward, second half backward) suggests splitting the list at its middle and reversing the second half.",
+      "Finding the middle needs a fast/slow pointer pass, reversing the second half reuses the in-place reversal template, and a final pass zips the two halves together node by node.",
+      "All three phases are linear and pointer-only, so the whole thing runs in O(n) time and O(1) extra space — three linked-list techniques composed in sequence."
+    ],
+    template:"linked-list-fast-slow"
+  },
+  {
+    id:"b75-038", title:"Implement Trie (Prefix Tree)", difficulty:"Medium",
+    blind75Category:"Trie",
+    description:"Implement a Trie with insert, search, and startsWith methods.",
+    examples:[{input:'insert("apple"); search("apple") → true; search("app") → false; startsWith("app") → true', output:"see description"}],
+    constraints:["1 <= word.length <= 2000","up to 3 * 10^4 calls total"],
+    primaryPattern:"trie", secondaryPatterns:[], dataStructures:["Tree","Hash Map"],
+    targetComplexity:{time:"O(L) per operation", space:"O(total characters inserted)"},
+    recognitionClues:["prefix matching","dictionary of words","many words share prefixes"],
+    explanation:[
+      "The three required operations (insert, exact search, prefix search) are exactly what a trie is built for.",
+      "Each node holds a map from next character to child node, plus a flag for 'a word ends here' — search and startsWith differ only in whether that flag is checked.",
+      "Every operation only walks as many nodes as the word/prefix is long, giving O(L) regardless of how many other words are stored."
+    ],
+    template:"trie-insert-search"
+  },
+  {
+    id:"b75-039", title:"Add and Search Word", difficulty:"Medium",
+    blind75Category:"Trie",
+    description:"Design a data structure that supports adding words and searching for a word, where the search word may contain '.' as a wildcard that matches any single letter.",
+    examples:[{input:'addWord("bad"); addWord("dad"); addWord("mad"); search(".ad") → true; search("b..") → true', output:"see description"}],
+    constraints:["1 <= word.length <= 25","up to 10^4 calls total"],
+    primaryPattern:"trie", secondaryPatterns:["backtracking"], dataStructures:["Tree","Hash Map"],
+    targetComplexity:{time:"O(26^d * L) worst case for d wildcards", space:"O(total characters)"},
+    recognitionClues:["prefix matching","word search with wildcards"],
+    explanation:[
+      "Storing words efficiently for lookup is a trie's job, exactly like Implement Trie.",
+      "The wildcard '.' breaks the simple 'follow one child' search: whenever '.' is encountered, every child branch must be tried — that fan-out is a small backtracking search layered on top of trie traversal.",
+      "In the worst case (all wildcards) this degrades toward exploring many branches, but in practice the trie structure still prunes far more than a flat word list would."
+    ],
+    template:"trie-insert-search"
+  },
+  {
+    id:"b75-040", title:"Valid Parentheses", difficulty:"Easy",
+    blind75Category:"Stack",
+    description:"Given a string s containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid — every open bracket is closed by the same type in the correct order.",
+    examples:[{input:'s = "()[]{}"', output:"true"}, {input:'s = "(]"', output:"false"}],
+    constraints:["1 <= s.length <= 10^4"],
+    primaryPattern:"stack-matching", secondaryPatterns:[], dataStructures:["Stack"],
+    targetComplexity:{time:"O(n)", space:"O(n)"},
+    recognitionClues:["matching pairs","nested structure","valid parentheses"],
+    explanation:[
+      "The most recently opened bracket must be the next one closed — a strict last-in-first-out requirement is the defining stack signal.",
+      "Pushing every opening bracket and, on a closing bracket, checking it matches the top of the stack (then popping) directly encodes that rule.",
+      "The string is valid exactly when every closing bracket matches and the stack is empty at the end — a single O(n) pass."
+    ],
+    template:"stack-matching"
+  },
+  {
+    id:"b75-041", title:"Maximum Depth of Binary Tree", difficulty:"Easy",
+    blind75Category:"Trees",
+    description:"Given the root of a binary tree, return its maximum depth (the number of nodes along the longest path from the root down to the farthest leaf).",
+    examples:[{input:"root = [3,9,20,null,null,15,7]", output:"3"}],
+    constraints:["the number of nodes is in the range [0, 10^4]"],
+    primaryPattern:"dfs", secondaryPatterns:[], dataStructures:["Tree"],
+    targetComplexity:{time:"O(n)", space:"O(H)"},
+    recognitionClues:["tree structure","path from root to leaf","recursion feels natural"],
+    explanation:[
+      "The depth of a node is naturally defined in terms of the depth of its children — a tree recursion, not an iterative scan.",
+      "A DFS that returns 1 + max(depth(left), depth(right)) for each node computes the answer bottom-up in one pass.",
+      "Every node is visited exactly once, giving O(n) time and O(H) space for the recursion stack (H = tree height)."
+    ],
+    template:"dfs-recursive"
+  },
+  {
+    id:"b75-042", title:"Same Tree", difficulty:"Easy",
+    blind75Category:"Trees",
+    description:"Given the roots of two binary trees p and q, return true if they are structurally identical and the nodes have the same values.",
+    examples:[{input:"p = [1,2,3], q = [1,2,3]", output:"true"}],
+    constraints:["the number of nodes in both trees is in the range [0, 100]"],
+    primaryPattern:"dfs", secondaryPatterns:[], dataStructures:["Tree"],
+    targetComplexity:{time:"O(n)", space:"O(H)"},
+    recognitionClues:["tree structure","recursion feels natural"],
+    explanation:[
+      "Two trees are identical exactly when their roots match AND their left subtrees match AND their right subtrees match — a recursive definition over smaller trees.",
+      "A DFS that walks both trees in lockstep, comparing values and recursing into corresponding children, naturally mirrors that definition.",
+      "The moment any pair of corresponding nodes differs (including one being null and the other not), the recursion can short-circuit to false."
+    ],
+    template:"dfs-recursive"
+  },
+  {
+    id:"b75-043", title:"Invert Binary Tree", difficulty:"Easy",
+    blind75Category:"Trees",
+    description:"Given the root of a binary tree, invert the tree (swap every left and right child), and return its root.",
+    examples:[{input:"root = [4,2,7,1,3,6,9]", output:"[4,7,2,9,6,3,1]"}],
+    constraints:["the number of nodes is in the range [0, 100]"],
+    primaryPattern:"dfs", secondaryPatterns:["bfs"], dataStructures:["Tree"],
+    targetComplexity:{time:"O(n)", space:"O(H)"},
+    recognitionClues:["tree structure","recursion feels natural"],
+    explanation:[
+      "Inverting a tree means every node's left and right children are swapped, and this must happen at every level — a per-node operation applied recursively.",
+      "A DFS visits each node, swaps its two children, then recurses into each (now-swapped) child to invert further down; BFS level-by-level works just as well since visit order doesn't matter here.",
+      "Every node is visited and swapped exactly once, giving O(n) time."
+    ],
+    template:"dfs-recursive"
+  },
+  {
+    id:"b75-044", title:"Binary Tree Level Order Traversal", difficulty:"Medium",
+    blind75Category:"Trees",
+    description:"Given the root of a binary tree, return the level order traversal of its nodes' values (from left to right, level by level).",
+    examples:[{input:"root = [3,9,20,null,null,15,7]", output:"[[3],[9,20],[15,7]]"}],
+    constraints:["the number of nodes is in the range [0, 2000]"],
+    primaryPattern:"bfs", secondaryPatterns:[], dataStructures:["Queue","Tree"],
+    targetComplexity:{time:"O(n)", space:"O(n)"},
+    recognitionClues:["level order traversal","tree structure"],
+    explanation:[
+      "The phrase 'level order' is a direct, explicit signal for breadth-first search rather than depth-first.",
+      "A queue-based BFS that processes one full level (tracked by the queue's size at the start of each round) before moving to the next naturally groups nodes by depth.",
+      "Each node is enqueued and dequeued exactly once, giving O(n) time and O(n) space for the queue and output."
+    ],
+    template:"bfs-queue"
+  },
+  {
+    id:"b75-045", title:"Validate Binary Search Tree", difficulty:"Medium",
+    blind75Category:"Trees",
+    description:"Given the root of a binary tree, determine if it is a valid binary search tree (BST).",
+    examples:[{input:"root = [2,1,3]", output:"true"}, {input:"root = [5,1,4,null,null,3,6]", output:"false"}],
+    constraints:["the number of nodes is in the range [1, 10^4]"],
+    primaryPattern:"dfs", secondaryPatterns:[], dataStructures:["Tree"],
+    targetComplexity:{time:"O(n)", space:"O(H)"},
+    recognitionClues:["tree structure","recursion feels natural"],
+    explanation:[
+      "Checking only that each node is greater than its immediate left child and less than its immediate right child is a common but incorrect shortcut — the whole left/right subtree must stay within a valid range, not just the direct child.",
+      "A DFS that carries down a (min, max) bound — tightening it every time it descends left or right — correctly enforces the global BST property at every node.",
+      "Each node is visited once with O(1) bound checking, giving O(n) time overall."
+    ],
+    template:"dfs-recursive"
+  },
+  {
+    id:"b75-046", title:"Kth Smallest Element in a BST", difficulty:"Medium",
+    blind75Category:"Trees",
+    description:"Given the root of a binary search tree and an integer k, return the kth smallest value (1-indexed) among all the values of the nodes in the tree.",
+    examples:[{input:"root = [3,1,4,null,2], k = 1", output:"1"}],
+    constraints:["the number of nodes is in the range [1, 10^4]","1 <= k <= number of nodes"],
+    primaryPattern:"dfs", secondaryPatterns:[], dataStructures:["Tree"],
+    targetComplexity:{time:"O(H + k)", space:"O(H)"},
+    recognitionClues:["kth largest or smallest","tree structure"],
+    explanation:[
+      "An in-order DFS traversal of a BST visits nodes in strictly increasing sorted order — a property unique to BSTs, not general binary trees.",
+      "That means the kth smallest value is simply the kth node visited during an in-order walk, so the traversal can stop as soon as it's found.",
+      "An iterative in-order traversal with an explicit stack avoids visiting the whole tree when k is small, running in O(H + k) rather than always O(n)."
+    ],
+    template:"dfs-recursive"
+  },
+  {
+    id:"b75-047", title:"Lowest Common Ancestor of a Binary Search Tree", difficulty:"Medium",
+    blind75Category:"Trees",
+    description:"Given a binary search tree and two nodes p and q, return their lowest common ancestor (LCA).",
+    examples:[{input:"root = [6,2,8,0,4,7,9,null,null,3,5], p = 2, q = 8", output:"6"}],
+    constraints:["the number of nodes is in the range [2, 10^5]"],
+    primaryPattern:"dfs", secondaryPatterns:["binary-search"], dataStructures:["Tree"],
+    targetComplexity:{time:"O(H)", space:"O(1)"},
+    recognitionClues:["tree structure","sorted input"],
+    explanation:[
+      "The BST ordering property means that at any node, both p and q are either entirely in the left subtree, entirely in the right subtree, or split across the current node.",
+      "That third case — split across the current node (or the current node equals p or q) — is exactly when the current node is the LCA, so the search can go left/right like a binary search rather than exploring both sides.",
+      "A single descent from the root, choosing left or right based on comparisons, finds the LCA in O(H) time and O(1) extra space (no recursion needed)."
+    ],
+    template:"dfs-recursive"
+  },
+  {
+    id:"b75-048", title:"Binary Tree Maximum Path Sum", difficulty:"Hard",
+    blind75Category:"Trees",
+    description:"Given the root of a binary tree, return the maximum path sum of any non-empty path, where a path may start and end at any node and does not need to pass through the root.",
+    examples:[{input:"root = [-10,9,20,null,null,15,7]", output:"42"}],
+    constraints:["the number of nodes is in the range [1, 3 * 10^4]"],
+    primaryPattern:"dfs", secondaryPatterns:[], dataStructures:["Tree"],
+    targetComplexity:{time:"O(n)", space:"O(H)"},
+    recognitionClues:["tree structure","maximum or minimum over a range","recursion feels natural"],
+    explanation:[
+      "A path can bend at any node (going up through the left child and down through the right child), so a single top-down pass isn't enough — each node needs information from both subtrees.",
+      "A post-order DFS returns, for each node, the best single-direction path extending upward from it (needed by its parent), while separately updating a global best using both children's contributions at once (a path that bends here).",
+      "Negative contributions from either side are clipped to zero before combining, and every node is visited once, giving O(n) time."
+    ],
+    template:"dfs-recursive"
+  },
+  {
+    id:"b75-049", title:"Serialize and Deserialize Binary Tree", difficulty:"Hard",
+    blind75Category:"Trees",
+    description:"Design an algorithm to serialize a binary tree to a string and deserialize that string back to the original tree structure.",
+    examples:[{input:"root = [1,2,3,null,null,4,5]", output:"a string encoding, and a reconstructed identical tree"}],
+    constraints:["the number of nodes is in the range [0, 10^4]"],
+    primaryPattern:"dfs", secondaryPatterns:[], dataStructures:["Tree","Array"],
+    targetComplexity:{time:"O(n)", space:"O(n)"},
+    recognitionClues:["tree structure","recursion feels natural"],
+    explanation:[
+      "Reconstructing a tree from a flat representation needs a traversal order that unambiguously encodes structure — pre-order DFS with explicit null markers does this cleanly.",
+      "Serializing walks the tree recording each node's value (or a null marker) in pre-order; deserializing consumes that same sequence in the same order, recursively rebuilding left before right.",
+      "Because null markers are included, no extra size/index information is needed to know where each subtree ends — both passes are O(n)."
+    ],
+    template:"dfs-recursive"
+  },
+  {
+    id:"b75-050", title:"Construct Binary Tree from Preorder and Inorder Traversal", difficulty:"Medium",
+    blind75Category:"Trees",
+    description:"Given two integer arrays preorder and inorder representing the preorder and inorder traversal of a binary tree, construct and return the binary tree.",
+    examples:[{input:"preorder = [3,9,20,15,7], inorder = [9,3,15,20,7]", output:"[3,9,20,null,null,15,7]"}],
+    constraints:["1 <= preorder.length <= 3000","all values are unique"],
+    primaryPattern:"dfs", secondaryPatterns:["hash-map"], dataStructures:["Tree","Hash Map"],
+    targetComplexity:{time:"O(n)", space:"O(n)"},
+    recognitionClues:["tree structure","recursion feels natural","need fast lookup"],
+    explanation:[
+      "Preorder gives the root first; inorder tells which values fall to the left of that root (its left subtree) and which fall to the right (its right subtree) — enough to recursively build both sides.",
+      "A hash map from value to its inorder index turns 'find the root's position in inorder' from an O(n) scan into an O(1) lookup, which matters since this repeats for every recursive call.",
+      "With that lookup, each node is constructed once using O(1) extra work beyond the recursion, giving O(n) total instead of O(n^2)."
+    ],
+    template:"dfs-recursive"
+  },
+  {
+    id:"b75-051", title:"Word Search II", difficulty:"Hard",
+    blind75Category:"Trie",
+    description:"Given an m x n board of characters and a list of strings words, return all words on the board that can be formed by a sequence of adjacent cells, without reusing a cell within a single word.",
+    examples:[{input:'board = [["o","a","a","n"],["e","t","a","e"],["i","h","k","r"],["i","f","l","v"]], words = ["oath","pea","eat","rain"]', output:'["eat","oath"]'}],
+    constraints:["1 <= m, n <= 12","1 <= words.length <= 3 * 10^4"],
+    primaryPattern:"trie", secondaryPatterns:["backtracking"], dataStructures:["Tree","Array"],
+    targetComplexity:{time:"O(m*n*4^L)", space:"O(total characters in words)"},
+    recognitionClues:["many words share prefixes","explore all paths","dictionary of words"],
+    explanation:[
+      "Running a separate Word Search DFS for every word individually would repeat the same grid exploration once per word — wasteful when many words share prefixes.",
+      "Building a trie of all target words first lets a single DFS from each grid cell follow trie edges instead of comparing against one fixed word, prefix-checking (and pruning) many words simultaneously.",
+      "Marking a trie node as 'found' and removing leaf nodes as words are located keeps the search from revisiting completed words, keeping the combined search close to a single Word Search-style traversal rather than one per word."
+    ],
+    template:"trie-insert-search"
+  },
+  {
+    id:"b75-052", title:"Top K Frequent Elements", difficulty:"Medium",
+    blind75Category:"Heap / Priority Queue",
+    description:"Given an integer array nums and an integer k, return the k most frequent elements.",
+    examples:[{input:"nums = [1,1,1,2,2,3], k = 2", output:"[1,2]"}],
+    constraints:["1 <= nums.length <= 10^5","k is in range [1, number of distinct elements]"],
+    primaryPattern:"heap", secondaryPatterns:["hash-map"], dataStructures:["Hash Map","Heap"],
+    targetComplexity:{time:"O(n log k)", space:"O(n)"},
+    recognitionClues:["top k elements","count frequency"],
+    explanation:[
+      "'Frequency' is a hash-map clue (count occurrences), while 'top K' is a heap clue (keep only the K most important items) — this problem chains both.",
+      "First build a frequency map in one pass, then maintain a min-heap of size k over the (value, frequency) pairs so the least frequent of the current top-k is always easy to evict.",
+      "Building the map is O(n); maintaining the heap is O(n log k) since each of the up-to-n distinct elements triggers an O(log k) heap operation."
+    ],
+    template:"heap-topk"
+  },
+  {
+    id:"b75-053", title:"Find Median from Data Stream", difficulty:"Hard",
+    blind75Category:"Heap / Priority Queue",
+    description:"Design a data structure that supports adding numbers from a stream and finding the median of all numbers added so far, efficiently.",
+    examples:[{input:"addNum(1); addNum(2); findMedian() → 1.5; addNum(3); findMedian() → 2", output:"see description"}],
+    constraints:["up to 5 * 10^4 calls to addNum and findMedian"],
+    primaryPattern:"heap", secondaryPatterns:[], dataStructures:["Heap"],
+    targetComplexity:{time:"O(log n) per addNum, O(1) per findMedian", space:"O(n)"},
+    recognitionClues:["running median","always process smallest/largest next"],
+    explanation:[
+      "The median only depends on the two 'middle' values of a sorted stream — re-sorting on every insert would be O(n log n) per call, too slow for repeated queries.",
+      "Splitting the numbers into a max-heap of the smaller half and a min-heap of the larger half keeps each half's boundary value instantly accessible at the top of its heap.",
+      "Rebalancing the two heaps to stay within one element of each other after every insertion makes findMedian an O(1) lookup, with addNum costing O(log n)."
+    ],
+    template:"heap-topk"
+  },
+  {
+    id:"b75-054", title:"Set Matrix Zeroes", difficulty:"Medium",
+    blind75Category:"Matrix",
+    description:"Given an m x n integer matrix, if an element is 0, set its entire row and column to 0. Do it in place.",
+    examples:[{input:"matrix = [[1,1,1],[1,0,1],[1,1,1]]", output:"[[1,0,1],[0,0,0],[1,0,1]]"}],
+    constraints:["1 <= m, n <= 200"],
+    primaryPattern:"hash-map", secondaryPatterns:[], dataStructures:["Hash Set","Array"],
+    targetComplexity:{time:"O(m*n)", space:"O(1) extra (in-place marker version)"},
+    recognitionClues:["duplicate detection","need fast lookup"],
+    explanation:[
+      "The naive approach records every zero's row and column in two hash sets, then makes a second pass zeroing any cell whose row or column is in a set — a straightforward 'have I seen this row/column' lookup problem.",
+      "Since a zero found later shouldn't cascade into zeroing entire new rows/columns mid-scan, the row/column set must be fully built before any mutation happens.",
+      "The set-based version costs O(m + n) extra space; the fully optimized in-place version reuses the matrix's own first row and column as those same marker sets, achieving O(1) extra space."
+    ],
+    template:"hash-map-lookup"
+  },
+  {
+    id:"b75-055", title:"Spiral Matrix", difficulty:"Medium",
+    blind75Category:"Matrix",
+    description:"Given an m x n matrix, return all elements of the matrix in spiral order.",
+    examples:[{input:"matrix = [[1,2,3],[4,5,6],[7,8,9]]", output:"[1,2,3,6,9,8,7,4,5]"}],
+    constraints:["1 <= m, n <= 10"],
+    primaryPattern:"two-pointers", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(m*n)", space:"O(1) extra (excluding output)"},
+    recognitionClues:["compare from both ends"],
+    explanation:[
+      "Spiraling around the matrix means repeatedly walking along a shrinking boundary — that boundary is tracked with four 'pointers' (top, bottom, left, right row/column indices).",
+      "Each full loop walks the current top row left-to-right, right column top-to-bottom, bottom row right-to-left, and left column bottom-to-top, then shrinks all four boundaries inward.",
+      "Every cell is visited exactly once as the boundaries close in, giving O(m*n) time with only O(1) extra bookkeeping."
+    ],
+    template:"two-pointers-converge"
+  },
+  {
+    id:"b75-056", title:"Rotate Image", difficulty:"Medium",
+    blind75Category:"Matrix",
+    description:"Given an n x n 2D matrix representing an image, rotate the image by 90 degrees clockwise, in place.",
+    examples:[{input:"matrix = [[1,2,3],[4,5,6],[7,8,9]]", output:"[[7,4,1],[8,5,2],[9,6,3]]"}],
+    constraints:["1 <= n <= 20"],
+    primaryPattern:"two-pointers", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(n^2)", space:"O(1)"},
+    recognitionClues:["compare from both ends"],
+    explanation:[
+      "An in-place rotation constraint rules out allocating a second n x n matrix, pointing toward swapping values directly using positional relationships.",
+      "A 90-degree clockwise rotation can be decomposed into two simpler symmetric operations: transpose the matrix (swap across the diagonal), then reverse each row — both are position-mirroring, two-pointer-style operations.",
+      "Both the transpose and the row reversals touch each cell a constant number of times, giving O(n^2) time and true O(1) extra space."
+    ],
+    template:"two-pointers-converge"
+  },
+  {
+    id:"b75-057", title:"Longest Repeating Character Replacement", difficulty:"Medium",
+    blind75Category:"Sliding Window",
+    description:"Given a string s and an integer k, return the length of the longest substring containing the same letter after replacing at most k characters.",
+    examples:[{input:'s = "ABAB", k = 2', output:"4"}],
+    constraints:["1 <= s.length <= 10^5"],
+    primaryPattern:"sliding-window", secondaryPatterns:["hash-map"], dataStructures:["Hash Map","Array"],
+    targetComplexity:{time:"O(n)", space:"O(1) (26 letters)"},
+    recognitionClues:["substring","longest or shortest","at most k","large input size"],
+    explanation:[
+      "'Longest substring' with an 'at most k' constraint is a strong variable sliding-window signal — grow while valid, shrink when it breaks the rule.",
+      "A window is valid as long as (window length − count of its most frequent character) <= k, meaning at most k characters need replacing to make it uniform.",
+      "A frequency map of letters within the window (updated in O(1) per character) lets the window expand right and only contract left when that condition is violated, giving O(n) overall."
+    ],
+    template:"sliding-window-variable"
+  },
+  {
+    id:"b75-058", title:"Minimum Window Substring", difficulty:"Hard",
+    blind75Category:"Sliding Window",
+    description:"Given two strings s and t, return the minimum window substring of s such that every character in t (including duplicates) is included in the window. Return an empty string if no such substring exists.",
+    examples:[{input:'s = "ADOBECODEBANC", t = "ABC"', output:'"BANC"'}],
+    constraints:["1 <= s.length, t.length <= 10^5"],
+    primaryPattern:"sliding-window", secondaryPatterns:["hash-map"], dataStructures:["Hash Map"],
+    targetComplexity:{time:"O(n + m)", space:"O(m)"},
+    recognitionClues:["substring","longest or shortest","large input size"],
+    explanation:[
+      "Needing the SMALLEST valid window (rather than longest) is still a variable sliding window — just optimizing in the other direction.",
+      "A frequency map of t's required characters, plus a running count of how many required characters are currently satisfied, tells us in O(1) whether the current window is valid.",
+      "Expand right until valid, then greedily shrink left while it stays valid (recording the best window at each valid state) — each character is added and removed from the window at most once, giving O(n + m)."
+    ],
+    template:"sliding-window-variable"
+  },
+  {
+    id:"b75-059", title:"Longest Palindromic Substring", difficulty:"Medium",
+    blind75Category:"Strings",
+    description:"Given a string s, return the longest palindromic substring in s.",
+    examples:[{input:'s = "babad"', output:'"bab" (or "aba")'}],
+    constraints:["1 <= s.length <= 1000"],
+    primaryPattern:"two-pointers", secondaryPatterns:["dynamic-programming"], dataStructures:["Array"],
+    targetComplexity:{time:"O(n^2)", space:"O(1)"},
+    recognitionClues:["palindrome check","compare from both ends"],
+    explanation:[
+      "Every palindrome has a center (a single character for odd length, a gap between two characters for even length), so trying every possible center and expanding outward is a natural two-pointer idea.",
+      "For each of the 2n-1 possible centers, two pointers move outward together while the characters they point to still match, tracking the longest match found.",
+      "This 'expand around center' technique costs O(n) centers times O(n) worst-case expansion, giving O(n^2) time and O(1) space — simpler than the equivalent O(n^2) 2D DP formulation."
+    ],
+    template:"two-pointers-converge"
+  },
+  {
+    id:"b75-060", title:"Encode and Decode Strings", difficulty:"Medium",
+    blind75Category:"Strings",
+    description:"Design an algorithm to encode a list of strings into a single string, and decode that string back into the original list of strings.",
+    examples:[{input:'encode(["lint","code","love","you"])', output:"a single string that decode() can reverse exactly"}],
+    constraints:["strings may contain any valid ASCII characters, including delimiters like commas"],
+    primaryPattern:"two-pointers", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(total characters)", space:"O(total characters)"},
+    recognitionClues:["compare from both ends"],
+    explanation:[
+      "Joining strings with a plain delimiter like a comma breaks the moment a string itself contains a comma, so the encoding needs to be unambiguous no matter the string contents.",
+      "Prefixing each string with its length and a fixed separator (e.g. \"4#lint\") lets decode() always know exactly how many characters to consume next, regardless of what's inside the string.",
+      "Decoding scans with a pointer, reads digits up to the separator to get a length, then jumps that many characters ahead — a linear pointer walk over the encoded string, O(total characters)."
+    ],
+    template:"two-pointers-converge"
+  },
+  {
+    id:"b75-061", title:"Sum of Two Integers", difficulty:"Medium",
+    blind75Category:"Bit Manipulation",
+    description:"Given two integers a and b, return their sum without using the operators + and -.",
+    examples:[{input:"a = 2, b = 3", output:"5"}],
+    constraints:["-1000 <= a, b <= 1000"],
+    primaryPattern:"bit-manipulation", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(1) (32 bits)", space:"O(1)"},
+    recognitionClues:["without arithmetic operators","binary representation"],
+    explanation:[
+      "Being explicitly forbidden from using + or - is the strongest possible bit-manipulation clue, since it rules out ordinary arithmetic entirely.",
+      "XOR of a and b gives the sum of each bit position ignoring carries, while AND of a and b (shifted left one) gives exactly the carries that XOR dropped.",
+      "Repeating 'sum = a XOR b, carry = (a AND b) << 1, then a = sum, b = carry' until there's no carry left reproduces addition bit by bit, terminating within 32 iterations."
+    ],
+    template:"bit-xor"
+  },
+  {
+    id:"b75-062", title:"Reverse Bits", difficulty:"Easy",
+    blind75Category:"Bit Manipulation",
+    description:"Reverse the bits of a given 32-bit unsigned integer.",
+    examples:[{input:"n = 00000010100101000001111010011100", output:"00111001011110000010100101000000"}],
+    constraints:["the input is a 32-bit unsigned integer"],
+    primaryPattern:"bit-manipulation", secondaryPatterns:[], dataStructures:["Array"],
+    targetComplexity:{time:"O(1) (32 bits)", space:"O(1)"},
+    recognitionClues:["binary representation","without using extra space"],
+    explanation:[
+      "The task is defined entirely in terms of the number's binary representation, not its numeric value — a direct bit-manipulation clue.",
+      "Extracting the lowest bit of n with `n & 1`, appending it to the result by shifting the result left and OR-ing it in, then shifting n right, processes one bit per iteration.",
+      "Exactly 32 iterations (one per bit) reconstruct the reversed value, giving O(1) time relative to input size and O(1) space."
+    ],
+    template:"bit-scan"
+  },
+  {
+    id:"b75-063", title:"Palindromic Substrings", difficulty:"Medium",
+    blind75Category:"Strings",
+    description:"Given a string s, return the number of palindromic substrings in it.",
+    examples:[{input:'s = "aaa"', output:"6"}],
+    constraints:["1 <= s.length <= 1000"],
+    primaryPattern:"two-pointers", secondaryPatterns:["dynamic-programming"], dataStructures:["Array"],
+    targetComplexity:{time:"O(n^2)", space:"O(1)"},
+    recognitionClues:["palindrome check","compare from both ends"],
+    explanation:[
+      "This is structurally the same 'expand around center' idea as Longest Palindromic Substring, but counting every valid expansion instead of keeping only the longest.",
+      "For each of the 2n-1 possible centers, two pointers expand outward, and every successful expansion (matching characters) counts as one more palindromic substring.",
+      "Same O(n) centers times O(n) worst-case expansion as its sibling problem, giving O(n^2) time and O(1) space without needing an explicit DP table."
+    ],
+    template:"two-pointers-converge"
   }
 ];
 
@@ -974,12 +2105,20 @@ const TEMPLATE_LOOKUP = {
   "heap-topk": PATTERNS.find(p=>p.id==="heap").templates[0],
   "backtracking-generic": PATTERNS.find(p=>p.id==="backtracking").templates[0],
   "dp-1d-bottom-up": PATTERNS.find(p=>p.id==="dynamic-programming").templates[0],
+  "dp-2d-grid": PATTERNS.find(p=>p.id==="dynamic-programming").templates[1],
   "greedy-sort-scan": PATTERNS.find(p=>p.id==="greedy").templates[0],
-  "union-find": PATTERNS.find(p=>p.id==="union-find").templates[0]
+  "union-find": PATTERNS.find(p=>p.id==="union-find").templates[0],
+  "stack-matching": PATTERNS.find(p=>p.id==="stack-matching").templates[0],
+  "linked-list-reverse": PATTERNS.find(p=>p.id==="linked-list").templates[0],
+  "linked-list-fast-slow": PATTERNS.find(p=>p.id==="linked-list").templates[1],
+  "bit-xor": PATTERNS.find(p=>p.id==="bit-manipulation").templates[0],
+  "bit-scan": PATTERNS.find(p=>p.id==="bit-manipulation").templates[1],
+  "trie-insert-search": PATTERNS.find(p=>p.id==="trie").templates[0],
+  "dfs-recursive": PATTERNS.find(p=>p.id==="dfs").templates[0]
 };
 
-const DS_POOL = ["Hash Map","Hash Set","Stack","Queue","Heap","Array","Deque","Tree","Graph"];
-const COMPLEXITY_OPTIONS = ["O(1)","O(log n)","O(n)","O(n log n)","O(n^2)","O(2^n)"];
+const DS_POOL = ["Hash Map","Hash Set","Stack","Queue","Heap","Array","Deque","Tree","Graph","Linked List"];
+const COMPLEXITY_OPTIONS = ["O(1)","O(log n)","O(n)","O(n log n)","O(n log k)","O(m*n)","O(V + E)","O(n^2)","O(2^n)","O(n!)"];
 
 /* =========================================================
    STORAGE
@@ -2055,6 +3194,10 @@ function renderReview(p){
         <div class="review-val">
           <span class="tag ${r.patternCorrect?'good':'bad'}">You said: ${PATTERNS.find(x=>x.id===quizState.pattern)?.name || "—"}</span>
           ${!r.patternCorrect?`<span class="tag good">Correct: ${pattern.name}</span>`:''}
+          ${(p.secondaryPatterns && p.secondaryPatterns.length) ? p.secondaryPatterns.map(sid=>{
+            const sp = PATTERNS.find(x=>x.id===sid);
+            return sp ? `<span class="tag" style="border-color:var(--accent-dim); color:var(--accent);">also involves: ${sp.name}</span>` : '';
+          }).join("") : ''}
         </div>
       </div>
       <div class="review-row">
