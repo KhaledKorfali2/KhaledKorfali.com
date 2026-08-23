@@ -5,8 +5,8 @@ function goToProjects() {
 // Project list with category metadata
 const projects = [
   {
-    name: "Interview Prep",
-    image: "screenshots/placeholder.png",
+    name: "Pattern Trace",
+    image: "screenshots/interview-prep.png",
     path: "./projects/interview-prep/index.html",
     category: "programming"
   },
