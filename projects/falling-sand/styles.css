@@ -25,8 +25,9 @@ html, body {
 canvas {
   display: block;
   position: absolute;
-  inset: 0;
+  top: 0; left: 0;
   z-index: 0;
+  image-rendering: pixelated;
 }
 
 /* ── HUD ── */
@@ -44,6 +45,26 @@ canvas {
   pointer-events: none;
   font-variant-numeric: tabular-nums;
 }
+#pausedBadge { color: var(--text); }
+#pausedBadge[hidden] { display: none; }
+
+/* ── Back link ── */
+#backLink {
+  position: fixed;
+  top: 8px; right: 10px;
+  z-index: 20;
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 5px 11px;
+  border-radius: 100px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: color 0.15s, border-color 0.15s;
+}
+#backLink:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
 
 /* ── Brush cursor ── */
 #brushCursor {
@@ -194,8 +215,16 @@ canvas {
   order: -1;
 }
 
+#toolbar:not(.expanded) #panel {
+  /* keep collapsed controls out of the tab order / accessibility tree */
+  visibility: hidden;
+  transition: max-height 0.28s cubic-bezier(0.4,0,0.2,1),
+              opacity    0.22s ease,
+              visibility 0s linear 0.28s;
+}
+
 #toolbar.expanded #panel {
-  max-height: 300px;
+  max-height: 340px;
   opacity: 1;
 }
 
@@ -250,7 +279,18 @@ canvas {
   display: flex; align-items: center; gap: 6px;
   cursor: pointer; font-size: 12px; color: var(--muted); user-select: none;
 }
-.toggle-label input { display: none; }
+/* Visually hidden but still focusable (display:none removed it from keyboard/AT) */
+.toggle-label { position: relative; }
+.toggle-label input {
+  position: absolute;
+  width: 1px; height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.toggle-label input:focus-visible + .toggle-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .toggle-track {
   position: relative; width: 28px; height: 16px;
   background: rgba(255,255,255,0.1); border-radius: 100px; flex-shrink: 0;
@@ -307,14 +347,56 @@ canvas {
 }
 #resetBtn:hover { background: rgba(200,80,42,0.28); border-color: rgba(200,80,42,0.5); color: #f07050; }
 
+/* Shortcut hints */
+.shortcuts {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.shortcuts kbd {
+  font-family: var(--font);
+  font-size: 10px;
+  padding: 0 4px;
+  border: 1px solid var(--glass-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  color: var(--text);
+}
+
+/* ── Keyboard focus ── */
+button:focus-visible,
+a:focus-visible,
+input[type="range"]:focus-visible,
+input[type="color"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; }
+}
+
+/* ── Touch devices: bigger tap targets ── */
+@media (pointer: coarse) {
+  #pillDots { gap: 10px; }
+  .qdot { width: 22px; height: 22px; }
+  #expandBtn { padding: 6px 8px; }
+  .shortcuts { display: none; }
+  .shortcuts-divider { display: none; }
+}
+
 /* ── Mobile ── */
 @media (max-width: 640px) {
-  #toolbar { bottom: 12px; }
+  #toolbar { bottom: 12px; max-width: calc(100vw - 16px); }
 
   #pill { padding: 6px 10px; gap: 7px; }
 
   /* On small screens, hide pill label to save space */
   #pillActive { display: none; }
 
+  #panel { max-width: calc(100vw - 16px); }
   #panelInner { padding: 8px 12px; }
-}
+  .back-text { display: none; }
+}

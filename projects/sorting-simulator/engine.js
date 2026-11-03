@@ -1,9 +1,11 @@
 /* engine.js — Sorting step generators
    Each generator yields Step objects describing one atomic action.
    Step: { type, indices, values, message, category }
-     type:     'compare' | 'swap' | 'write' | 'sorted' | 'info' | 'pivot'
+     type:     'compare' | 'swap' | 'write' | 'read' | 'sorted' | 'info' | 'pivot'
+               ('read' = inspecting a key without comparing two elements, used by
+                the non-comparison sorts so they don't inflate the comparison count)
      indices:  array of bar indices involved
-     values:   optional new values (for radix/counting writes)
+     values:   for 'write', [newValue] — the value stored at indices[0]
      message:  human-readable description
      category: log colour class
 */
@@ -34,6 +36,11 @@
 
   function info(msg, indices) { return step('info', indices || [],
     msg, 'info'); }
+
+  // Every write carries its value so the visualiser can actually move the bar
+  function wr(k, value, message, category) {
+    return step('write', [k], message, category || 'info', [value]);
+  }
 
   // ─── BUBBLE SORT ───────────────────────────────────────────────────────────
   function* bubbleSort(arr) {
@@ -87,25 +94,26 @@
   function* insertionSort(arr) {
     var n = arr.length;
     yield info('Starting Insertion Sort. Build a sorted prefix one element at a time.');
-    yield mark(0, arr);
     for (var i = 1; i < n; i++) {
       var key = arr[i];
       yield info('Pick up arr[' + i + ']=' + key + ' and insert it into the sorted prefix.', [i]);
       var j = i - 1;
       while (j >= 0) {
-        yield cmp(j, j + 1, arr);
+        // Compare against the held key (arr[j+1] is just the gap / a shifted copy)
+        yield step('compare', [j, j + 1], 'Compare arr[' + j + ']=' + arr[j] + ' with key ' + key, 'compare');
         if (arr[j] > key) {
           arr[j + 1] = arr[j];
-          yield step('write', [j + 1], 'Shift arr[' + j + ']=' + arr[j + 1] + ' right to position ' + (j + 1), 'swap');
+          yield wr(j + 1, arr[j + 1], 'Shift arr[' + j + ']=' + arr[j + 1] + ' right to position ' + (j + 1), 'swap');
           j--;
         } else {
           break;
         }
       }
       arr[j + 1] = key;
-      yield step('write', [j + 1], 'Place ' + key + ' into position ' + (j + 1), 'info');
-      for (var k = 0; k <= i; k++) yield mark(k, arr);
+      yield wr(j + 1, key, 'Place ' + key + ' into position ' + (j + 1) + '. Prefix [0..' + i + '] is now sorted (relative order only — later keys may still be inserted).', 'info');
     }
+    // Positions are only final once every key has been inserted
+    for (var k = 0; k < n; k++) yield mark(k, arr);
   }
 
   // ─── SHELL SORT ────────────────────────────────────────────────────────────
@@ -121,17 +129,19 @@
         var temp = arr[i];
         var j = i;
         while (j >= gap) {
-          yield cmp(j - gap, j, arr);
+          yield step('compare', [j - gap, j], 'Compare arr[' + (j - gap) + ']=' + arr[j - gap] + ' with key ' + temp, 'compare');
           if (arr[j - gap] > temp) {
             arr[j] = arr[j - gap];
-            yield step('write', [j], 'Shift arr[' + (j - gap) + ']=' + arr[j] + ' to position ' + j, 'swap');
+            yield wr(j, arr[j], 'Shift arr[' + (j - gap) + ']=' + arr[j] + ' to position ' + j, 'swap');
             j -= gap;
           } else {
             break;
           }
         }
-        arr[j] = temp;
-        yield step('write', [j], 'Place ' + temp + ' at position ' + j, 'info');
+        if (j !== i) {
+          arr[j] = temp;
+          yield wr(j, temp, 'Place ' + temp + ' at position ' + j, 'info');
+        }
       }
     }
     for (var i = 0; i < n; i++) yield mark(i, arr);
@@ -158,17 +168,19 @@
     var tmp = arr.slice(left, right + 1);
     var i = 0, j = mid - left + 1, k = left;
     while (i <= mid - left && j < tmp.length) {
-      yield cmp(left + i, left + j, tmp);  // visual only
+      // Values come from the temp copy; bar positions are where they started
+      yield step('compare', [left + i, left + j],
+        'Compare left-half ' + tmp[i] + ' vs right-half ' + tmp[j] + (tmp[i] <= tmp[j] ? ' → take left (≤ keeps it stable)' : ' → take right'), 'compare');
       if (tmp[i] <= tmp[j]) {
         arr[k] = tmp[i++];
       } else {
         arr[k] = tmp[j++];
       }
-      yield step('write', [k], 'Write ' + arr[k] + ' to position ' + k, 'info');
+      yield wr(k, arr[k], 'Write ' + arr[k] + ' to position ' + k, 'info');
       k++;
     }
-    while (i <= mid - left) { arr[k] = tmp[i++]; yield step('write', [k], 'Copy ' + arr[k] + ' to position ' + k, 'info'); k++; }
-    while (j < tmp.length)  { arr[k] = tmp[j++]; yield step('write', [k], 'Copy ' + arr[k] + ' to position ' + k, 'info'); k++; }
+    while (i <= mid - left) { arr[k] = tmp[i++]; yield wr(k, arr[k], 'Copy ' + arr[k] + ' to position ' + k, 'info'); k++; }
+    while (j < tmp.length)  { arr[k] = tmp[j++]; yield wr(k, arr[k], 'Copy ' + arr[k] + ' to position ' + k, 'info'); k++; }
   }
 
   // ─── QUICK SORT ────────────────────────────────────────────────────────────
@@ -250,7 +262,7 @@
   // ─── RADIX SORT (LSD, base 10) ─────────────────────────────────────────────
   function* radixSort(arr) {
     var n   = arr.length;
-    var max = Math.max.apply(null, arr);
+    var max = n ? Math.max.apply(null, arr) : 0;
     yield info('Starting Radix Sort (LSD). Sort digit-by-digit from least significant to most significant.');
     var exp = 1;
     var pass = 0;
@@ -262,7 +274,7 @@
       for (var i = 0; i < n; i++) {
         var d = Math.floor(arr[i] / exp) % 10;
         count[d]++;
-        yield step('compare', [i], 'Read ' + getDigitPlace(exp) + ' digit of arr[' + i + ']=' + arr[i] + ' → digit ' + d, 'compare');
+        yield step('read', [i], 'Read ' + getDigitPlace(exp) + ' digit of arr[' + i + ']=' + arr[i] + ' → digit ' + d + ' (no comparison needed)', 'compare');
       }
       for (var i = 1; i < 10; i++) count[i] += count[i - 1];
       for (var i = n - 1; i >= 0; i--) {
@@ -271,7 +283,7 @@
       }
       for (var i = 0; i < n; i++) {
         arr[i] = output[i];
-        yield step('write', [i], 'Write ' + arr[i] + ' to position ' + i + ' (digit bucket sort)', 'info', output.slice());
+        yield wr(i, arr[i], 'Write ' + arr[i] + ' to position ' + i + ' (digit bucket sort)', 'info');
       }
       exp *= 10;
     }
@@ -289,6 +301,7 @@
   // ─── COUNTING SORT ─────────────────────────────────────────────────────────
   function* countingSort(arr) {
     var n   = arr.length;
+    if (!n) return;
     var max = Math.max.apply(null, arr);
     var min = Math.min.apply(null, arr);
     yield info('Starting Counting Sort. Count occurrences of each value, then reconstruct in order.');
@@ -296,14 +309,14 @@
     var count = new Array(max - min + 1).fill(0);
     for (var i = 0; i < n; i++) {
       count[arr[i] - min]++;
-      yield step('compare', [i], 'Tally arr[' + i + ']=' + arr[i] + ' → count[' + (arr[i] - min) + ']=' + count[arr[i] - min], 'compare');
+      yield step('read', [i], 'Tally arr[' + i + ']=' + arr[i] + ' → count[' + (arr[i] - min) + ']=' + count[arr[i] - min], 'compare');
     }
     yield info('All values counted. Reconstructing sorted array from counts.');
     var idx = 0;
     for (var v = 0; v < count.length; v++) {
       while (count[v]-- > 0) {
         arr[idx] = v + min;
-        yield step('write', [idx], 'Place value ' + (v + min) + ' at position ' + idx, 'info');
+        yield wr(idx, v + min, 'Place value ' + (v + min) + ' at position ' + idx, 'info');
         idx++;
       }
     }
@@ -394,7 +407,7 @@
     selection: {
       name:    'Selection Sort',
       best:    'O(n²)', avg: 'O(n²)', worst: 'O(n²)', space: 'O(1)',
-      desc:    'Selection Sort finds the minimum element in the unsorted portion and places it at the front, extending the sorted prefix. Unlike bubble sort it always makes exactly n−1 swaps. Good when write operations are expensive, but does no better than O(n²) regardless of input order.',
+      desc:    'Selection Sort finds the minimum element in the unsorted portion and places it at the front, extending the sorted prefix. Unlike bubble sort it makes at most n−1 swaps. Good when write operations are expensive, but does no better than O(n²) regardless of input order.',
       gen:     selectionSort
     },
     insertion: {

@@ -42,7 +42,8 @@ canvas {
   pointer-events: none;
   z-index: 1000;
   transform: translate(-50%, -50%);
-  transition: width 0.2s, height 0.2s, background 0.2s;
+  transition: width 0.2s, height 0.2s, background 0.2s, opacity 0.2s;
+  opacity: 0;            /* revealed by JS on first mousemove, so no stray dot at 0,0 */
 }
 #cursor-ring {
   position: fixed;
@@ -52,8 +53,10 @@ canvas {
   pointer-events: none;
   z-index: 999;
   transform: translate(-50%, -50%);
-  transition: width 0.25s, height 0.25s, border-color 0.2s;
+  transition: width 0.25s, height 0.25s, border-color 0.2s, opacity 0.2s;
+  opacity: 0;
 }
+#cursor.visible, #cursor-ring.visible { opacity: 1; }
 #cursor.attract   { background: var(--accent2); width: 12px; height: 12px; }
 #cursor-ring.attract { border-color: rgba(58, 143, 245, 0.5); width: 44px; height: 44px; }
 
@@ -194,6 +197,7 @@ canvas {
 .word-row { display: flex; gap: 8px; }
 #word-input {
   flex: 1;
+  min-width: 0;          /* let the input shrink so the row never overflows at 360px */
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border);
   border-radius: 100px;
@@ -209,6 +213,7 @@ canvas {
 }
 #word-input::placeholder { color: var(--muted); }
 #word-input:focus { border-color: rgba(232, 84, 26, 0.4); }
+#word-input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(232, 84, 26, 0.25); }
 
 /* Buttons */
 .btn-row {
@@ -250,6 +255,10 @@ canvas {
 }
 .swatch {
   /* Larger visual + invisible hit-area padding for touch */
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0;
+  flex-shrink: 0;
   width: 16px; height: 16px;
   border-radius: 50%;
   cursor: pointer;
@@ -266,6 +275,56 @@ canvas {
 }
 .swatch:hover  { transform: scale(1.2); }
 .swatch.active { border-color: rgba(255, 255, 255, 0.55); }
+
+/* ── Keyboard focus ── */
+.mode-btn:focus-visible,
+.panel-btn:focus-visible,
+.swatch:focus-visible,
+#back-link:focus-visible {
+  outline: 2px solid var(--accent2);
+  outline-offset: 2px;
+}
+.slider-row input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent2);
+  outline-offset: 6px;
+  border-radius: 2px;
+}
+.mode-btn:focus:not(:focus-visible),
+.panel-btn:focus:not(:focus-visible),
+.swatch:focus:not(:focus-visible) { outline: none; }
+
+/* ── Back link ── */
+#back-link {
+  position: fixed;
+  top: 28px; left: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  z-index: 110;
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+#back-link:hover { color: var(--text); border-color: rgba(255, 255, 255, 0.18); }
+/* Icon-only on narrow screens so it never collides with the centred mode bar */
+@media (max-width: 640px) {
+  #back-link { top: 28px; left: 12px; padding: 0 13px; }
+  #back-link .back-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@media (max-height: 600px) {
+  #back-link { top: 14px; }
+}
 
 /* Hint label */
 .hint-label {
@@ -287,8 +346,8 @@ canvas {
   z-index: 100;
 }
 
-/* Hide stats on very narrow screens to save space */
-@media (max-width: 360px) {
+/* Hide stats on narrow screens: they sit on top of the formed word */
+@media (max-width: 480px) {
   #status { display: none; }
 }
 
@@ -332,4 +391,14 @@ canvas {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.12);
+}
+/* Shrink the mode bar a touch on very narrow phones */
+@media (max-width: 380px) {
+  .mode-btn { padding: 7px 16px; }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+  .panel-btn:hover { transform: none; }
 }

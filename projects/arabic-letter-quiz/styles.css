@@ -1,10 +1,20 @@
 /* ── Question card ── */
 .question-card {
   display: flex;
+  flex-direction: column;
+  gap: 12px;
   align-items: center;
   justify-content: center;
   padding: 40px;
   min-height: 200px;
+}
+
+.question-prompt {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
 
 .letter-display {
@@ -30,16 +40,38 @@
   background: var(--surface-card);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 16px 36px;
+  min-height: 52px;
   text-align: center;
   cursor: pointer;
   transition: all 0.18s var(--ease);
+  position: relative;
+  animation: fadeUp 0.25s var(--ease) both;
 }
+/* Small keyboard-shortcut number in the corner */
+.answer-btn::before {
+  content: attr(data-key);
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  font-size: 0.68rem;
+  color: var(--ink-faint);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  width: 18px;
+  height: 18px;
+  line-height: 16px;
+}
+.answer-btn:nth-child(2) { animation-delay: 0.04s; }
+.answer-btn:nth-child(3) { animation-delay: 0.08s; }
+.answer-btn:nth-child(4) { animation-delay: 0.12s; }
 .answer-btn:hover:not(:disabled) {
   background: var(--surface-hover);
   border-color: var(--ink);
 }
 .answer-btn:disabled { cursor: default; }
+.answer-btn:disabled:not(.correct):not(.wrong) { opacity: 0.55; }
 
 .answer-btn.correct {
   background: var(--correct-light);
@@ -51,6 +83,44 @@
   background: var(--wrong-light);
   border-color: var(--wrong);
   color: var(--wrong);
+}
+
+/* ── Feedback row ── */
+.quiz-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+}
+.feedback {
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+}
+.feedback.is-correct { color: var(--correct); }
+.feedback.is-wrong   { color: var(--wrong); }
+
+.kbd-hint {
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+  text-align: right;
+}
+.kbd-hint kbd {
+  font-family: inherit;
+  font-size: 0.7rem;
+  padding: 0 5px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface-card);
+}
+
+.empty-msg {
+  grid-column: 1 / -1;
+  font-size: 0.9rem;
+  color: var(--ink-faint);
+  text-align: center;
+  padding: 16px 0;
 }
 
 /* ── Score sidebar ── */
@@ -119,6 +189,11 @@
 }
 
 /* ── Mobile ── */
-@media (max-width: 480px) {
-  .answers-grid { grid-template-columns: 1fr 1fr; }
+@media (max-width: 680px) {
+  .question-card { padding: 28px 20px; min-height: 170px; }
+  .kbd-hint { display: none; } /* touch devices rarely have number keys */
+}
+@media (max-width: 380px) {
+  .answer-btn { padding: 14px 30px; font-size: 0.85rem; }
+  .complete-banner { flex-wrap: wrap; }
 }

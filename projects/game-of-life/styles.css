@@ -47,6 +47,7 @@ html, body {
   top: 0; left: 0;
   /* Width/height set by JS. Default occupies full viewport. */
   cursor: crosshair;
+  image-rendering: pixelated;
   touch-action: none; /* Canvas handles all its own touch events */
   -webkit-mask-image: radial-gradient(ellipse 95% 90% at 50% 50%, black 60%, transparent 100%);
   mask-image:         radial-gradient(ellipse 95% 90% at 50% 50%, black 60%, transparent 100%);
@@ -123,9 +124,26 @@ html, body {
   pointer-events: none;
 }
 
-#title { display: flex; align-items: baseline; gap: 12px; }
+#title { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+
+#backLink {
+  pointer-events: auto; /* topbar itself ignores the pointer */
+  align-self: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 4px 9px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: rgba(7,11,9,0.6);
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+#backLink:hover { color: var(--phosphor); border-color: var(--seg-active-border); }
 
 .title-main {
+  font-weight: 400;
   font-family: var(--font-serif);
   font-style: italic;
   font-size: 1.15rem;
@@ -468,6 +486,13 @@ html, body {
   overflow: hidden;
 }
 
+/* Closed sheet: push it below the bar too (translateY(100%) alone left it
+   sitting on top of the bar, z 40 > 30) and hide it from tab order / AT. */
+#sheet:not(.open) {
+  transform: translateY(calc(100% + var(--bar-h)));
+  visibility: hidden;
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.32s;
+}
 #sheet.open { transform: translateY(0); }
 
 #sheetHandle {
@@ -638,6 +663,13 @@ html, body {
   text-align: right;
 }
 
+/* ── Keyboard focus ── */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--phosphor);
+  outline-offset: 2px;
+}
+
 /* ── Animations ── */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
@@ -658,6 +690,29 @@ html, body {
   .desktop-only { display: none !important; }
   .mobile-only  { display: block; }
   #keyhints     { display: none; }
+}
+
+/* Narrow phones: the bar was ~450px wide and pushed Settings off-screen */
+@media (max-width: 420px) {
+  #topbar     { padding: 10px 12px; }
+  #title      { gap: 8px; }
+  .back-text  { display: none; }
+  .title-rule { display: none; }
+  .stat-fps   { display: none; }
+  #mobileBar  { padding: 0 8px; gap: 4px; }
+  .mbar-group { gap: 4px; }
+  .mbar-label { display: none; }
+  .mbar-btn   { width: 40px; height: 40px; }
+  .speed-dots { gap: 2px; }
+  .sdot       { width: 20px; height: 32px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+  }
 }
 
 @media (min-width: 769px) {

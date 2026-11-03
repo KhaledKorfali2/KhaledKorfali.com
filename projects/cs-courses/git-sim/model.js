@@ -76,18 +76,26 @@ window.GitModel = (function () {
     return matches.length === 1 ? repo.commits[matches[0]] : (matches.length > 1 ? "ambiguous" : null);
   }
 
+  // Supports NAME, HASH-PREFIX, HEAD, and any chain of ~N / ~ / ^ / ^N
+  // suffixes (HEAD~2, main^, HEAD^^, feature~1^2), same as git rev-parse.
   function resolveRef(repo, ref) {
-    const m = ref.match(/^(.*?)~(\d+)$/);
-    if (m) {
+    if (typeof ref !== "string" || !ref) return null;
+    const m = ref.match(/^(.*?)([~^]\d*)$/);
+    if (m && m[1] !== undefined && (m[1] || ref[0] === "~" || ref[0] === "^")) {
       let hash = resolveRef(repo, m[1] || "HEAD");
       if (!hash || hash === "ambiguous") return hash;
-      let n = parseInt(m[2], 10);
-      while (n-- > 0) {
-        const c = repo.commits[hash];
-        if (!c || !c.parents.length) return null;
-        hash = c.parents[0];
+      const n = m[2].length > 1 ? parseInt(m[2].slice(1), 10) : 1;
+      if (m[2][0] === "~") {
+        for (let i = 0; i < n; i++) {
+          const c = repo.commits[hash];
+          if (!c || !c.parents.length) return null;
+          hash = c.parents[0];
+        }
+        return hash;
       }
-      return hash;
+      if (n === 0) return hash;
+      const c = repo.commits[hash];
+      return c && c.parents[n - 1] ? c.parents[n - 1] : null;
     }
     if (ref === "HEAD") return headHash(repo);
     if (repo.branches[ref]) return repo.branches[ref];

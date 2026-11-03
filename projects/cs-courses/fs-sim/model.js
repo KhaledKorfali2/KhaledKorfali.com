@@ -63,8 +63,8 @@ window.FsModel = (function () {
         mk("tmp", { type: "dir", perms: "rwxrwxrwx", owner: "root", group: "root", children: [
           mk("shared.log", { perms: "rw-rw-rw-", owner: "khaled", group: "khaled", size: 4096, mtime: "Jul 01 12:00" })
         ]}),
-        mk("proc", { type: "dir", perms: "dr-xr-xr-x", owner: "root", group: "root", children: [
-          mk("1", { type: "dir", perms: "dr-xr-xr-x", owner: "root", group: "root", children: [
+        mk("proc", { type: "dir", perms: "r-xr-xr-x", owner: "root", group: "root", children: [
+          mk("1", { type: "dir", perms: "r-xr-xr-x", owner: "root", group: "root", children: [
             mk("cwd", { type: "symlink", perms: "rwxrwxrwx", target: "/" }),
             mk("exe", { type: "symlink", perms: "rwxrwxrwx", target: "/usr/bin/init" })
           ]})
@@ -120,6 +120,7 @@ window.FsModel = (function () {
     const parts = splitPath(path);
     const recurse = (node, idx) => {
       if (idx === parts.length) return updater(node);
+      if (!node.children) return node; // path runs through a non-directory: nothing to update
       return { ...node, children: node.children.map((c) => c.name === parts[idx] ? recurse(c, idx + 1) : c) };
     };
     return recurse(root, 0);
@@ -132,11 +133,70 @@ window.FsModel = (function () {
     return acc;
   }
 
+  // Lexically collapse "." and ".." segments (and duplicate slashes) in an
+  // absolute path, the way the shell does for `cd ../docs`.
+  function normalizePath(p) {
+    const out = [];
+    for (const part of splitPath(p)) {
+      if (part === ".") continue;
+      if (part === "..") out.pop(); else out.push(part);
+    }
+    return "/" + out.join("/");
+  }
+
+  // Walks an absolute path the way the kernel does, following symlinks in
+  // every intermediate component (and in the final one too if followLast).
+  // Returns { path, node, error }: path is the canonical location of the
+  // entry (still set when only the LAST component is missing, so callers can
+  // create it there), node is null when nothing exists at that location.
+  function resolvePath(root, path, followLast, depth) {
+    depth = depth || 0;
+    if (depth > 40) return { path: null, node: null, error: "ELOOP" };
+    const parts = splitPath(normalizePath(path));
+    let curPath = "/", node = root;
+    for (let i = 0; i < parts.length; i++) {
+      const last = i === parts.length - 1;
+      if (node.type !== "dir") return { path: null, node: null, error: "ENOTDIR" };
+      const child = (node.children || []).find((c) => c.name === parts[i]);
+      const childPath = joinPath(curPath, parts[i]);
+      if (!child) return last ? { path: childPath, node: null, error: "ENOENT" } : { path: null, node: null, error: "ENOENT" };
+      if (child.type === "symlink" && (!last || followLast)) {
+        const base = String(child.target || "").startsWith("/") ? child.target : joinPath(curPath, child.target || "");
+        const rest = parts.slice(i + 1).join("/");
+        return resolvePath(root, rest ? `${base}/${rest}` : base, followLast, depth + 1);
+      }
+      curPath = childPath; node = child;
+    }
+    return { path: curPath, node, error: null };
+  }
+
   function resolveTarget(root, fromPath, target) {
     if (!target) return null;
     const base = target.startsWith("/") ? target : joinPath(parentPath(fromPath) || "/", target);
-    return getNode(root, base) ? base : null;
+    const r = resolvePath(root, base, true);
+    return r.node ? r.path : null;
   }
+
+  // Hard links are several directory entries sharing one inode, so anything
+  // that lives on the inode (perms, owner, link count, size) has to change on
+  // every one of those entries at once — not just the name you touched.
+  function updateByInode(root, inode, updater) {
+    const walk = (node) => {
+      const updated = node.type !== "dir" && node.inode === inode ? updater(node) : node;
+      return updated.children ? { ...updated, children: updated.children.map(walk) } : updated;
+    };
+    return walk(root);
+  }
+
+  function nowStamp() {
+    const d = new Date();
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${months[d.getMonth()]} ${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  // A single directory-entry name: no slashes, not "." / "..", not empty.
+  const isValidName = (n) => typeof n === "string" && n.length > 0 && n.length <= 255 && n.indexOf("/") === -1 && n !== "." && n !== "..";
 
   function computeDirSize(node) {
     if (node.type !== "dir") return node.size;
@@ -159,6 +219,7 @@ window.FsModel = (function () {
     buildInitialFS, buildProcesses, buildMounts,
     splitPath, joinPath, parentPath, baseName,
     getNode, updateAtPath, flatten, resolveTarget, computeDirSize,
+    normalizePath, resolvePath, updateByInode, nowStamp, isValidName,
     octalToPerm, permToOctal, typeChar, fullPermString, fmtSize
   };
 })();

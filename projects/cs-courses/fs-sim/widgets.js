@@ -20,10 +20,10 @@ window.FsWidgets = (function () {
     const selected = state.selectedPath === path;
     const iconName = isDir ? (isOpen ? "folderOpen" : "folder") : node.type === "symlink" ? "fileSymlink" : "fileText";
     const iconClass = isDir ? "dir" : node.type === "symlink" ? "sym" : "file";
-    return `<div class="tree-row ${selected ? "selected" : ""}" data-select="${esc(path)}" draggable="true" data-drag-path="${esc(path)}" ${isDir ? `data-dropzone="${esc(path)}"` : ""}>
-      <span class="connector mono">${connector}</span>
-      ${isDir ? `<span class="caret" data-toggle="${esc(path)}">${icon(isOpen ? "chevronDown" : "chevronRight", 12)}</span>` : `<span class="caret spacer"></span>`}
-      <span class="${iconClass}">${icon(iconName, 14)}</span>
+    return `<div class="tree-row ${selected ? "selected" : ""}" data-select="${esc(path)}" role="treeitem" tabindex="0" aria-selected="${selected ? "true" : "false"}" ${isDir ? `aria-expanded="${isOpen ? "true" : "false"}"` : ""} aria-label="${esc(node.name || "/")}${node.type === "symlink" ? ", symbolic link" : isDir ? ", directory" : ""}" draggable="true" data-drag-path="${esc(path)}" ${isDir ? `data-dropzone="${esc(path)}"` : ""}>
+      <span class="connector mono" aria-hidden="true">${connector}</span>
+      ${isDir ? `<span class="caret" data-toggle="${esc(path)}" aria-hidden="true">${icon(isOpen ? "chevronDown" : "chevronRight", 12)}</span>` : `<span class="caret spacer"></span>`}
+      <span class="${iconClass}" aria-hidden="true">${icon(iconName, 14)}</span>
       <span class="name mono ${node.name.startsWith(".") ? "hidden-file" : ""}">${esc(node.name || "/")}</span>
       ${node.type === "symlink" ? `<span class="arrow-target mono">&rarr; ${esc(node.target)}</span>` : ""}
       ${node.links > 1 ? `<span class="pill teal">hardlink &times;${node.links}</span>` : ""}
@@ -78,8 +78,8 @@ window.FsWidgets = (function () {
     const state = ENGINE.state;
     return `<div class="explorer-grid">
       <div class="panel">
-        <div class="panel-header"><span class="title mono">${icon("compass", 15)} / — visual filesystem explorer</span><span class="mono" style="font-size:11px;color:var(--text-dim)">drag a node onto a folder to move it</span></div>
-        <div class="tree-scroll">${renderTree(state.fs)}</div>
+        <div class="panel-header"><span class="title mono">${icon("compass", 15)} / — visual filesystem explorer</span><span class="mono" style="font-size:11px;color:var(--text-dim)">drag a node onto a folder to move it (or use mv in the terminal)</span></div>
+        <div class="tree-scroll" role="tree" aria-label="Filesystem tree (arrow keys expand/collapse)">${renderTree(state.fs)}</div>
       </div>
       <div>${renderDetailPanel(state.selectedPath)}</div>
     </div>`;
@@ -87,7 +87,7 @@ window.FsWidgets = (function () {
 
   function renderExplorerEmbed() {
     const state = ENGINE.state;
-    return `<div class="panel"><div class="panel-header"><span class="title mono">${icon("compass", 15)} filesystem tree</span></div><div class="tree-scroll" style="max-height:260px">${renderTree(state.fs)}</div></div><div style="margin-top:10px">${renderDetailPanel(state.selectedPath)}</div>`;
+    return `<div class="panel"><div class="panel-header"><span class="title mono">${icon("compass", 15)} filesystem tree</span></div><div class="tree-scroll" style="max-height:260px" role="tree" aria-label="Filesystem tree (arrow keys expand/collapse)">${renderTree(state.fs)}</div></div><div style="margin-top:10px">${renderDetailPanel(state.selectedPath)}</div>`;
   }
 
   /* --------------------------------- Terminal --------------------------------- */
@@ -101,15 +101,16 @@ window.FsWidgets = (function () {
     const quick = ["ls -l", "mv notes.txt docs/", "chmod 700 secret.key", "ln -s notes.txt shortcut"];
     return `<div class="panel">
       <div class="panel-header"><span class="title mono">${icon("terminal", 15)} terminal</span><span class="pill accent mono">${esc(state.cwd)}</span></div>
-      <div id="term-history" class="terminal-body">
-        ${state.termHistory.map((h) => `<div class="term-line ${h.type} mono">${esc(h.text)}</div>`).join("")}
+      <div id="term-history" class="terminal-body" role="log" aria-label="Terminal output">
+        ${state.termHistory.map((h) => `<div class="term-line ${esc(h.type)} mono">${esc(h.text)}</div>`).join("")}
         <div class="term-prompt-row">
-          <span class="prompt mono">khaled@sim:${esc(state.cwd)}$</span>
-          <input id="term-input" type="text" autocomplete="off" spellcheck="false" />
-          <span class="blink mono" style="color:var(--accent)">&#9608;</span>
+          <label class="prompt mono" for="term-input">khaled@sim:${esc(state.cwd)}$</label>
+          <input id="term-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" />
+          <span class="blink mono" style="color:var(--accent)" aria-hidden="true">&#9608;</span>
         </div>
       </div>
-      <div class="term-quick">${quick.map((q) => `<button data-quickcmd="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+      <div class="term-quick" aria-label="Example commands">${quick.map((q) => `<button data-quickcmd="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+      <div class="term-hint">&uarr;/&darr; recall previous commands &middot; type <span style="color:var(--accent)">help</span> for the full list</div>
     </div>`;
   }
 
@@ -123,8 +124,8 @@ window.FsWidgets = (function () {
         ${bits.map((b, bi) => {
           const idx = g.off + bi;
           const on = perm9[idx] !== "-";
-          return `<div class="perm-bit" ${editable ? `data-permtoggle="${idx}"` : ""}>
-            <span class="box ${on ? "on" : ""}">${on ? icon("check", 11) : ""}</span>
+          return `<div class="perm-bit" ${editable ? `data-permtoggle="${idx}" role="checkbox" tabindex="0" aria-checked="${on ? "true" : "false"}" aria-label="${g.label} ${bitLabel[b]}"` : ""}>
+            <span class="box ${on ? "on" : ""}" aria-hidden="true">${on ? icon("check", 11) : ""}</span>
             <span style="color:${on ? "var(--text-primary)" : "var(--text-dim)"}">${bitLabel[b]}</span>
           </div>`;
         }).join("")}
@@ -134,6 +135,7 @@ window.FsWidgets = (function () {
   function renderPermissionsLab() {
     const state = ENGINE.state;
     const files = M.flatten(state.fs).filter((f) => f.path !== "/");
+    if (!files.length) return `<div class="panel"><div class="empty-hint">the filesystem is empty &mdash; create something in the terminal first</div></div>`;
     const path = (state.permDraft && M.getNode(state.fs, state.permDraft.path)) ? state.permDraft.path
       : (state.selectedPath && M.getNode(state.fs, state.selectedPath) ? state.selectedPath : files[0].path);
     const node = M.getNode(state.fs, path);
@@ -143,13 +145,14 @@ window.FsWidgets = (function () {
     return `<div class="panel">
       <div class="panel-header"><span class="title mono">${icon("lock", 15)} permissions visualizer</span></div>
       <div class="panel-body">
-        <select data-permpath>${files.map((f) => `<option value="${esc(f.path)}" ${f.path === path ? "selected" : ""}>${esc(f.path)}</option>`).join("")}</select>
+        <select data-permpath aria-label="File to inspect">${files.map((f) => `<option value="${esc(f.path)}" ${f.path === path ? "selected" : ""}>${esc(f.path)}</option>`).join("")}</select>
         <div style="height:14px"></div>
         ${renderPermBits(draft, true)}
         <div class="perm-apply-row">
           <div class="permline" style="margin:0">${M.typeChar(node)}${draft} <span style="color:var(--text-dim)">(${M.permToOctal(draft)})</span></div>
           <button class="btn accent" data-apply-chmod ${dirty ? "" : "disabled"}>Apply chmod ${M.permToOctal(draft)}</button>
         </div>
+        ${node.links > 1 && node.type !== "dir" ? `<p class="perm-note">This file has ${node.links} hard links. Permissions live on the inode, so applying here changes every name that shares inode ${node.inode}.</p>` : ""}
         <p class="perm-note">Toggle a bit to see the permission string and octal mode update live, exactly like editing the mode with <span class="mono">chmod</span>.</p>
       </div>
     </div>`;
@@ -186,13 +189,14 @@ window.FsWidgets = (function () {
   function renderInodeExplorer() {
     const state = ENGINE.state;
     const files = M.flatten(state.fs).filter((f) => f.path !== "/");
+    if (!files.length) return `<div class="panel"><div class="empty-hint">the filesystem is empty &mdash; create something in the terminal first</div></div>`;
     const path = state.selectedPath && M.getNode(state.fs, state.selectedPath) ? state.selectedPath : files[0].path;
     const node = M.getNode(state.fs, path);
     return `<div class="panel">
       <div class="panel-header"><span class="title mono">${icon("database", 15)} inode explorer</span></div>
       <div class="panel-body inode-grid">
         <div>
-          <select data-inodepath>${files.map((f) => `<option value="${esc(f.path)}" ${f.path === path ? "selected" : ""}>${esc(f.path)}</option>`).join("")}</select>
+          <select data-inodepath aria-label="File to inspect">${files.map((f) => `<option value="${esc(f.path)}" ${f.path === path ? "selected" : ""}>${esc(f.path)}</option>`).join("")}</select>
           <div class="info-grid" style="margin-top:14px">
             <div><span class="k">inode number</span><span class="v">${node.inode}</span></div>
             <div><span class="k">hard links</span><span class="v">${node.links}</span></div>
@@ -213,7 +217,9 @@ window.FsWidgets = (function () {
     const state = ENGINE.state;
     const files = M.flatten(state.fs).filter((f) => f.path !== "/");
     const dirs = M.flatten(state.fs).filter((f) => f.node.type === "dir");
-    if (!state.links.target) state.links.target = files[0].path;
+    if (!files.length) return `<div class="panel"><div class="empty-hint">the filesystem is empty &mdash; create something in the terminal first</div></div>`;
+    if (!state.links.target || !M.getNode(state.fs, state.links.target)) state.links.target = files[0].path;
+    if (!M.getNode(state.fs, state.links.dir)) state.links.dir = "/";
     const { target, dir, name, mode, msg } = state.links;
     const targetNode = M.getNode(state.fs, target);
     const visual = mode === "symbolic" ? `
@@ -236,19 +242,19 @@ window.FsWidgets = (function () {
       <div class="panel">
         <div class="panel-header"><span class="title mono">${icon("link2", 15)} links lab — create a link</span></div>
         <div class="panel-body">
-          <div class="mode-toggle">
-            <button data-linkmode="symbolic" class="${mode === "symbolic" ? "active" : ""}">Symbolic link</button>
-            <button data-linkmode="hard" class="${mode === "hard" ? "active" : ""}">Hard link</button>
+          <div class="mode-toggle" role="group" aria-label="Link type">
+            <button data-linkmode="symbolic" class="${mode === "symbolic" ? "active" : ""}" aria-pressed="${mode === "symbolic"}">Symbolic link</button>
+            <button data-linkmode="hard" class="${mode === "hard" ? "active" : ""}" aria-pressed="${mode === "hard"}">Hard link</button>
           </div>
-          <label class="field-label mono">target</label>
-          <select data-linktarget>${files.map((f) => `<option value="${esc(f.path)}" ${f.path === target ? "selected" : ""}>${esc(f.path)}</option>`).join("")}</select>
-          <label class="field-label mono">create in directory</label>
-          <select data-linkdir>${dirs.map((f) => `<option value="${esc(f.path)}" ${f.path === dir ? "selected" : ""}>${esc(f.path)}</option>`).join("")}</select>
-          <label class="field-label mono">link name</label>
-          <input type="text" id="link-name-input" value="${esc(name)}" />
+          <label class="field-label mono" for="link-target-select">target</label>
+          <select data-linktarget id="link-target-select">${files.map((f) => `<option value="${esc(f.path)}" ${f.path === target ? "selected" : ""}>${esc(f.path)}</option>`).join("")}</select>
+          <label class="field-label mono" for="link-dir-select">create in directory</label>
+          <select data-linkdir id="link-dir-select">${dirs.map((f) => `<option value="${esc(f.path)}" ${f.path === dir ? "selected" : ""}>${esc(f.path)}</option>`).join("")}</select>
+          <label class="field-label mono" for="link-name-input">link name</label>
+          <input type="text" id="link-name-input" value="${esc(name)}" autocomplete="off" spellcheck="false" />
           <div style="height:14px"></div>
           <button class="btn accent block" data-createlink>Create ${mode} link</button>
-          ${msg ? `<div class="links-msg mono" style="background:${msg.ok ? "var(--teal-soft)" : "var(--coral-soft)"};color:${msg.ok ? "var(--teal)" : "var(--coral)"}">${esc(msg.text)}</div>` : ""}
+          ${msg ? `<div class="links-msg mono" role="status" style="background:${msg.ok ? "var(--teal-soft)" : "var(--coral-soft)"};color:${msg.ok ? "var(--teal)" : "var(--coral)"}">${esc(msg.text)}</div>` : ""}
         </div>
       </div>
       <div class="panel"><div class="links-visual">${visual}</div></div>
@@ -266,7 +272,7 @@ window.FsWidgets = (function () {
       <div class="panel-header"><span class="title mono">${icon("cpu", 15)} process &amp; file descriptor lab</span></div>
       <div class="panel-body fd-grid">
         <div class="proc-list">
-          ${state.processes.map((p) => `<div class="proc-card ${p.pid === selPid ? "selected" : ""} ${orphanSet.has(p.pid) ? "orphan" : ""}" data-selectproc="${p.pid}">
+          ${state.processes.map((p) => `<div class="proc-card ${p.pid === selPid ? "selected" : ""} ${orphanSet.has(p.pid) ? "orphan" : ""}" data-selectproc="${p.pid}" role="button" tabindex="0" aria-pressed="${p.pid === selPid ? "true" : "false"}">
             <div><span class="pid">pid ${p.pid}</span></div>
             <div>${esc(p.name)}</div>
             <div style="color:var(--text-dim)">ppid: ${p.ppid === null ? "—" : p.ppid}${orphanSet.has(p.pid) ? " ⚠" : ""}</div>
@@ -276,14 +282,14 @@ window.FsWidgets = (function () {
           <table class="fd-table">
             <thead><tr><th>fd</th><th>points to</th><th></th></tr></thead>
             <tbody>
-              ${proc.fds.length ? proc.fds.map((f) => `<tr><td>${f.fd}</td><td>${esc(f.target)}</td><td><button data-dupfd="${f.fd}">duplicate</button><button data-closefd="${f.fd}">close</button></td></tr>`).join("") : `<tr><td colspan="3" style="color:var(--text-dim)">no open descriptors</td></tr>`}
+              ${proc.fds.length ? proc.fds.map((f) => `<tr><td>${f.fd}</td><td>${esc(f.target)}</td><td><button data-dupfd="${f.fd}" aria-label="duplicate fd ${f.fd}">duplicate</button><button data-closefd="${f.fd}" aria-label="close fd ${f.fd}">close</button></td></tr>`).join("") : `<tr><td colspan="3" style="color:var(--text-dim)">no open descriptors</td></tr>`}
             </tbody>
           </table>
           <div class="fd-controls">
-            <select data-fdopenpath>${files.map((f) => `<option value="${esc(f.path)}">${esc(f.path)}</option>`).join("")}</select>
+            <select data-fdopenpath aria-label="File to open">${files.map((f) => `<option value="${esc(f.path)}">${esc(f.path)}</option>`).join("")}</select>
             <button class="btn accent" data-openfd>Open file &rarr; new fd</button>
           </div>
-          <p class="perm-note">Every open file gets a small integer handle (a file descriptor) that belongs to this process. fd 0, 1, and 2 are reserved by convention for input, output, and errors.</p>
+          <p class="perm-note">Every open file gets a small integer handle (a file descriptor) that belongs to this process. fd 0, 1, and 2 are reserved by convention for input, output, and errors. A new descriptor always gets the <b>lowest free number</b> &mdash; close fd 1 and the next open() reuses it.</p>
         </div>
       </div>
     </div>`;
@@ -304,7 +310,7 @@ window.FsWidgets = (function () {
               <span class="mono" style="color:var(--text-dim)">${esc(m.device)} &middot; ${esc(m.fstype)}${m.virtual ? " &middot; virtual" : ""}</span>
               ${(!m.virtual && m.point !== "/") ? `<button class="btn" data-unmount="${esc(m.point)}">unmount</button>` : ""}
             </div>
-            ${!m.virtual ? `<div class="mount-usage-bar"><div style="width:${Math.round((m.used / m.total) * 100)}%"></div></div>
+            ${!m.virtual ? `<div class="mount-usage-bar" role="img" aria-label="${Math.round((m.used / m.total) * 100)}% used"><div style="width:${Math.round((m.used / m.total) * 100)}%"></div></div>
               <div class="mono" style="font-size:11px;color:var(--text-dim);margin-top:4px">${M.fmtSize(m.used)} used of ${M.fmtSize(m.total)}</div>`
               : `<div class="mono" style="font-size:11px;color:var(--text-dim)">generated by the kernel, not stored on disk</div>`}
           </div>`).join("")}
@@ -314,10 +320,11 @@ window.FsWidgets = (function () {
         ${unmounted.length ? unmounted.map((d) => `<div class="device-card">
           <span>${esc(d.label)} — ${esc(d.device)} (${esc(d.fstype)}, ${M.fmtSize(d.total)})</span>
           <span style="display:flex;gap:6px;align-items:center">
-            <input type="text" id="mount-point-${esc(d.id)}" placeholder="/mnt/usb" style="width:140px" />
+            <input type="text" id="mount-point-${esc(d.id)}" placeholder="/mnt/usb" style="width:140px" aria-label="Mount point for ${esc(d.device)}" autocomplete="off" spellcheck="false" />
             <button class="btn accent" data-mountdevice="${esc(d.id)}">mount</button>
           </span>
         </div>`).join("") : `<p class="perm-note">No unmounted devices right now — unmount one above to make it available again.</p>`}
+        ${state.mountMsg ? `<div class="form-msg ${state.mountMsg.ok ? "ok" : "err"}" role="status">${esc(state.mountMsg.text)}</div>` : ""}
         <p class="perm-note">Mounting attaches a filesystem to a directory. Until then, that device isn't reachable through the tree at all.</p>
       </div>
     </div>`;
@@ -393,9 +400,9 @@ window.FsWidgets = (function () {
           return `<div class="panel challenge-card">
             <div class="challenge-title">${icon("trophy", 14)} ${esc(item.title)}</div>
             <div class="challenge-hint">${esc(item.hint)}</div>
-            <select data-challengesel="${item.key}"><option value="">choose…</option>${options}</select>
+            <select data-challengesel="${item.key}" aria-label="Answer for: ${esc(item.title)}"><option value="">choose…</option>${options}</select>
             <button class="btn" data-challengecheck="${item.key}">Check answer</button>
-            ${result !== undefined ? `<div class="challenge-result mono" style="background:${result ? "var(--teal-soft)" : "var(--coral-soft)"};color:${result ? "var(--teal)" : "var(--coral)"}">${icon(result ? "check" : "x", 12)} ${result ? "Correct." : "Not quite — try again."}</div>` : ""}
+            ${result !== undefined ? `<div class="challenge-result mono" role="status" style="background:${result ? "var(--teal-soft)" : "var(--coral-soft)"};color:${result ? "var(--teal)" : "var(--coral)"}">${icon(result ? "check" : "x", 12)} ${result ? "Correct." : "Not quite — try again."}</div>` : ""}
           </div>`;
         }).join("")}
       </div></div>
@@ -433,7 +440,9 @@ window.FsWidgets = (function () {
     window.FsTerminal.init(engine);
     const Actions = window.Actions;
     const state = () => ENGINE.state;
-    const selectedProc = () => state().processes.find((p) => p.pid === (state().selectedProcess || state().processes[0].pid));
+    const selectedProc = () => state().processes.find((p) => p.pid === (state().selectedProcess || state().processes[0].pid)) || state().processes[0];
+    // POSIX: open()/dup() always hand back the LOWEST unused descriptor number.
+    const lowestFreeFd = (proc) => { let n = 0; while (proc.fds.some((f) => f.fd === n)) n++; return n; };
 
     Actions.register("click", "[data-toggle]", (el) => { const p = el.getAttribute("data-toggle"); state().expanded[p] = !state().expanded[p]; ENGINE.render(); });
     Actions.register("click", "[data-select]", (el) => { state().selectedPath = el.getAttribute("data-select"); ENGINE.render(); });
@@ -444,11 +453,35 @@ window.FsWidgets = (function () {
       state()._focusSelector = "#term-input";
       ENGINE.render();
     });
-    Actions.register("keydown", (target, e) => (target.id === "term-input" && e.key === "Enter" ? target : null), (el) => {
+    Actions.register("keydown", (target, e) => (target.id === "term-input" && e.key === "Enter" && !e.isComposing ? target : null), (el) => {
       window.FsTerminal.runCommand(el.value);
       el.value = "";
+      historyIdx = null;
       state()._stickToBottomSelectors = ["#term-history"];
       state()._focusSelector = "#term-input";
+      ENGINE.render();
+    });
+    // Up/Down walk back through previously-run commands, like a real shell.
+    let historyIdx = null;
+    Actions.register("keydown", (target, e) => (target.id === "term-input" && (e.key === "ArrowUp" || e.key === "ArrowDown") ? target : null), (el, e) => {
+      const past = state().termHistory.filter((h) => h.type === "cmd" && h.raw).map((h) => h.raw);
+      if (!past.length) return;
+      e.preventDefault();
+      if (historyIdx === null) historyIdx = past.length;
+      historyIdx = Math.max(0, Math.min(past.length, historyIdx + (e.key === "ArrowUp" ? -1 : 1)));
+      el.value = historyIdx === past.length ? "" : past[historyIdx];
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+    // Tree keyboard support: Right expands a folder, Left collapses it.
+    Actions.register("keydown", (target, e) => (target.getAttribute && target.getAttribute("role") === "treeitem" && (e.key === "ArrowRight" || e.key === "ArrowLeft") ? target : null), (el, e) => {
+      const p = el.getAttribute("data-select");
+      const node = M.getNode(state().fs, p);
+      if (!node || node.type !== "dir") return;
+      e.preventDefault();
+      const open = e.key === "ArrowRight";
+      if (!!state().expanded[p] === open) return;
+      state().expanded[p] = open;
+      state()._focusSelector = `[data-select="${window.CSS && CSS.escape ? CSS.escape(p) : p}"]`;
       ENGINE.render();
     });
     Actions.register("click", "#term-history", () => {
@@ -465,7 +498,13 @@ window.FsWidgets = (function () {
       ENGINE.render();
     });
     Actions.register("click", "[data-apply-chmod]", () => {
-      state().fs = M.updateAtPath(state().fs, state().permDraft.path, (n) => ({ ...n, perms: state().permDraft.perm }));
+      const s = state();
+      const node = s.permDraft && M.getNode(s.fs, s.permDraft.path);
+      if (!node) return;
+      // Mode bits belong to the inode: every hard link to this file changes too.
+      s.fs = node.type === "dir"
+        ? M.updateAtPath(s.fs, s.permDraft.path, (n) => ({ ...n, perms: s.permDraft.perm }))
+        : M.updateByInode(s.fs, node.inode, (n) => ({ ...n, perms: s.permDraft.perm }));
       ENGINE.render();
     });
     Actions.register("change", "[data-permpath]", (el) => { state().permDraft = null; state().selectedPath = el.value; ENGINE.render(); });
@@ -477,61 +516,68 @@ window.FsWidgets = (function () {
     Actions.register("input", "#link-name-input", (el) => { state().links.name = el.value; });
     Actions.register("click", "[data-createlink]", () => {
       const s = state();
-      const { target, dir, name, mode } = s.links;
+      const { target, dir, mode } = s.links;
+      const name = String(s.links.name || "").trim();
       const targetNode = M.getNode(s.fs, target);
+      const dirNode = M.getNode(s.fs, dir);
       const destPath = M.joinPath(dir, name);
-      if (!name) { s.links.msg = { ok: false, text: "Give the link a name." }; ENGINE.render(); return; }
-      if (M.getNode(s.fs, destPath)) { s.links.msg = { ok: false, text: `'${name}' already exists there.` }; ENGINE.render(); return; }
+      const done = (ok, text) => { s.links.msg = { ok, text }; ENGINE.render(); };
+      if (!name) return done(false, "Give the link a name.");
+      if (!M.isValidName(name)) return done(false, "A name can't contain '/' or be '.' or '..'.");
+      if (!dirNode || dirNode.type !== "dir") return done(false, "That directory no longer exists.");
+      if (!targetNode) return done(false, "That target no longer exists.");
+      if (M.getNode(s.fs, destPath)) return done(false, `'${name}' already exists there.`);
       if (mode === "symbolic") {
-        const linkNode = M.mk(name, { type: "symlink", perms: "rwxrwxrwx", size: target.length, target });
+        const linkNode = M.mk(name, { type: "symlink", perms: "rwxrwxrwx", size: target.length, target, mtime: M.nowStamp() });
         s.fs = M.updateAtPath(s.fs, dir, (p) => ({ ...p, children: [...p.children, linkNode] }));
-        s.links.msg = { ok: true, text: `Created symlink ${destPath} → ${target}` };
-      } else {
-        if (targetNode.type === "dir") { s.links.msg = { ok: false, text: "Hard links can't point at directories." }; ENGINE.render(); return; }
-        let nf = M.updateAtPath(s.fs, target, (n) => ({ ...n, links: n.links + 1 }));
-        const linkNode = { ...targetNode, name, links: targetNode.links + 1 };
-        nf = M.updateAtPath(nf, dir, (p) => ({ ...p, children: [...p.children, linkNode] }));
-        s.fs = nf;
-        s.links.msg = { ok: true, text: `Created hard link ${destPath}, sharing inode ${targetNode.inode}` };
+        return done(true, `Created symlink ${destPath} → ${target}`);
       }
-      ENGINE.render();
+      if (targetNode.type === "dir") return done(false, "Hard links can't point at directories.");
+      // Every existing name for this inode gets the new link count too.
+      let nf = M.updateByInode(s.fs, targetNode.inode, (n) => ({ ...n, links: n.links + 1 }));
+      nf = M.updateAtPath(nf, dir, (p) => ({ ...p, children: [...p.children, { ...targetNode, name, links: targetNode.links + 1 }] }));
+      s.fs = nf;
+      done(true, `Created hard link ${destPath}, sharing inode ${targetNode.inode}`);
     });
 
     Actions.register("click", "[data-selectproc]", (el) => { state().selectedProcess = parseInt(el.getAttribute("data-selectproc"), 10); ENGINE.render(); });
     Actions.register("click", "[data-openfd]", () => {
       const sel = document.querySelector("[data-fdopenpath]");
       const proc = selectedProc();
-      if (sel && proc) { const maxFd = proc.fds.length ? Math.max(...proc.fds.map((f) => f.fd)) : -1; proc.fds.push({ fd: maxFd + 1, target: sel.value }); }
+      if (sel && sel.value && proc) { proc.fds.push({ fd: lowestFreeFd(proc), target: sel.value }); proc.fds.sort((a, b) => a.fd - b.fd); }
       ENGINE.render();
     });
     Actions.register("click", "[data-dupfd]", (el) => {
       const fd = parseInt(el.getAttribute("data-dupfd"), 10);
       const proc = selectedProc();
       const entry = proc.fds.find((f) => f.fd === fd);
-      if (entry) { const maxFd = Math.max(...proc.fds.map((f) => f.fd)); proc.fds.push({ fd: maxFd + 1, target: entry.target }); }
+      if (entry) { proc.fds.push({ fd: lowestFreeFd(proc), target: entry.target }); proc.fds.sort((a, b) => a.fd - b.fd); }
       ENGINE.render();
     });
     Actions.register("click", "[data-closefd]", (el) => {
       const fd = parseInt(el.getAttribute("data-closefd"), 10);
       const proc = selectedProc();
-      proc.fds = proc.fds.filter((f) => f.fd !== fd);
+      if (proc) proc.fds = proc.fds.filter((f) => f.fd !== fd);
       ENGINE.render();
     });
 
     Actions.register("click", "[data-mountdevice]", (el) => {
       const id = el.getAttribute("data-mountdevice");
       const input = document.getElementById(`mount-point-${id}`);
-      const val = input ? input.value.trim() : "";
-      if (!val || !val.startsWith("/")) return;
-      if (state().mounts.some((d) => d.point === val)) return;
+      const val = input ? M.normalizePath(input.value.trim() || "/").replace(/(.)\/$/, "$1") : "";
+      const say = (ok, text) => { state().mountMsg = { ok, text }; ENGINE.render(); };
+      if (!input || !input.value.trim().startsWith("/")) return say(false, "mount: the mount point must be an absolute path, e.g. /mnt/usb");
+      if (val === "/") return say(false, "mount: / is already the root filesystem");
+      if (state().mounts.some((d) => d.point === val)) return say(false, `mount: ${val}: something is already mounted there`);
       const dev = state().mounts.find((d) => d.id === id);
-      if (dev) dev.point = val;
-      ENGINE.render();
+      if (!dev) return;
+      dev.point = val;
+      say(true, `mounted ${dev.device} on ${val} — its files now appear under that directory`);
     });
     Actions.register("click", "[data-unmount]", (el) => {
       const point = el.getAttribute("data-unmount");
       const dev = state().mounts.find((d) => d.point === point);
-      if (dev && !dev.virtual && dev.point !== "/") dev.point = null;
+      if (dev && !dev.virtual && dev.point !== "/") { dev.point = null; state().mountMsg = { ok: true, text: `unmounted ${dev.device} from ${point}` }; }
       ENGINE.render();
     });
 
@@ -542,6 +588,7 @@ window.FsWidgets = (function () {
       const key = el.getAttribute("data-challengecheck");
       const item = challengeItems().find((i) => i.key === key);
       const ans = state().challengeAnswers[key];
+      if (!item) return;
       state().challengeResult[key] = ans !== undefined && ans !== "" && ans === item.answer;
       ENGINE.render();
     });
@@ -573,11 +620,16 @@ window.FsWidgets = (function () {
       if (!srcNode) return;
       const oldParent = M.parentPath(srcPath);
       if (oldParent === destDir) return;
+      const destNode = M.getNode(s.fs, destDir);
+      // Never silently clobber something already sitting at the destination.
+      if (!destNode || destNode.type !== "dir" || destNode.children.some((c) => c.name === srcNode.name)) return;
       let nf = M.updateAtPath(s.fs, oldParent, (p) => ({ ...p, children: p.children.filter((c) => c.name !== srcNode.name) }));
-      nf = M.updateAtPath(nf, destDir, (p) => ({ ...p, children: [...p.children.filter((c) => c.name !== srcNode.name), srcNode] }));
+      nf = M.updateAtPath(nf, destDir, (p) => ({ ...p, children: [...p.children, srcNode] }));
       s.fs = nf;
       s.expanded[destDir] = true;
-      s.selectedPath = M.joinPath(destDir, srcNode.name);
+      const newPath = M.joinPath(destDir, srcNode.name);
+      s.selectedPath = newPath;
+      if ((s.cwd + "/").startsWith(srcPath + "/")) s.cwd = newPath + s.cwd.slice(srcPath.length);
       ENGINE.render();
     });
   }

@@ -92,9 +92,15 @@ window.Curriculum = (function () {
       course.forEach((m) => { m.lessons.forEach((l) => { t += l.subsections.length; }); if (m.checkpoint) t += 1; });
       return t;
     }
+    // Counted against the CURRENT course shape rather than whatever keys are
+    // sitting in the saved state, so a stale key from an older course layout
+    // can never push progress past 100%.
     function completedUnitsCount() {
-      let c = Object.values(engine.state.completed).filter(Boolean).length;
-      c += Object.values(engine.state.checkpointPassed).filter(Boolean).length;
+      let c = 0;
+      course.forEach((m) => {
+        m.lessons.forEach((l) => l.subsections.forEach((s) => { if (engine.state.completed[`${m.id}:${l.id}:${s.id}`]) c++; }));
+        if (m.checkpoint && engine.state.checkpointPassed[m.id]) c++;
+      });
       return c;
     }
     function flatLessons() {
@@ -145,8 +151,18 @@ window.Curriculum = (function () {
     function saveProgress() { window.Persistence.save(storageKey, engine.state); }
     function loadProgress() {
       const saved = window.Persistence.load(storageKey);
-      if (!saved) return false;
+      if (!saved || typeof saved !== "object" || Array.isArray(saved)) return false;
       let merged = { ...createInitialState(), ...saved };
+      // Hand-edited or corrupted saves: every curriculum bookkeeping field must
+      // be a plain object, and the current module/lesson must still exist.
+      const defaults = curriculumDefaults();
+      ["sidebarOpen", "completed", "quizAnswers", "quizChecked", "checkpointPassed"].forEach((k) => {
+        if (!merged[k] || typeof merged[k] !== "object" || Array.isArray(merged[k])) merged[k] = {};
+      });
+      const curMod = findModule(merged.currentModuleId);
+      if (!curMod) { merged.currentModuleId = defaults.currentModuleId; merged.currentLessonId = defaults.currentLessonId; }
+      if (["home", "lessons", "sandbox"].indexOf(merged.mode) === -1) merged.mode = "home";
+      merged._stickToBottomSelectors = null; merged._focusSelector = null; merged._skipWindowScrollRestore = false;
       // Saved state can predate schema changes the host project has made since
       // (new nested fields added to a domain object, etc). A blind shallow merge
       // leaves those fields entirely missing rather than defaulted, which crashes
@@ -173,7 +189,7 @@ window.Curriculum = (function () {
     /* ----------------------------------- render ----------------------------------- */
     function renderProgressRing(pct) {
       const r = 27, circ = 2 * Math.PI * r, offset = circ * (1 - pct / 100);
-      return `<div class="progress-ring"><svg width="64" height="64"><circle class="track" cx="32" cy="32" r="${r}"/><circle class="fill" cx="32" cy="32" r="${r}" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"/></svg><div class="label mono">${pct}%</div></div>`;
+      return `<div class="progress-ring" role="img" aria-label="${pct}% complete"><svg width="64" height="64" aria-hidden="true"><circle class="track" cx="32" cy="32" r="${r}"/><circle class="fill" cx="32" cy="32" r="${r}" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"/></svg><div class="label mono" aria-hidden="true">${pct}%</div></div>`;
     }
 
     function renderHomeView() {
@@ -210,7 +226,7 @@ window.Curriculum = (function () {
             const lockMsg = mod.optional && mod.unlockAfter
               ? `Locked — finish ${esc((findModule(mod.unlockAfter) || {}).title || "a prior module")} first`
               : "Locked — finish the previous module";
-            return `<div class="panel card" style="${unlocked ? "" : "opacity:.5;cursor:not-allowed"}" ${unlocked ? `data-gotomodule="${mod.id}"` : ""}>
+            return `<div class="panel card ${unlocked ? "" : "locked"}" ${unlocked ? `data-gotomodule="${mod.id}" role="button" tabindex="0"` : `aria-disabled="true"`}>
               ${icon(complete ? "check" : unlocked ? "compass" : "lock", 16)}
               <div class="card-title">${mod.optional ? `<span class="pill teal" style="margin-right:6px">bonus</span>` : `${mi}. `}${esc(mod.title)}</div>
               <div class="card-desc">${complete ? "Completed" : unlocked ? `${mod.lessons.length} lessons` : lockMsg}</div>
@@ -221,14 +237,14 @@ window.Curriculum = (function () {
     }
 
     function renderSidebar() {
-      return `<div class="panel lesson-sidebar"><div class="panel-header"><span class="title mono">${icon("compass", 14)} curriculum</span></div>
+      return `<nav class="panel lesson-sidebar" aria-label="Curriculum"><div class="panel-header"><span class="title mono">${icon("compass", 14)} curriculum</span></div>
       <div class="panel-body">
       ${course.map((mod, mi) => {
         const unlocked = isModuleUnlockedIdx(mi);
         const complete = isModuleComplete(mod);
         const open = sidebarOpenFor(mod.id);
         return `<div class="module-block">
-          <div class="module-head ${unlocked ? "" : "locked"}" ${unlocked ? `data-togglemodule="${mod.id}"` : ""}>
+          <div class="module-head ${unlocked ? "" : "locked"}" ${unlocked ? `data-togglemodule="${mod.id}" role="button" tabindex="0" aria-expanded="${open ? "true" : "false"}"` : `aria-disabled="true"`}>
             <span class="num mono">${mod.optional ? "\u2605" : mi}</span>
             <span class="m-title">${esc(mod.title)}</span>
             <span class="m-status">${complete ? icon("check", 13) : unlocked ? icon(open ? "chevronDown" : "chevronRight", 12) : icon("lock", 12)}</span>
@@ -238,8 +254,8 @@ window.Curriculum = (function () {
               const lUnlocked = unlocked && isLessonUnlocked(mod, li);
               const lDone = isLessonComplete(mod, l);
               const active = mod.id === engine.state.currentModuleId && l.id === engine.state.currentLessonId;
-              return `<div class="lesson-item ${active ? "active" : ""} ${lUnlocked ? "" : "locked"}" ${lUnlocked ? `data-lessonjump="${mod.id}:${l.id}"` : ""}>
-                <span class="check ${lDone ? "done" : ""}">${lDone ? icon("check", 9) : ""}</span>
+              return `<div class="lesson-item ${active ? "active" : ""} ${lUnlocked ? "" : "locked"}" ${lUnlocked ? `data-lessonjump="${mod.id}:${l.id}" role="button" tabindex="0"` : `aria-disabled="true"`}${active ? ` aria-current="page"` : ""}>
+                <span class="check ${lDone ? "done" : ""}" ${lDone ? `role="img" aria-label="completed"` : ""}>${lDone ? icon("check", 9) : ""}</span>
                 <span>${esc(l.title)}</span>
               </div>`;
             }).join("")}
@@ -247,7 +263,7 @@ window.Curriculum = (function () {
           </div>
         </div>`;
       }).join("")}
-      </div></div>`;
+      </div></nav>`;
     }
 
     function renderSubsectionCard(mod, lesson, sub) {
@@ -278,18 +294,18 @@ window.Curriculum = (function () {
         ${cp.questions.map((q, qi) => {
           const selKey = `${mod.id}:${qi}`;
           const sel = engine.state.quizAnswers[selKey];
-          return `<div class="quiz-q">
-            <div class="q-text mono">${qi + 1}. ${esc(q.text)}</div>
+          return `<div class="quiz-q" role="radiogroup" aria-labelledby="q-${esc(mod.id)}-${qi}">
+            <div class="q-text mono" id="q-${esc(mod.id)}-${qi}">${qi + 1}. ${esc(q.text)}</div>
             ${q.options.map((opt, oi) => {
               let cls = "quiz-opt";
               if (sel === oi) cls += " selected";
               if (checked) { if (oi === q.correct) cls += " correct"; else if (sel === oi) cls += " incorrect"; }
-              return `<div class="${cls}" data-quizopt="${selKey}:${oi}"><span class="radio"></span>${esc(opt)}</div>`;
+              return `<div class="${cls}" data-quizopt="${selKey}:${oi}" role="radio" tabindex="0" aria-checked="${sel === oi ? "true" : "false"}"><span class="radio" aria-hidden="true"></span>${esc(opt)}</div>`;
             }).join("")}
           </div>`;
         }).join("")}
         <button class="btn accent" data-checkquiz="${mod.id}">Check answers</button>
-        ${checked ? `<div class="cp-result-banner" style="background:${passed ? "var(--teal-soft)" : "var(--coral-soft)"};color:${passed ? "var(--teal)" : "var(--coral)"}">${icon(passed ? "check" : "x", 13)} ${passed ? "All correct — module complete!" : "Not all correct yet — review and try again."}</div>` : ""}
+        ${checked ? `<div class="cp-result-banner" role="status" style="background:${passed ? "var(--teal-soft)" : "var(--coral-soft)"};color:${passed ? "var(--teal)" : "var(--coral)"}">${icon(passed ? "check" : "x", 13)} ${passed ? "All correct — module complete!" : "Not all correct yet — review and try again."}</div>` : ""}
       </div>`;
     }
 
@@ -307,7 +323,7 @@ window.Curriculum = (function () {
       const isLastLesson = mod.lessons[mod.lessons.length - 1].id === lesson.id;
       return `<div class="panel lesson-content"><div class="panel-body">
         <div class="breadcrumb"><span>${esc(mod.title)}</span><span class="sep">/</span><span class="current">${esc(lesson.title)}</span></div>
-        <div class="lesson-title-row"><h2>${esc(lesson.title)}</h2><span class="pill lesson-view-tag mono">${esc(lesson.view || "")}</span></div>
+        <div class="lesson-title-row"><h2 tabindex="-1">${esc(lesson.title)}</h2><span class="pill lesson-view-tag mono">${esc(lesson.view || "")}</span></div>
         ${lesson.subsections.map((s) => renderSubsectionCard(mod, lesson, s)).join("")}
         ${isLastLesson ? renderCheckpoint(mod) : ""}
         ${renderLessonNav(mod, lesson)}
@@ -327,7 +343,7 @@ window.Curriculum = (function () {
       const body = config.renderWidget ? config.renderWidget(view, engine.state, "sandbox") : "";
       return `
         <div class="breadcrumb"><span>Sandbox</span><span class="sep">/</span><span class="current">${esc(view || "")}</span></div>
-        <nav class="nav" style="margin-bottom:16px">${nav.map((n) => `<button class="nav-btn mono ${view === n.key ? "active" : ""}" data-sandboxview="${n.key}">${icon(n.icon, 12)} ${n.label}</button>`).join("")}</nav>
+        <nav class="nav" style="margin-bottom:16px" aria-label="Sandbox tools">${nav.map((n) => `<button class="nav-btn mono ${view === n.key ? "active" : ""}" data-sandboxview="${esc(n.key)}" ${view === n.key ? `aria-current="page"` : ""}>${icon(n.icon, 12)} ${esc(n.label)}</button>`).join("")}</nav>
         ${body}
       `;
     }
@@ -337,6 +353,10 @@ window.Curriculum = (function () {
       const preserveSelectors = [".lesson-sidebar"].concat(config.scrollPreserveSelectors || []);
       const savedWindowScroll = window.scrollY;
       const snapshots = window.ScrollPreserve.snapshot(preserveSelectors);
+      // Every render rebuilds the whole tree, which silently drops keyboard
+      // focus onto <body>. Remember what was focused (by id or its first
+      // data-* attribute) so keyboard users stay where they were.
+      const refocus = engine.state._focusSelector ? null : focusKeyFor(document.activeElement, app);
 
       let body;
       try {
@@ -357,12 +377,13 @@ window.Curriculum = (function () {
 
       app.innerHTML = `
         <header class="header">
-          <div class="brand mono">${icon(config.brandIcon || "hardDrive", 18)}<span>${esc(config.brandName || "app")}</span><span class="accent">::</span><span class="dim">${esc(config.brandTagline || "curriculum")}</span></div>
-          <div class="mode-switch">
-            <button class="${engine.state.mode === "home" ? "active" : ""}" data-setmode="home">${icon("home", 12)} home</button>
-            <button class="${engine.state.mode === "lessons" ? "active" : ""}" data-setmode="lessons">${icon("compass", 12)} lessons</button>
-            <button class="${engine.state.mode === "sandbox" ? "active" : ""}" data-setmode="sandbox">${icon("terminal", 12)} sandbox</button>
+          <div class="brand-wrap">
+            <a class="back-link mono" href="${esc(config.backHref || "/projects.html")}">${icon("chevronLeft", 12)} projects</a>
+            <h1 class="brand mono">${icon(config.brandIcon || "hardDrive", 18)}<span>${esc(config.brandName || "app")}</span><span class="accent">::</span><span class="dim">${esc(config.brandTagline || "curriculum")}</span></h1>
           </div>
+          <nav class="mode-switch" aria-label="Mode">
+            ${["home", "lessons", "sandbox"].map((m) => `<button class="${engine.state.mode === m ? "active" : ""}" data-setmode="${m}" aria-pressed="${engine.state.mode === m ? "true" : "false"}">${icon(m === "home" ? "home" : m === "lessons" ? "compass" : "terminal", 12)} ${m}</button>`).join("")}
+          </nav>
         </header>
         <div id="view-container">${body}</div>
         <footer class="foot">${esc(config.footerNote || "progress saves automatically in this browser")} · <button class="reset-link" data-resetprogress>reset progress</button></footer>
@@ -376,6 +397,8 @@ window.Curriculum = (function () {
       if (engine.state._focusSelector) {
         window.ScrollPreserve.focus(engine.state._focusSelector);
         engine.state._focusSelector = null;
+      } else if (refocus) {
+        window.ScrollPreserve.focus(refocus);
       }
       if (engine.state._skipWindowScrollRestore) {
         engine.state._skipWindowScrollRestore = false;
@@ -387,6 +410,16 @@ window.Curriculum = (function () {
       saveProgress();
     }
     engine.render = render;
+
+    function focusKeyFor(el, root) {
+      if (!el || el === document.body || !root || !root.contains(el)) return null;
+      const cssEsc = window.CSS && window.CSS.escape ? window.CSS.escape : (v) => String(v).replace(/["\\]/g, "\\$&");
+      if (el.id) return `#${cssEsc(el.id)}`;
+      for (const a of Array.from(el.attributes)) {
+        if (a.name.indexOf("data-") === 0) return `[${a.name}="${cssEsc(a.value)}"]`;
+      }
+      return null;
+    }
 
     /* ------------------------------ core action wiring ------------------------------ */
     function registerCoreActions() {
@@ -400,14 +433,15 @@ window.Curriculum = (function () {
       Actions.register("click", "[data-gotomodule]", (el) => {
         const modId = el.getAttribute("data-gotomodule");
         const mod = findModule(modId);
+        if (!mod) return;
         const lesson = mod.lessons.find((l) => !isLessonComplete(mod, l)) || mod.lessons[mod.lessons.length - 1];
         engine.state.currentModuleId = modId; engine.state.currentLessonId = lesson.id; engine.state.sidebarOpen[modId] = true;
-        engine.state.mode = "lessons"; render();
+        engine.state.mode = "lessons"; engine.state._focusSelector = ".lesson-content h2"; render();
       });
       Actions.register("click", "[data-continuelearn]", () => {
         const target = continueLearningTarget();
         if (target) { engine.state.currentModuleId = target.modId; engine.state.currentLessonId = target.lessonId; engine.state.sidebarOpen[target.modId] = true; }
-        engine.state.mode = "lessons"; render();
+        engine.state.mode = "lessons"; engine.state._focusSelector = ".lesson-content h2"; render();
       });
       Actions.register("click", "[data-sandboxview]", (el) => { engine.state.sandboxView = el.getAttribute("data-sandboxview"); engine.state.mode = "sandbox"; render(); });
       Actions.register("click", "[data-togglemodule]", (el) => { const id = el.getAttribute("data-togglemodule"); engine.state.sidebarOpen[id] = !sidebarOpenFor(id); render(); });
@@ -415,6 +449,7 @@ window.Curriculum = (function () {
         const [modId, lessonId] = el.getAttribute("data-lessonjump").split(":");
         engine.state.currentModuleId = modId; engine.state.currentLessonId = lessonId; engine.state.sidebarOpen[modId] = true;
         engine.state._skipWindowScrollRestore = true;
+        engine.state._focusSelector = ".lesson-content h2";
         render();
         const container = document.getElementById("view-container");
         if (container) container.scrollIntoView({ block: "start" });
@@ -429,7 +464,9 @@ window.Curriculum = (function () {
       });
       Actions.register("click", "[data-checkquiz]", (el) => {
         const modId = el.getAttribute("data-checkquiz");
-        const cp = findModule(modId).checkpoint;
+        const mod = findModule(modId);
+        if (!mod || !mod.checkpoint) return;
+        const cp = mod.checkpoint;
         const allCorrect = cp.questions.every((q, qi) => engine.state.quizAnswers[`${modId}:${qi}`] === q.correct);
         engine.state.quizChecked[modId] = true;
         engine.state.checkpointPassed[modId] = allCorrect;

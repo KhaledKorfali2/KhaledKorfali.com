@@ -46,15 +46,33 @@
   function cloneES(es) { return cloneObj(es); }
 
   // Build adjacency list from graph {nodes:[{id}], edges:[{u,v,w}], directed}
-  function buildAdj(graph) {
+  // mode: undefined = follow graph.directed, 'undirected' = ignore direction,
+  //       'reverse' = incoming edges (for the backward half of bidirectional BFS).
+  // Each entry keeps the edge's original u/v so ekey() matches what the canvas draws.
+  function buildAdj(graph, mode) {
     var adj = {};
+    var undirected = mode === 'undirected' || !graph.directed;
     graph.nodes.forEach(function (n) { adj[n.id] = []; });
     graph.edges.forEach(function (e) {
+      if (!adj[e.u] || !adj[e.v]) return;          // dangling edge — skip
+      if (mode === 'reverse' && !undirected) { adj[e.v].push({ to: e.u, w: e.w, u: e.u, v: e.v }); return; }
       adj[e.u].push({ to: e.v, w: e.w, u: e.u, v: e.v });
-      if (!graph.directed) adj[e.v].push({ to: e.u, w: e.w, u: e.u, v: e.v });
+      if (undirected) adj[e.v].push({ to: e.u, w: e.w, u: e.u, v: e.v });
     });
     return adj;
   }
+
+  function hasNegative(graph) {
+    return graph.edges.some(function (e) { return e.w < 0; });
+  }
+
+  function fmt(n) {
+    if (typeof n !== 'number') return String(n);
+    if (!isFinite(n)) return n > 0 ? '∞' : '−∞';
+    return Number.isInteger(n) ? String(n) : n.toFixed(2);
+  }
+
+  function withCost(st, cost) { st.cost = cost; return st; }
 
   // ── BFS ───────────────────────────────────────────────────────────────────
   function* bfs(graph, startId, endId) {
@@ -96,7 +114,7 @@
           es[k] = 'tree';
           enqCount++;
           yield step('enqueue', v, k, cloneNS(ns), cloneES(es), null,
-            'Enqueue ' + v + ' (discovered from ' + u + '). Queue length: ' + queue.length + 1, 'enqueue');
+            'Enqueue ' + v + ' (discovered from ' + u + '). Queue length: ' + (queue.length + 1), 'enqueue');
           queue.push(v);
         }
       }
@@ -113,16 +131,22 @@
     yield step('info', startId, null, cloneNS(ns), cloneES(es), null,
       'DFS: Push start node ' + startId + '. Uses a LIFO stack — dives deep along one path before backtracking.', 'info');
 
-    var stack = [startId];
+    // Stack entries remember which node pushed them. The parent (and the DFS
+    // tree edge) is fixed only when a node is actually popped and visited —
+    // recording it at first push gave paths/trees that DFS never walked.
+    var stack = [{ id: startId, from: null, key: null }];
     parent[startId] = null;
 
     while (stack.length) {
-      var u = stack.pop();
+      var top = stack.pop();
+      var u = top.id;
       if (visited[u]) continue;
       visited[u] = true;
+      parent[u] = top.from;
+      if (top.key) es[top.key] = 'tree';
       ns[u] = 'current';
-      yield step('visit', u, null, cloneNS(ns), cloneES(es), null,
-        'Pop and visit ' + u + '. Stack depth: ' + stack.length, 'visit');
+      yield step('visit', u, top.key, cloneNS(ns), cloneES(es), null,
+        'Pop and visit ' + u + (top.from !== null ? ' (via ' + top.from + ')' : '') + '. Stack depth: ' + stack.length, 'visit');
 
       if (u === endId) {
         yield step('done', u, null, cloneNS(ns), cloneES(es), null,
@@ -137,18 +161,17 @@
         var v = e.to;
         var k = ekey(e.u, e.v, graph.directed);
         if (!visited[v]) {
-          if (!parent.hasOwnProperty(v)) parent[v] = u;
           ns[v] = 'frontier';
-          es[k] = 'tree';
+          if (es[k] !== 'tree') es[k] = 'relaxed';
           yield step('enqueue', v, k, cloneNS(ns), cloneES(es), null,
             'Push ' + v + ' onto stack (from ' + u + ').', 'enqueue');
-          stack.push(v);
+          stack.push({ id: v, from: u, key: k });
         }
       }
       ns[u] = 'visited';
     }
     yield step('done', null, null, cloneNS(ns), cloneES(es), null,
-      'DFS complete. All reachable nodes explored.', 'done');
+      'DFS complete. All reachable nodes explored.' + (endId ? ' Target ' + endId + ' is not reachable.' : ''), 'done');
   }
 
   // ── DIJKSTRA ──────────────────────────────────────────────────────────────
@@ -165,6 +188,10 @@
 
     yield step('info', startId, null, cloneNS(ns), cloneES(es), cloneObj(dist),
       'Dijkstra: Set dist[' + startId + ']=0, all others ∞. Uses a min-heap to always expand the closest unvisited node. Only works with non-negative weights.', 'info');
+    if (hasNegative(graph)) {
+      yield step('info', null, null, cloneNS(ns), cloneES(es), cloneObj(dist),
+        '⚠ This graph has negative edge weights. Dijkstra finalizes nodes greedily, so the distances below may be WRONG — use Bellman-Ford instead.', 'info');
+    }
 
     while (pq.length) {
       pq.sort(function (a, b) { return a.d - b.d; });
@@ -174,11 +201,11 @@
       visited[u] = true;
       ns[u] = 'current';
       yield step('visit', u, null, cloneNS(ns), cloneES(es), cloneObj(dist),
-        'Extract min: node ' + u + ' with dist=' + dist[u] + '. Relax its edges.', 'visit');
+        'Extract min: node ' + u + ' with dist=' + fmt(dist[u]) + '. Relax its edges.', 'visit');
 
       if (u === endId) {
         yield step('done', u, null, cloneNS(ns), cloneES(es), cloneObj(dist),
-          'Reached target ' + endId + '! Shortest path cost = ' + dist[endId], 'done');
+          'Reached target ' + endId + '! Shortest path cost = ' + fmt(dist[endId]), 'done');
         yield* reconstructPath(prev, startId, endId, ns, es, graph.directed, dist);
         return;
       }
@@ -200,7 +227,7 @@
               'Relax edge ' + u + '→' + v + ' (w=' + w + '). New dist[' + v + ']=' + nd, 'relax');
           } else {
             yield step('relax', v, k, cloneNS(ns), cloneES(es), cloneObj(dist),
-              'Edge ' + u + '→' + v + ': dist ' + nd + ' ≥ current best ' + dist[v] + '. No update.', 'relax');
+              'Edge ' + u + '→' + v + ': dist ' + fmt(nd) + ' ≥ current best ' + fmt(dist[v]) + '. No update.', 'relax');
           }
         }
       }
@@ -213,14 +240,30 @@
   // ── A* ────────────────────────────────────────────────────────────────────
   function* astar(graph, startId, endId) {
     var adj = buildAdj(graph);
-    // Heuristic: Euclidean distance to end node
-    var endNode = graph.nodes.find(function (n) { return n.id === endId; });
+    // Heuristic: Euclidean distance to the target, scaled by the smallest
+    // weight-per-pixel ratio of any edge. Edge weights here are arbitrary (not
+    // pixel lengths), so a fixed scale could OVERestimate and make A* return a
+    // non-shortest path. With ratio = min(w / length), every path from n to the
+    // target costs at least ratio × straight-line distance, so h is admissible
+    // and consistent. Non-positive weights force ratio 0 (A* = Dijkstra).
+    var byId = {};
+    graph.nodes.forEach(function (n) { byId[n.id] = n; });
+    var endNode = byId[endId];
+    var ratio = INF;
+    graph.edges.forEach(function (e) {
+      var a = byId[e.u], b = byId[e.v];
+      if (!a || !b) return;
+      var len = Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+      if (e.w <= 0) ratio = 0;
+      else if (len > 0) ratio = Math.min(ratio, e.w / len);
+    });
+    if (!isFinite(ratio)) ratio = 0;
     function h(id) {
       if (!endNode) return 0;
-      var n = graph.nodes.find(function (n) { return n.id === id; });
+      var n = byId[id];
       if (!n) return 0;
       var dx = n.x - endNode.x, dy = n.y - endNode.y;
-      return Math.sqrt(dx * dx + dy * dy) / 80; // scale to typical weight range
+      return Math.sqrt(dx * dx + dy * dy) * ratio;
     }
 
     var g = {}, f = {}, prev = {}, ns = {}, es = {};
@@ -231,7 +274,12 @@
     var closed = {};
 
     yield step('info', startId, null, cloneNS(ns), cloneES(es), cloneObj(g),
-      'A*: Like Dijkstra but guides search with a heuristic h(n) = Euclidean distance to target. f(n) = g(n) + h(n). The heuristic makes A* focus on promising directions first.', 'info');
+      'A*: Like Dijkstra but guides search with a heuristic h(n) = straight-line distance to target × ' + ratio.toFixed(4) +
+      ' (the smallest weight-per-pixel of any edge, so h never overestimates). f(n) = g(n) + h(n).', 'info');
+    if (hasNegative(graph)) {
+      yield step('info', null, null, cloneNS(ns), cloneES(es), cloneObj(g),
+        '⚠ Negative edge weights detected. Like Dijkstra, A* is not guaranteed to find the shortest path here.', 'info');
+    }
 
     while (open.length) {
       open.sort(function (a, b) { return a.f - b.f; });
@@ -245,7 +293,7 @@
 
       if (u === endId) {
         yield step('done', u, null, cloneNS(ns), cloneES(es), cloneObj(g),
-          'Target ' + endId + ' reached! Path cost g=' + g[endId].toFixed(2), 'done');
+          'Target ' + endId + ' reached! Path cost g=' + fmt(g[endId]), 'done');
         yield* reconstructPath(prev, startId, endId, ns, es, graph.directed, g);
         return;
       }
@@ -305,7 +353,7 @@
               ns[sv] = 'frontier';
               anyUpdate = true;
               yield step('relax', sv, k, cloneNS(ns), cloneES(es), cloneObj(dist),
-                'Relax ' + su + '→' + sv + ' (w=' + w + '): dist[' + sv + '] updated to ' + nd.toFixed(2), 'relax');
+                'Relax ' + su + '→' + sv + ' (w=' + w + '): dist[' + sv + '] updated to ' + fmt(nd), 'relax');
             }
           }
         }
@@ -325,7 +373,8 @@
     }
     if (negCycle) {
       yield step('done', null, null, cloneNS(ns), cloneES(es), cloneObj(dist),
-        '⚠ Negative cycle detected! Shortest paths are undefined.', 'done');
+        '⚠ Negative cycle detected! Shortest paths are undefined.' +
+        (graph.directed ? '' : ' (In an undirected graph any negative edge is itself a cycle: u→v→u.)'), 'done');
       return;
     }
     if (endId) yield* reconstructPath(prev, startId, endId, ns, es, graph.directed, dist);
@@ -335,29 +384,32 @@
 
   // ── BIDIRECTIONAL BFS ─────────────────────────────────────────────────────
   function* bidirBFS(graph, startId, endId) {
-    var adj = buildAdj(graph);
+    var adj  = buildAdj(graph);
+    var radj = buildAdj(graph, 'reverse');   // backward search must follow edges in reverse on directed graphs
     var ns = {}, es = {};
     if (startId === endId) {
       yield step('done', startId, null, ns, es, null, 'Start = End.', 'done');
       return;
     }
     var visitedF = {}, visitedB = {}, parentF = {}, parentB = {};
-    visitedF[startId] = true; parentF[startId] = null;
-    visitedB[endId]   = true; parentB[endId]   = null;
+    visitedF[startId] = 0; parentF[startId] = null;    // value = depth from that side
+    visitedB[endId]   = 0; parentB[endId]   = null;
     var qF = [startId], qB = [endId];
     ns[startId] = 'frontier'; ns[endId] = 'frontier';
 
     yield step('info', null, null, cloneNS(ns), cloneES(es), null,
       'Bidirectional BFS: Expand from both start (' + startId + ') and end (' + endId + ') simultaneously. Meets in the middle — cuts search space roughly in half.', 'info');
 
-    while (qF.length || qB.length) {
+    // Either frontier running dry means the two sides can never meet.
+    while (qF.length && qB.length) {
       var meeting = expandLayer(qF, visitedF, parentF, visitedB, 'F', adj, graph, ns, es);
-      if (meeting) { yield* bidirFinish(meeting, parentF, parentB, startId, endId, ns, es); return; }
+      if (meeting) { yield* bidirFinish(meeting, parentF, parentB, startId, endId, ns, es, graph.directed); return; }
       yield step('info', null, null, cloneNS(ns), cloneES(es), null,
         'Forward frontier expanded. Size: ' + qF.length, 'enqueue');
+      if (!qF.length) break;
 
-      var meeting2 = expandLayer(qB, visitedB, parentB, visitedF, 'B', adj, graph, ns, es);
-      if (meeting2) { yield* bidirFinish(meeting2, parentF, parentB, startId, endId, ns, es); return; }
+      var meeting2 = expandLayer(qB, visitedB, parentB, visitedF, 'B', radj, graph, ns, es);
+      if (meeting2) { yield* bidirFinish(meeting2, parentF, parentB, startId, endId, ns, es, graph.directed); return; }
       yield step('info', null, null, cloneNS(ns), cloneES(es), null,
         'Backward frontier expanded. Size: ' + qB.length, 'enqueue');
     }
@@ -365,9 +417,12 @@
       'Bidirectional BFS complete. Target unreachable.', 'done');
   }
 
+  // Expands one whole BFS layer. Returning on the first node seen by both
+  // sides can miss a shorter path through another node of the same layer, so
+  // finish the layer and pick the meeting node minimising depthF + depthB.
   function expandLayer(queue, myVisited, myParent, theirVisited, dir, adj, graph, ns, es) {
     if (!queue.length) return null;
-    var next = [];
+    var next = [], best = null, bestLen = INF;
     while (queue.length) {
       var u = queue.shift();
       ns[u] = dir === 'F' ? 'current' : 'visited';
@@ -375,22 +430,24 @@
       for (var i = 0; i < nbrs.length; i++) {
         var e = nbrs[i], v = e.to;
         var k = ekey(e.u, e.v, graph.directed);
-        if (!myVisited[v]) {
-          myVisited[v] = true;
+        if (!myVisited.hasOwnProperty(v)) {
+          myVisited[v] = myVisited[u] + 1;
           myParent[v] = u;
           ns[v] = dir === 'F' ? 'frontier' : 'visited';
           es[k] = 'tree';
           next.push(v);
-          if (theirVisited[v]) return v; // meeting point
+          if (theirVisited.hasOwnProperty(v) && myVisited[v] + theirVisited[v] < bestLen) {
+            best = v; bestLen = myVisited[v] + theirVisited[v];
+          }
         }
       }
       ns[u] = 'visited';
     }
     while (next.length) queue.push(next.shift());
-    return null;
+    return best;
   }
 
-  function* bidirFinish(meeting, parentF, parentB, startId, endId, ns, es) {
+  function* bidirFinish(meeting, parentF, parentB, startId, endId, ns, es, directed) {
     yield step('done', meeting, null, cloneNS(ns), cloneES(es), null,
       'Frontiers met at node ' + meeting + '! Stitching forward and backward paths.', 'done');
     // Build forward path
@@ -402,17 +459,20 @@
     var full = pathF.concat(pathB);
     for (var i = 0; i < full.length; i++) ns[full[i]] = 'path';
     for (var i = 0; i < full.length - 1; i++) {
-      var k = ekey(full[i], full[i+1], false);
+      var k = ekey(full[i], full[i+1], directed);
       es[k] = 'path';
     }
-    yield step('path', null, null, cloneNS(ns), cloneES(es), null,
-      'Path: ' + full.join(' → ') + ' (' + (full.length - 1) + ' hops)', 'path');
+    yield withCost(step('path', null, null, cloneNS(ns), cloneES(es), null,
+      'Path: ' + full.join(' → ') + ' (' + (full.length - 1) + ' hops)', 'path'), full.length - 1);
   }
 
   // ── PRIM'S MST ────────────────────────────────────────────────────────────
   function* prim(graph, startId) {
-    var adj = buildAdj(graph);
-    var inMST = {}, key = {}, parent = {}, ns = {}, es = {};
+    // MSTs are defined on undirected graphs: ignore arrow direction, but keep
+    // each edge's drawn key so highlights line up on a directed canvas too.
+    var adj = buildAdj(graph, 'undirected');
+    var inMST = {}, key = {}, parent = {}, parentKey = {}, ns = {}, es = {};
+    var components = 0;
     graph.nodes.forEach(function (n) { key[n.id] = INF; });
     key[startId] = 0; parent[startId] = null;
     var pq = graph.nodes.map(function (n) { return { id: n.id, k: key[n.id] }; });
@@ -420,6 +480,10 @@
 
     yield step('info', startId, null, cloneNS(ns), cloneES(es), null,
       'Prim\'s MST: Start from node ' + startId + '. Greedily add the minimum-weight edge that connects a new node to the growing spanning tree. Runs until all nodes are included.', 'info');
+    if (graph.directed) {
+      yield step('info', null, null, cloneNS(ns), cloneES(es), null,
+        'Note: spanning trees ignore edge direction, so arrows are treated as undirected edges.', 'info');
+    }
 
     while (pq.length) {
       pq.sort(function (a, b) { return a.k - b.k; });
@@ -429,24 +493,28 @@
       inMST[u] = true;
       ns[u] = 'visited';
       if (parent[u] !== null && parent[u] !== undefined) {
-        var k = ekey(parent[u], u, false);
+        var k = parentKey[u];
         es[k] = 'mst';
         totalCost += key[u];
         mstEdges.push(parent[u] + '-' + u);
         yield step('mst', u, k, cloneNS(ns), cloneES(es), null,
           'Add edge ' + parent[u] + '—' + u + ' (w=' + key[u] + ') to MST. Total cost so far: ' + totalCost, 'mst');
       } else {
+        components++;
         yield step('visit', u, null, cloneNS(ns), cloneES(es), null,
-          'Start node ' + u + ' added to MST.', 'visit');
+          components === 1
+            ? 'Start node ' + u + ' added to MST.'
+            : 'No edge connects ' + u + ' to the tree — the graph is disconnected. Starting a new tree at ' + u + ' (building a minimum spanning forest).', 'visit');
       }
 
       var nbrs = adj[u] || [];
       for (var i = 0; i < nbrs.length; i++) {
         var e = nbrs[i], v = e.to, w = e.w;
-        var k = ekey(e.u, e.v, false);
+        var k = ekey(e.u, e.v, graph.directed);
         if (!inMST[v] && w < key[v]) {
           key[v] = w;
           parent[v] = u;
+          parentKey[v] = k;
           ns[v] = 'frontier';
           var idx = pq.findIndex(function (x) { return x.id === v; });
           if (idx >= 0) pq[idx].k = w;
@@ -455,8 +523,10 @@
         }
       }
     }
-    yield step('done', null, null, cloneNS(ns), cloneES(es), null,
-      'Prim\'s MST complete. Total weight: ' + totalCost + '. Edges: ' + mstEdges.join(', '), 'done');
+    yield withCost(step('done', null, null, cloneNS(ns), cloneES(es), null,
+      (components > 1 ? 'Prim\'s complete — graph is disconnected, so this is a minimum spanning FOREST of ' + components + ' trees. '
+                      : 'Prim\'s MST complete. ') +
+      'Total weight: ' + totalCost + '. Edges: ' + (mstEdges.join(', ') || 'none'), 'done'), totalCost);
   }
 
   // ── KRUSKAL'S MST ─────────────────────────────────────────────────────────
@@ -483,7 +553,8 @@
 
     for (var i = 0; i < sorted.length; i++) {
       var e = sorted[i];
-      var k = ekey(e.u, e.v, false);
+      var k = ekey(e.u, e.v, graph.directed);
+      if (es[k] === 'mst') continue;   // parallel edge already in the tree
       es[k] = 'relaxed';
       yield step('relax', null, k, cloneNS(ns), cloneES(es), null,
         'Consider edge ' + e.u + '—' + e.v + ' (w=' + e.w + '). Components: find(' + e.u + ')=' + find(e.u) + ', find(' + e.v + ')=' + find(e.v), 'relax');
@@ -497,19 +568,28 @@
           '✓ Add ' + e.u + '—' + e.v + ' to MST (w=' + e.w + '). MST edges: ' + mstCount + ', cost: ' + totalCost, 'mst');
         if (mstCount === graph.nodes.length - 1) break;
       } else {
+        delete es[k];   // rejected edge goes back to normal colour
         yield step('info', null, k, cloneNS(ns), cloneES(es), null,
           '✗ Skip ' + e.u + '—' + e.v + ': would create a cycle (same component).', 'info');
       }
     }
-    yield step('done', null, null, cloneNS(ns), cloneES(es), null,
-      'Kruskal\'s MST complete. Total weight: ' + totalCost + '.', 'done');
+    var forest = mstCount < graph.nodes.length - 1;
+    yield withCost(step('done', null, null, cloneNS(ns), cloneES(es), null,
+      (forest ? 'Kruskal\'s complete — graph is disconnected, so this is a minimum spanning FOREST (' + mstCount + ' edges). '
+              : 'Kruskal\'s MST complete. ') + 'Total weight: ' + totalCost + '.', 'done'), totalCost);
   }
 
   // ── TOPOLOGICAL SORT (Kahn's algorithm) ───────────────────────────────────
   function* topoSort(graph) {
     var adj = {}, inDeg = {}, ns = {}, es = {};
+    if (!graph.directed) {
+      yield step('done', null, null, ns, es, null,
+        '⚠ Topological sort needs a DIRECTED graph. Turn on DIR in the toolbar.', 'done');
+      return;
+    }
     graph.nodes.forEach(function (n) { adj[n.id] = []; inDeg[n.id] = 0; });
     graph.edges.forEach(function (e) {
+      if (!adj[e.u] || !adj[e.v]) return;
       adj[e.u].push(e.v);
       inDeg[e.v]++;
     });
@@ -518,9 +598,9 @@
       'Topological Sort (Kahn\'s): Add all nodes with in-degree 0 to a queue. Repeatedly remove a node, emit it, and reduce the in-degree of its neighbours. Works only on DAGs (directed acyclic graphs).', 'info');
 
     var queue = [], result = [];
-    for (var id in inDeg) {
-      if (inDeg[id] === 0) { queue.push(id); ns[id] = 'frontier'; }
-    }
+    graph.nodes.forEach(function (n) {
+      if (inDeg[n.id] === 0) { queue.push(n.id); ns[n.id] = 'frontier'; }
+    });
     yield step('info', null, null, cloneNS(ns), cloneES(es), null,
       'Initial zero-in-degree nodes: [' + queue.join(', ') + ']', 'info');
 
@@ -569,6 +649,7 @@
       ids.forEach(function (j) { dist[i][j] = (i === j) ? 0 : INF; });
     });
     graph.edges.forEach(function (e) {
+      if (!dist[e.u] || !dist[e.v]) return;
       dist[e.u][e.v] = Math.min(dist[e.u][e.v], e.w);
       if (!graph.directed) dist[e.v][e.u] = Math.min(dist[e.v][e.u], e.w);
     });
@@ -592,7 +673,7 @@
               var ek = ekey(i, j, graph.directed);
               es[ek] = 'relaxed';
               yield step('relax', j, ek, cloneNS(ns), cloneES(es), null,
-                'dist[' + i + '][' + j + '] updated: ' + i + '→' + k + '→' + j + ' = ' + nd.toFixed(2), 'relax');
+                'dist[' + i + '][' + j + '] updated: ' + i + '→' + k + '→' + j + ' = ' + fmt(nd), 'relax');
             }
           }
         }
@@ -617,7 +698,7 @@
     }
     if (path[0] !== startId) {
       yield step('path', null, null, cloneNS(ns), cloneES(es), null,
-        'Could not reconstruct full path to ' + endId + '.', 'path');
+        'No path: ' + endId + ' is not reachable from ' + startId + '.', 'path');
       return;
     }
     for (var i = 0; i < path.length; i++) ns[path[i]] = 'path';
@@ -626,8 +707,8 @@
       es[k] = 'path';
     }
     var cost = dist ? dist[endId] : path.length - 1;
-    yield step('path', null, null, cloneNS(ns), cloneES(es), null,
-      'Shortest path: ' + path.join(' → ') + ' | Cost: ' + (typeof cost === 'number' && isFinite(cost) ? cost.toFixed(2) : '∞'), 'path');
+    yield withCost(step('path', null, null, cloneNS(ns), cloneES(es), null,
+      (dist ? 'Shortest path: ' : 'Path: ') + path.join(' → ') + ' | Cost: ' + fmt(cost) + (dist ? '' : ' hops'), 'path'), cost);
   }
 
   // ── Metadata ──────────────────────────────────────────────────────────────

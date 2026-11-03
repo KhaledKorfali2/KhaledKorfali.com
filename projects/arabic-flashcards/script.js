@@ -24,13 +24,17 @@ const letters = {
   "Lam":   { isolated: "ل",  start: "لـ",  middle: "ـلـ", end: "ـل"  },
   "Meem":  { isolated: "م",  start: "مـ",  middle: "ـمـ", end: "ـم"  },
   "Noon":  { isolated: "ن",  start: "نـ",  middle: "ـنـ", end: "ـن"  },
-  "Haa2":  { isolated: "ﻩ",  start: "هـ",  middle: "ـهـ", end: "ـه"  },
+  // ه — was keyed "Haa2" (shown verbatim on the card back) and used the
+  // presentation-form glyph U+FEE9 instead of the real letter U+0647
+  "Ha":    { isolated: "ه",  start: "هـ",  middle: "ـهـ", end: "ـه"  },
   "Waw":   { isolated: "و",  start: "و",   middle: "ـو",  end: "ـو"  },
   "Ya":    { isolated: "ي",  start: "يـ",  middle: "ـيـ", end: "ـي"  },
 };
 
 const container = document.getElementById("flashcard-container");
 const counter   = document.getElementById("cardCounter");
+
+const FORM_LABELS = { isolated: "Isolated", start: "Start", middle: "Middle", end: "End" };
 
 let selectedForms = new Set(["isolated"]);
 let deck = [];
@@ -42,7 +46,7 @@ function buildDeck() {
   for (const [name, forms] of Object.entries(letters)) {
     for (const form of selectedForms) {
       if (forms[form] !== undefined) {
-        deck.push({ arabic: forms[form], english: name });
+        deck.push({ arabic: forms[form], english: name, form });
       }
     }
   }
@@ -64,16 +68,50 @@ function showCard() {
   const wrapper = document.createElement("div");
   wrapper.className = "flashcard-wrapper";
 
-  const card = document.createElement("div");
+  const { arabic, english, form } = deck[idx];
+
+  // A real <button> so the card is focusable and Enter/Space flip it
+  const card = document.createElement("button");
+  card.type = "button";
   card.className = "flashcard";
-  card.innerHTML = `
-    <div class="front" lang="ar" dir="rtl">${deck[idx].arabic}</div>
-    <div class="back">${deck[idx].english}</div>
-  `;
-  card.addEventListener("click", () => card.classList.toggle("flipped"));
+
+  const front = document.createElement("span");
+  front.className = "front";
+  front.lang = "ar";
+  front.dir  = "rtl";
+  front.textContent = arabic;
+
+  const back = document.createElement("span");
+  back.className = "back";
+  const backName = document.createElement("span");
+  backName.className = "back-name";
+  backName.textContent = english;
+  const backForm = document.createElement("span");
+  backForm.className = "back-form";
+  backForm.textContent = FORM_LABELS[form] + " form";
+  back.append(backName, backForm);
+
+  card.append(front, back);
+  syncCardA11y(card);
+  card.addEventListener("click", () => flip(card));
 
   wrapper.appendChild(card);
   container.appendChild(wrapper);
+}
+
+// Keep screen readers from reading the hidden side of the card
+function syncCardA11y(card) {
+  const flipped = card.classList.contains("flipped");
+  card.querySelector(".front").setAttribute("aria-hidden", String(flipped));
+  card.querySelector(".back").setAttribute("aria-hidden", String(!flipped));
+  card.setAttribute("aria-label", flipped
+    ? `${deck[idx].english}, ${FORM_LABELS[deck[idx].form].toLowerCase()} form. Press to flip back.`
+    : `Arabic letter ${deck[idx].arabic}. Press to reveal its name.`);
+}
+
+function flip(card) {
+  card.classList.toggle("flipped");
+  syncCardA11y(card);
 }
 
 // ── Navigation ───────────────────────────────────────────────
@@ -100,11 +138,16 @@ function shuffle() {
 
 // ── Keyboard shorthand ────────────────────────────────────────
 document.addEventListener("keydown", (e) => {
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
   if (e.key === "ArrowRight") next();
   if (e.key === "ArrowLeft")  prev();
   if (e.key === " ") {
+    // Let focused controls handle Space natively — otherwise this both
+    // blocked the checkboxes/buttons and double-flipped the focused card
+    if (e.target.closest("button, input, a, textarea, select")) return;
     e.preventDefault();
-    container.querySelector(".flashcard")?.classList.toggle("flipped");
+    const card = container.querySelector(".flashcard");
+    if (card) flip(card);
   }
 });
 

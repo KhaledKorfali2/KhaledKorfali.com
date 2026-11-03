@@ -425,8 +425,8 @@ const CHAPTERS = [
       {
         id: "pos-2", type: "knobs",
         title: "Z-Index & Stacking",
-        description: "When elements overlap, z-index controls which one appears on top. Higher values sit above lower ones. z-index only works on positioned elements.",
-        callout: "z-index creates a stacking context — a child can never appear above an element outside its parent's stacking context, no matter how high its z-index is.",
+        description: "When elements overlap, z-index controls which one appears on top. Higher values sit above lower ones. z-index only works on positioned elements (and on flex/grid items).",
+        callout: "A positioned element with a z-index other than <code>auto</code> creates a stacking context — its children can never appear above an element outside that context, no matter how high their own z-index is.",
         concepts: ["z-index", "stacking context", "overlap"],
         knobs: [
           { id: "z1", label: "red box z-index",  type: "range", min: -5, max: 10, step: 1, unit: "", default: 2 },
@@ -545,7 +545,7 @@ const CHAPTERS = [
         id: "ov-1", type: "knobs",
         title: "Overflow",
         description: "When content is larger than its container, overflow determines what happens. 'hidden' clips content. 'scroll' always shows scrollbars. 'auto' only shows them when needed.",
-        callout: "<code>overflow: hidden</code> on a parent also clips absolutely positioned children — a common gotcha. It also creates a new block formatting context, which prevents margin collapse.",
+        callout: "<code>overflow: hidden</code> also clips absolutely positioned descendants when the element is (or sits inside) their containing block — a common gotcha. It also creates a new block formatting context, which prevents margin collapse.",
         concepts: ["overflow", "overflow-x", "overflow-y", "clip"],
         knobs: [
           { id: "ov", label: "overflow", type: "select",
@@ -608,7 +608,7 @@ const CHAPTERS = [
         id: "fi-2", type: "knobs",
         title: "Backdrop Filter",
         description: "backdrop-filter applies filter effects to everything behind an element, not the element itself. This creates the frosted glass effect used in modern UIs.",
-        callout: "For backdrop-filter to work, the element must have a semi-transparent background — otherwise there's nothing to 'see through'. The element needs <code>position</code> set too.",
+        callout: "For backdrop-filter to work, the element must have a semi-transparent background — otherwise there's nothing to 'see through'. It also needs something visually behind it (here, the gradient <code>.scene</code>).",
         concepts: ["backdrop-filter", "blur()", "rgba()", "glassmorphism"],
         knobs: [
           { id: "blur", label: "backdrop blur",  type: "range", min: 0,   max: 24, step: 1,    unit: "px", default: 10 },

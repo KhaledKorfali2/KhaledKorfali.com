@@ -3,7 +3,7 @@
 ============================================================================= */
 window.Utils = (function () {
   function esc(s) {
-    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   // Byte formatter (B/K/M/G). Handy for any project tracking storage-like sizes.

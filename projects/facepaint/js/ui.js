@@ -14,17 +14,22 @@ const paletteEl = document.getElementById("palette");
 export function buildPalette() {
   COLORS.forEach((c, i) => {
     const btn = document.createElement("button");
+    btn.type = "button";
     btn.className = "color-btn" + (i === 0 ? " active" : "");
     btn.style.background = c.hex;
     btn.title = c.name;
+    btn.setAttribute("aria-label", c.name);
+    btn.setAttribute("aria-pressed", i === 0 ? "true" : "false");
     btn.addEventListener("click", () => setColorIdx(i));
     paletteEl.appendChild(btn);
   });
 }
 
 function syncPaletteActive(idx) {
-  document.querySelectorAll(".color-btn").forEach((b, i) =>
-    b.classList.toggle("active", i === idx));
+  document.querySelectorAll(".color-btn").forEach((b, i) => {
+    b.classList.toggle("active", i === idx);
+    b.setAttribute("aria-pressed", i === idx ? "true" : "false");
+  });
 }
 
 // ── Brush size ────────────────────────────────────────────────────────────────
@@ -75,39 +80,74 @@ document.getElementById("smoothSlider").addEventListener("input", e => {
 });
 
 // ── Toolbar buttons ───────────────────────────────────────────────────────────
-document.getElementById("clearBtn").addEventListener("click", () => {
+function doClear() {
   clearCanvas();
-  showFlash("Canvas cleared");
-});
+  showFlash("Canvas cleared — Undo to restore");
+}
 
-document.getElementById("saveBtn").addEventListener("click", () => {
+function doSave() {
   saveAsPNG();
   showFlash("Saved!");
-});
+}
 
-document.getElementById("undoBtn").addEventListener("click", () => {
+function doUndo() {
   const ok = undo();
   showFlash(ok ? "Undo" : "Nothing to undo");
-});
+}
+
+document.getElementById("clearBtn").addEventListener("click", doClear);
+document.getElementById("saveBtn").addEventListener("click", doSave);
+document.getElementById("undoBtn").addEventListener("click", doUndo);
 
 // Mesh visibility toggle
 const meshCanvas  = document.getElementById("mesh-canvas");
 const meshToggle  = document.getElementById("meshToggle");
 let meshVisible   = true;
-meshToggle.addEventListener("click", () => {
+function toggleMesh() {
   meshVisible = !meshVisible;
   meshCanvas.classList.toggle("hidden", !meshVisible);
   meshToggle.classList.toggle("active", meshVisible);
-});
+  meshToggle.setAttribute("aria-pressed", String(meshVisible));
+}
+meshToggle.addEventListener("click", toggleMesh);
 
-// Camera visibility toggle
+// Camera visibility toggle (hides the video preview; tracking keeps running)
 const videoEl   = document.getElementById("video");
 const camToggle = document.getElementById("camToggle");
 let camVisible  = true;
-camToggle.addEventListener("click", () => {
+function toggleCam() {
   camVisible = !camVisible;
   videoEl.classList.toggle("hidden", !camVisible);
   camToggle.classList.toggle("active", camVisible);
+  camToggle.setAttribute("aria-pressed", String(camVisible));
+}
+camToggle.addEventListener("click", toggleCam);
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+// Also a fallback for anyone who can't wink reliably.
+document.addEventListener("keydown", e => {
+  if (e.altKey || e.defaultPrevented) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+
+  const mod = e.ctrlKey || e.metaKey;
+  const key = e.key.toLowerCase();
+
+  if (mod) {
+    if (key === "z" && !e.shiftKey) { e.preventDefault(); doUndo(); }
+    else if (key === "s") { e.preventDefault(); doSave(); }
+    return;
+  }
+
+  switch (key) {
+    case "[": case "arrowleft":  prevColor(); break;
+    case "]": case "arrowright": nextColor(); break;
+    case "z": doUndo();     break;
+    case "m": toggleMesh(); break;
+    case "v": toggleCam();  break;
+    default: return;
+  }
+  e.preventDefault();
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────

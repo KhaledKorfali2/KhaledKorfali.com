@@ -3,18 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Boid Simulator</title>
+  <title>Boid Simulator — Flocking Fish</title>
+  <meta name="description" content="Interactive boids flocking simulation: tune alignment, cohesion and separation, drop food for the fish, and draw barriers for them to swim around.">
+  <meta name="theme-color" content="#05080f">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <canvas id="canvas"></canvas>
+  <canvas id="canvas" role="img" aria-label="Flocking fish simulation. Click or tap to drop food."></canvas>
+
+  <a id="backLink" href="/projects.html" aria-label="Back to projects">←<span class="back-text"> Projects</span></a>
 
   <div id="settingsDropdown">
 
-    <button id="settingsBtn">
-      <span class="icon">⚙</span>
+    <button id="settingsBtn" type="button" aria-expanded="false" aria-controls="settingsContent" title="Settings (S)">
+      <span class="icon" aria-hidden="true">⚙</span>
       <span class="text">Settings</span>
-      <span class="arrow">▼</span>
+      <span class="arrow" aria-hidden="true">▼</span>
     </button>
 
     <div id="settingsContent">
@@ -76,10 +80,10 @@
 
       <label class="toggle-row">
         <span>Motion trails</span>
-        <div class="pill-toggle">
+        <span class="pill-toggle">
           <input type="checkbox" id="trailToggle">
-          <span class="pill-track"></span>
-        </div>
+          <span class="pill-track" aria-hidden="true"></span>
+        </span>
       </label>
 
       <div class="divider"></div>
@@ -88,20 +92,33 @@
       <div class="section-label">Barriers</div>
 
       <div class="barrier-btns">
-        <button id="barrierModeBtn" class="tool-btn">✏ Draw</button>
-        <button id="eraserModeBtn"  class="tool-btn">⌫ Erase</button>
+        <button id="barrierModeBtn" type="button" class="tool-btn" aria-pressed="false" title="Draw barriers (D)"><span aria-hidden="true">✏</span> Draw</button>
+        <button id="eraserModeBtn"  type="button" class="tool-btn" aria-pressed="false" title="Erase barriers (E)"><span aria-hidden="true">⌫</span> Erase</button>
       </div>
-      <button id="clearBarriersBtn" class="clear-btn">Clear all</button>
+      <button id="clearBarriersBtn" type="button" class="clear-btn">Clear all barriers</button>
 
       <div class="divider"></div>
 
-      <button id="resetBtn" class="reset-btn">↺ Reset Flock</button>
+      <button id="resetBtn" type="button" class="reset-btn" title="Reset flock (R)"><span aria-hidden="true">↺</span> Reset Flock</button>
+
+      <div class="divider"></div>
+
+      <!-- ── Shortcuts ── -->
+      <div class="section-label">Shortcuts</div>
+      <dl class="shortcuts">
+        <div><dt><kbd>Click</kbd></dt><dd>Drop food</dd></div>
+        <div><dt><kbd>Space</kbd></dt><dd>Pause / resume</dd></div>
+        <div><dt><kbd>R</kbd></dt><dd>Reset flock</dd></div>
+        <div><dt><kbd>T</kbd></dt><dd>Toggle trails</dd></div>
+        <div><dt><kbd>D</kbd> / <kbd>E</kbd></dt><dd>Draw / erase barriers</dd></div>
+        <div><dt><kbd>S</kbd> / <kbd>Esc</kbd></dt><dd>Open / close settings</dd></div>
+      </dl>
 
     </div>
   </div>
 
-  <div id="modeIndicator" class="mode-indicator" style="display:none;"></div>
+  <div id="modeIndicator" class="mode-indicator" role="status" aria-live="polite" style="display:none;"></div>
 
   <script type="module" src="script.js"></script>
 </body>
-</html>
+</html>

@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pattern Trace — LeetCode Pattern Recognition Trainer</title>
+<meta name="description" content="Pattern Trace: drill LeetCode-style problems by naming the clues, pattern, data structure, and target complexity, then step through interactive algorithm diagrams.">
+<meta name="theme-color" content="#0A0F1C">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -156,6 +158,8 @@ h1{font-family:var(--sans); font-size:26px; font-weight:600; margin:0 0 6px; let
 .btn.secondary:hover{color:var(--text); border-color:var(--accent-dim);}
 .btn:disabled{opacity:0.4; cursor:not-allowed;}
 .btn-row{display:flex; gap:10px; margin-top:24px; flex-wrap:wrap;}
+.picker-row{margin-top:18px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.picker-row label{font-family:var(--mono); font-size:11.5px; color:var(--text-faint);}
 
 /* ---------- Review ---------- */
 .review-row{display:grid; grid-template-columns:130px 1fr; gap:14px; padding:10px 0; border-bottom:1px solid var(--line-soft); font-size:13.5px;}
@@ -188,6 +192,8 @@ pre.template{
 .pattern-card{
   background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
   padding:16px 18px; cursor:pointer; transition:border-color .15s;
+  /* rendered as <button>: reset native button styles */
+  display:block; width:100%; text-align:left; color:inherit; font:inherit;
 }
 .pattern-card:hover{border-color:var(--accent-dim);}
 .pattern-card-cat{font-family:var(--mono); font-size:9.5px; color:var(--text-faint); letter-spacing:0.08em; text-transform:uppercase;}
@@ -195,7 +201,7 @@ pre.template{
 .pattern-card-desc{font-size:12.5px; color:var(--text-dim); line-height:1.5;}
 .pattern-card-acc{margin-top:10px; font-family:var(--mono); font-size:11px; color:var(--text-faint);}
 
-.back-link{font-family:var(--mono); font-size:11.5px; color:var(--text-dim); cursor:pointer; margin-bottom:18px; display:inline-block;}
+.back-link{font-family:var(--mono); font-size:11.5px; color:var(--text-dim); cursor:pointer; margin-bottom:18px; display:inline-block; background:none; border:none; padding:0;}
 .back-link:hover{color:var(--accent);}
 .detail-section{margin-bottom:22px;}
 .detail-label{font-family:var(--mono); font-size:11px; color:var(--text-faint); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:10px;}
@@ -205,7 +211,22 @@ pre.template{
 .comparison-table th{font-family:var(--mono); font-size:10.5px; color:var(--accent); text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); letter-spacing:0.04em;}
 .comparison-table td{padding:8px 10px; border-bottom:1px solid var(--line-soft); color:var(--text-dim); line-height:1.5;}
 .related-row{display:flex; gap:8px; flex-wrap:wrap;}
-.related-chip{font-family:var(--mono); font-size:12px; padding:5px 12px; border:1px solid var(--line); border-radius:20px; color:var(--text-dim); cursor:pointer;}
+.related-chip{font-family:var(--mono); font-size:12px; padding:5px 12px; border:1px solid var(--line); border-radius:20px; color:var(--text-dim); cursor:pointer; background:none;}
+.table-scroll{overflow-x:auto;}
+.lib-count{font-family:var(--mono); font-size:11px; color:var(--text-faint); margin:-8px 0 14px;}
+.home-link{display:flex; align-items:center; gap:6px; margin-top:12px; font-family:var(--mono); font-size:10.5px; letter-spacing:0.05em; color:var(--text-faint); text-decoration:none;}
+.home-link:hover{color:var(--accent);}
+.mobile-home{display:none;}
+
+/* ---------- Accessibility ---------- */
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.opt:has(input:focus-visible){border-color:var(--accent); box-shadow:0 0 0 1px var(--accent);}
+.opt input:focus-visible{outline:none;}
+.search-input:focus-visible, .diag-field input:focus-visible, .diag-field textarea:focus-visible{outline:none; border-color:var(--accent);}
+.sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;}
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{transition-duration:0.01ms !important; animation-duration:0.01ms !important; scroll-behavior:auto !important;}
+}
 .related-chip:hover{border-color:var(--accent); color:var(--accent);}
 .recognition-q{
   font-style:italic; font-size:14px; color:var(--text); padding:14px 16px;
@@ -243,6 +264,8 @@ select.pattern-select{
 .diag-field label{font-family:var(--mono); font-size:10px; color:var(--text-faint); letter-spacing:0.05em; text-transform:uppercase;}
 .diag-field input{background:var(--panel-2); border:1px solid var(--line); color:var(--text); font-family:var(--mono); font-size:12.5px; padding:8px 10px; border-radius:var(--radius); width:170px;}
 .diag-field input:focus{outline:none; border-color:var(--accent-dim);}
+.diag-field textarea{background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:8px 10px; border-radius:var(--radius);}
+.diag-field textarea:focus{outline:none; border-color:var(--accent-dim);}
 .diag-stage{background:var(--panel-2); border:1px solid var(--line-soft); border-radius:var(--radius); padding:26px 20px 20px;}
 .diag-array-row{display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start; justify-content:center;}
 .diag-box{
@@ -320,6 +343,15 @@ select.pattern-select{
   /* Let long history rows wrap onto their own line rather than compressing against the timestamp. */
   .history-row{flex-wrap:wrap; row-gap:4px;}
   .history-time{margin-left:auto;}
+
+  /* Brand is hidden on small screens — keep a way back to the portfolio. */
+  .mobile-home{display:flex; align-items:center; margin:0 0 0 4px; padding:10px 12px; white-space:nowrap; flex-shrink:0;}
+}
+@media (max-width:480px){
+  .review-row{grid-template-columns:1fr; gap:6px;}
+  .card{padding:18px 16px;}
+  .diag-stage{padding:22px 10px 14px;}
+  .diag-box{width:40px; height:40px;}
 }
 </style>
 </head>
@@ -329,27 +361,29 @@ select.pattern-select{
     <div class="brand">
       <div class="brand-mark"><span class="dot"></span>PATTERN // TRACE</div>
       <div class="brand-sub">recognition drills</div>
+      <a class="home-link" href="/projects.html">← All projects</a>
     </div>
-    <div class="nav">
-      <button class="nav-item active" data-view="practice"><span class="idx">01</span> Practice</button>
-      <button class="nav-item" data-view="patterns"><span class="idx">02</span> Pattern Library</button>
-      <button class="nav-item" data-view="progress"><span class="idx">03</span> Progress</button>
-    </div>
+    <nav class="nav" aria-label="Pattern Trace sections">
+      <button class="nav-item active" data-view="practice" aria-current="page"><span class="idx" aria-hidden="true">01</span> Practice</button>
+      <button class="nav-item" data-view="patterns"><span class="idx" aria-hidden="true">02</span> Pattern Library</button>
+      <button class="nav-item" data-view="progress"><span class="idx" aria-hidden="true">03</span> Progress</button>
+      <a class="home-link mobile-home" href="/projects.html">← Projects</a>
+    </nav>
     <div class="sidebar-foot">
       <div class="sidebar-foot-label">OVERALL ACCURACY</div>
-      <div class="mini-bar"><div class="mini-bar-fill" id="sidebarBarFill" style="width:0%"></div></div>
+      <div class="mini-bar" aria-hidden="true"><div class="mini-bar-fill" id="sidebarBarFill" style="width:0%"></div></div>
       <div class="sidebar-foot-val" id="sidebarAccVal">no attempts yet</div>
     </div>
   </div>
 
-  <div class="main">
+  <main class="main">
     <!-- PRACTICE VIEW -->
     <div class="view active" id="view-practice"></div>
     <!-- PATTERNS VIEW -->
     <div class="view" id="view-patterns"></div>
     <!-- PROGRESS VIEW -->
     <div class="view" id="view-progress"></div>
-  </div>
+  </main>
 </div>
 
 <script>
@@ -515,7 +549,7 @@ for (let i = 0; i < nums.length; i++) {
     description:"Explore as far as possible down one branch before backtracking — natural for trees, connected components, and path existence.",
     clues:["tree structure","explore all paths","connected components","path from root to leaf","recursion feels natural"],
     dataStructures:["Stack","Tree","Graph"],
-    complexity:{time:"O(V + E)", space:"O(H)"},
+    complexity:{time:"O(V + E)", space:"O(V) (O(h) for a tree of height h)"},
     templates:[{name:"Recursive DFS", code:
 `function dfs(node, visited) {
     if (!node || visited.has(node)) return;
@@ -553,22 +587,24 @@ while (stack.length) {
     dataStructures:["Queue","Tree","Graph"],
     complexity:{time:"O(V + E)", space:"O(V)"},
     templates:[{name:"BFS with Queue", code:
-`const queue = [start];
+`let queue = [start];
 const visited = new Set([start]);
 let steps = 0;
 
 while (queue.length) {
-    const size = queue.length;
-    for (let i = 0; i < size; i++) {
-        const node = queue.shift();
+    // process one whole level, collecting the next one
+    // (avoids queue.shift(), which is O(n) on JS arrays)
+    const next = [];
+    for (const node of queue) {
         // process node
         for (const neighbor of node.neighbors) {
             if (!visited.has(neighbor)) {
                 visited.add(neighbor);
-                queue.push(neighbor);
+                next.push(neighbor);
             }
         }
     }
+    queue = next;
     steps++;
 }`}],
     recognitionQuestion:"Do I need the shortest number of steps or a level-by-level view of an unweighted graph or tree?",
@@ -581,12 +617,13 @@ while (queue.length) {
   },
   {
     id:"union-find", name:"Union-Find", category:"Trees & Graphs",
-    description:"Track and merge disjoint groups efficiently, answering 'are these connected' near O(1) with path compression.",
+    description:"Track and merge disjoint groups efficiently, answering 'are these connected' in near O(1) with path compression plus union by size/rank.",
     clues:["connected components","group merging","cycle detection in undirected graph","are these two things connected"],
     dataStructures:["Array"],
-    complexity:{time:"O(α(n)) per op", space:"O(n)"},
-    templates:[{name:"Union-Find with Path Compression", code:
+    complexity:{time:"O(α(n)) amortized per op", space:"O(n)"},
+    templates:[{name:"Union-Find (Path Compression + Union by Size)", code:
 `const parent = Array.from({length:n}, (_, i) => i);
+const size = new Array(n).fill(1);
 
 function find(x) {
     if (parent[x] !== x) parent[x] = find(parent[x]);
@@ -594,8 +631,12 @@ function find(x) {
 }
 
 function union(a, b) {
-    const ra = find(a), rb = find(b);
-    if (ra !== rb) parent[ra] = rb;
+    let ra = find(a), rb = find(b);
+    if (ra === rb) return false;          // already connected
+    if (size[ra] < size[rb]) [ra, rb] = [rb, ra];
+    parent[rb] = ra;                      // attach smaller tree under larger
+    size[ra] += size[rb];
+    return true;
 }`}],
     recognitionQuestion:"Do I repeatedly need to merge groups or check whether two items are already in the same group?",
     relatedPatterns:["dfs","bfs"],
@@ -939,11 +980,11 @@ const PROBLEMS = [
     constraints:["1 <= piles.length <= 10^4","1 <= piles[i] <= 10^9"],
     primaryPattern:"binary-search", dataStructures:["Array"],
     targetComplexity:{time:"O(n log m)", space:"O(1)"},
-    recognitionClues:["minimize the maximum","search space is monotonic"],
+    recognitionClues:["find boundary or threshold","search space is monotonic"],
     explanation:[
       "As eating speed k increases, hours needed always decreases — that monotonic relationship is the real signal.",
       "This isn't binary search over the array itself, but over the answer space of possible speeds.",
-      "Binary searching for the smallest k where hours-needed(k) <= h gives O(n log m)."
+      "Binary searching for the smallest k where hours-needed(k) <= h gives O(n log m), where m is the largest pile."
     ],
     template:"binary-search-boundary"
   },
@@ -2120,20 +2161,58 @@ const TEMPLATE_LOOKUP = {
 const DS_POOL = ["Hash Map","Hash Set","Stack","Queue","Heap","Array","Deque","Tree","Graph","Linked List"];
 const COMPLEXITY_OPTIONS = ["O(1)","O(log n)","O(n)","O(n log n)","O(n log k)","O(m*n)","O(V + E)","O(n^2)","O(2^n)","O(n!)"];
 
+/* Some targets (e.g. "O(n * k log k)", "O(H)") aren't one of the quiz
+   buckets above, which made them impossible to answer correctly. Map each
+   such problem to the bucket(s) that should count as right; the review
+   still shows the precise target. */
+const COMPLEXITY_ACCEPT = {
+  "hm-002": ["O(n log n)"],               // n strings × sort each (k log k)
+  "bs-002": ["O(n log n)"],               // n piles × log(max pile)
+  "dp-002": ["O(m*n)"],                   // amount × coins
+  "uf-001": ["O(n^2)"],                   // scan n×n matrix
+  "b75-009": ["O(1)","O(log n)"],         // 32 bits = bits of n
+  "b75-015": ["O(2^n)"],                  // exponential search
+  "b75-016": ["O(2^n)"],                  // exponential (4^L branching)
+  "b75-030": ["O(n)","O(V + E)"],         // near-linear with α(n)
+  "b75-031": ["O(n)","O(V + E)"],
+  "b75-034": ["O(n)"],                    // O(m + n) is linear
+  "b75-038": ["O(n)"],                    // linear in word length
+  "b75-039": ["O(n)","O(2^n)"],           // O(L) typical, exponential with wildcards
+  "b75-046": ["O(n)","O(log n)"],         // O(H + k)
+  "b75-047": ["O(log n)","O(n)"],         // O(H): balanced vs skewed
+  "b75-051": ["O(2^n)"],
+  "b75-053": ["O(log n)","O(n log n)"],   // log n per add; n log n over n adds
+  "b75-058": ["O(n)"],                    // O(n + m) is linear
+  "b75-060": ["O(n)"],
+  "b75-061": ["O(1)"],
+  "b75-062": ["O(1)"]
+};
+function acceptedComplexities(p){
+  return COMPLEXITY_ACCEPT[p.id] || [p.targetComplexity.time];
+}
+
 /* =========================================================
    STORAGE
 ========================================================= */
 const STORAGE_KEY = "lpt_attempts_v1";
+const MAX_ATTEMPTS = 1000; // keep localStorage bounded
 function loadAttempts(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const data = raw ? JSON.parse(raw) : [];
+    // Guard against corrupted / hand-edited storage
+    return Array.isArray(data)
+      ? data.filter(a => a && typeof a === "object" && typeof a.pattern === "string")
+      : [];
   }catch(e){ return []; }
 }
 function saveAttempt(attempt){
   const all = loadAttempts();
   all.push(attempt);
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(all)); }catch(e){}
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(all.slice(-MAX_ATTEMPTS))); }catch(e){}
+}
+function clearAttempts(){
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
 }
 
 /* =========================================================
@@ -2144,8 +2223,10 @@ let currentProblem = null;
 let quizState = null; // {keywordsText, pattern, ds:Set, complexity, submitted, result}
 
 function pickRandomProblem(filterPatternId){
-  const pool = filterPatternId ? PROBLEMS.filter(p=>p.primaryPattern===filterPatternId) : PROBLEMS;
+  let pool = filterPatternId ? PROBLEMS.filter(p=>p.primaryPattern===filterPatternId) : PROBLEMS;
   if(!pool.length) return null;
+  // Don't hand back the problem the user just did, if there's any alternative.
+  if(currentProblem && pool.length>1) pool = pool.filter(p=>p.id!==currentProblem.id);
   return pool[Math.floor(Math.random()*pool.length)];
 }
 
@@ -2177,6 +2258,11 @@ function weakestPattern(){
       if(acc < weakestAcc){ weakestAcc = acc; weakest = id; }
     }
   });
+  // Nothing actually weak yet? Point at a pattern that hasn't been tried.
+  if(weakestAcc >= 100){
+    const untried = PATTERNS.filter(p => !stats[p.id].attempts && PROBLEMS.some(q=>q.primaryPattern===p.id));
+    if(untried.length) return untried[Math.floor(Math.random()*untried.length)].id;
+  }
   return weakest;
 }
 
@@ -2188,6 +2274,8 @@ function setView(view){
   currentView = view;
   document.querySelectorAll(".nav-item").forEach(el=>{
     el.classList.toggle("active", el.dataset.view===view);
+    if(el.dataset.view===view) el.setAttribute("aria-current","page");
+    else el.removeAttribute("aria-current");
   });
   document.querySelectorAll(".view").forEach(el=>el.classList.remove("active"));
   document.getElementById("view-"+view).classList.add("active");
@@ -2221,6 +2309,10 @@ function startNewProblem(problem){
   currentProblem = problem;
   quizState = { keywordsText:"", pattern:null, ds:new Set(), complexity:null, submitted:false };
   renderPractice();
+  // New problem should start at the top, not wherever the last review was scrolled to.
+  window.scrollTo(0, 0);
+  const h = document.querySelector("#view-practice h1");
+  if(h){ h.setAttribute("tabindex","-1"); h.focus({preventScroll:true}); }
 }
 
 function renderPractice(){
@@ -2236,8 +2328,8 @@ function renderPractice(){
           <button class="btn" id="btnRandom">Random Practice</button>
           <button class="btn secondary" id="btnWeak">Weak Areas</button>
         </div>
-        <div style="margin-top:18px; display:flex; align-items:center; gap:10px;">
-          <label style="font-family:var(--mono); font-size:11.5px; color:var(--text-faint);">PRACTICE A SPECIFIC PATTERN</label>
+        <div class="picker-row">
+          <label for="patternPicker">PRACTICE A SPECIFIC PATTERN</label>
           <select class="pattern-select" id="patternPicker">
             <option value="">Choose pattern…</option>
             ${PATTERNS.map(p=>`<option value="${p.id}">${p.name}</option>`).join("")}
@@ -2262,17 +2354,17 @@ function renderPractice(){
 
   let html = `
     <div class="page-eyebrow">01 / PRACTICE</div>
-    <h1>${p.title}</h1>
+    <h1>${escapeHtml(p.title)}</h1>
     <p class="page-desc">Work through each step before submitting. Nothing is revealed until you review.</p>
 
     <div class="card">
       <div class="card-label">Problem</div>
       <div class="problem-meta"><span class="diff-badge diff-${p.difficulty}">${p.difficulty}</span></div>
-      <div class="problem-desc">${p.description}</div>
+      <div class="problem-desc">${escapeHtml(p.description)}</div>
       <div class="examples">
-        ${p.examples.map(ex=>`<div class="example">Input: ${ex.input}<br>Output: ${ex.output}</div>`).join("")}
+        ${p.examples.map(ex=>`<div class="example">Input: ${escapeHtml(ex.input)}<br>Output: ${escapeHtml(ex.output)}</div>`).join("")}
       </div>
-      <ul class="constraints">${p.constraints.map(c=>`<li>${c}</li>`).join("")}</ul>
+      <ul class="constraints">${p.constraints.map(c=>`<li>${escapeHtml(c)}</li>`).join("")}</ul>
     </div>
   `;
 
@@ -2280,24 +2372,24 @@ function renderPractice(){
     html += `
     <div class="card">
       <div class="step">
-        <div class="step-q">What are the key words in the question?</div>
-        <div style="font-size:12.5px; color:var(--text-dim); margin-bottom:10px;">Type the words or phrases from the problem that stood out to you — separate them with commas or new lines.</div>
-        <textarea class="search-input textarea-input" id="keywordsInput" rows="3" placeholder="e.g. contiguous subarray, large input size…">${escapeHtml(quizState.keywordsText)}</textarea>
+        <label class="step-q" for="keywordsInput" style="display:block;">What are the key words in the question?</label>
+        <div id="keywordsHelp" style="font-size:12.5px; color:var(--text-dim); margin-bottom:10px;">Type the words or phrases from the problem that stood out to you — separate them with commas or new lines.</div>
+        <textarea class="search-input textarea-input" id="keywordsInput" aria-describedby="keywordsHelp" rows="3" placeholder="e.g. contiguous subarray, large input size…">${escapeHtml(quizState.keywordsText)}</textarea>
       </div>
 
       <div class="step">
-        <div class="step-q">What pattern is this?</div>
-        <div class="opt-grid">
+        <div class="step-q" id="qPattern">What pattern is this?</div>
+        <div class="opt-grid" role="radiogroup" aria-labelledby="qPattern">
           ${PATTERNS.map(pt=>`
             <label class="opt ${quizState.pattern===pt.id?'selected':''}" data-pattern="${pt.id}">
-              <input type="radio" name="pattern" ${quizState.pattern===pt.id?'checked':''}> ${pt.name}
+              <input type="radio" name="pattern" value="${pt.id}" ${quizState.pattern===pt.id?'checked':''}> ${pt.name}
             </label>`).join("")}
         </div>
       </div>
 
       <div class="step">
-        <div class="step-q">Likely data structure(s)</div>
-        <div class="opt-grid">
+        <div class="step-q" id="qDs">Likely data structure(s) <span style="font-weight:400; color:var(--text-faint); font-size:12px;">— select all that apply</span></div>
+        <div class="opt-grid" role="group" aria-labelledby="qDs">
           ${DS_POOL.map(d=>`
             <label class="opt ${quizState.ds.has(d)?'selected':''}" data-ds="${escapeAttr(d)}">
               <input type="checkbox" ${quizState.ds.has(d)?'checked':''}> ${d}
@@ -2306,8 +2398,8 @@ function renderPractice(){
       </div>
 
       <div class="step">
-        <div class="step-q">Target time complexity</div>
-        <div class="opt-grid">
+        <div class="step-q" id="qComplexity">Target time complexity</div>
+        <div class="opt-grid" role="radiogroup" aria-labelledby="qComplexity">
           ${COMPLEXITY_OPTIONS.map(c=>`
             <label class="opt ${quizState.complexity===c?'selected':''}" data-complexity="${escapeAttr(c)}">
               <input type="radio" name="complexity" ${quizState.complexity===c?'checked':''}> ${c}
@@ -2316,7 +2408,8 @@ function renderPractice(){
       </div>
 
       <div class="btn-row">
-        <button class="btn" id="btnSubmit" ${(!quizState.pattern)?'disabled':''}>Submit & Review</button>
+        <button class="btn" id="btnSubmit" ${(!quizState.pattern)?'disabled':''} aria-describedby="submitHint">Submit &amp; Review</button>
+        <span id="submitHint" style="align-self:center; font-size:12px; color:var(--text-faint);">${quizState.pattern?'':'Pick a pattern to enable submit.'}</span>
         <button class="btn secondary" id="btnAbandon">Choose a different problem</button>
       </div>
     </div>
@@ -2337,7 +2430,7 @@ function renderPractice(){
   }
 }
 
-function escapeAttr(s){ return s.replace(/"/g,'&quot;'); }
+function escapeAttr(s){ return escapeHtml(String(s)).replace(/'/g,'&#39;'); }
 function escapeHtml(s){
   return (s||"").replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -2348,26 +2441,32 @@ function wirePracticeEvents(p){
     // Update state on input WITHOUT re-rendering, so typing doesn't lose focus/cursor.
     keywordsInput.oninput = (e)=>{ quizState.keywordsText = e.target.value; };
   }
-  document.querySelectorAll("[data-pattern]").forEach(el=>{
-    el.onclick = (e)=>{
-      e.preventDefault();
-      quizState.pattern = el.dataset.pattern;
-      renderPractice();
+  // Selections update state + classes in place (no full re-render), so
+  // keyboard focus and scroll position are preserved while answering.
+  const syncSelected = (attr)=> document.querySelectorAll(`[${attr}]`).forEach(lbl=>{
+    lbl.classList.toggle("selected", lbl.querySelector("input").checked);
+  });
+  document.querySelectorAll("[data-pattern] input").forEach(inp=>{
+    inp.onchange = ()=>{
+      quizState.pattern = inp.closest("[data-pattern]").dataset.pattern;
+      syncSelected("data-pattern");
+      const sb = document.getElementById("btnSubmit");
+      if(sb) sb.disabled = false;
+      const hint = document.getElementById("submitHint");
+      if(hint) hint.textContent = "";
     };
   });
-  document.querySelectorAll("[data-ds]").forEach(el=>{
-    el.onclick = (e)=>{
-      e.preventDefault();
-      const d = el.dataset.ds;
-      if(quizState.ds.has(d)) quizState.ds.delete(d); else quizState.ds.add(d);
-      renderPractice();
+  document.querySelectorAll("[data-ds] input").forEach(inp=>{
+    inp.onchange = ()=>{
+      const d = inp.closest("[data-ds]").dataset.ds;
+      if(inp.checked) quizState.ds.add(d); else quizState.ds.delete(d);
+      syncSelected("data-ds");
     };
   });
-  document.querySelectorAll("[data-complexity]").forEach(el=>{
-    el.onclick = (e)=>{
-      e.preventDefault();
-      quizState.complexity = el.dataset.complexity;
-      renderPractice();
+  document.querySelectorAll("[data-complexity] input").forEach(inp=>{
+    inp.onchange = ()=>{
+      quizState.complexity = inp.closest("[data-complexity]").dataset.complexity;
+      syncSelected("data-complexity");
     };
   });
   const submitBtn = document.getElementById("btnSubmit");
@@ -2394,7 +2493,7 @@ function submitQuiz(p){
   const dsCorrectSet = new Set(p.dataStructures);
   const dsSelected = quizState.ds;
   const dsCorrect = dsSelected.size===dsCorrectSet.size && [...dsSelected].every(d=>dsCorrectSet.has(d));
-  const complexityCorrect = quizState.complexity === p.targetComplexity.time;
+  const complexityCorrect = acceptedComplexities(p).includes(quizState.complexity);
   const matchedClues = matchKeywords(quizState.keywordsText, p.recognitionClues);
 
   quizState.submitted = true;
@@ -2411,6 +2510,13 @@ function submitQuiz(p){
 
   renderPractice();
   renderSidebarFoot();
+  // Bring the result into view and move focus there for keyboard/screen-reader users.
+  const review = document.getElementById("reviewCard");
+  if(review){
+    review.setAttribute("tabindex","-1");
+    review.focus({preventScroll:true});
+    review.scrollIntoView({block:"start"});
+  }
 }
 
 /* =========================================================
@@ -2445,13 +2551,17 @@ function arrayStageHTML(arr, opts){
 function diagControlsHTML(fields){
   return fields.map(f=>{
     if(f.type==="textarea"){
-      return `<div class="diag-field" style="min-width:220px;"><label>${f.label}</label><textarea id="ctrl_${f.key}" class="textarea-input" rows="${f.rows||4}">${escapeHtml(String(f.value))}</textarea></div>`;
+      return `<div class="diag-field" style="min-width:220px;"><label for="ctrl_${f.key}">${f.label}</label><textarea id="ctrl_${f.key}" class="textarea-input" rows="${f.rows||4}" spellcheck="false">${escapeHtml(String(f.value))}</textarea></div>`;
     }
-    return `<div class="diag-field"><label>${f.label}</label><input type="text" id="ctrl_${f.key}" value="${escapeAttr(String(f.value))}"></div>`;
+    return `<div class="diag-field"><label for="ctrl_${f.key}">${f.label}</label><input type="text" id="ctrl_${f.key}" value="${escapeAttr(String(f.value))}" spellcheck="false" autocomplete="off"></div>`;
   }).join("") +
     `<div class="diag-field"><label>&nbsp;</label><button class="btn secondary" id="ctrlApply">Apply</button></div>`;
 }
 function wireDiagControls(el, applyInput, build){
+  // Enter in a single-line field applies, like a form submit.
+  el.querySelectorAll("input[id^='ctrl_']").forEach(inp=>{
+    inp.onkeydown = (e)=>{ if(e.key==="Enter"){ e.preventDefault(); el.querySelector("#ctrlApply").click(); } };
+  });
   el.querySelector("#ctrlApply").onclick = ()=>{
     const vals = {};
     el.querySelectorAll("input[id^='ctrl_'], textarea[id^='ctrl_']").forEach(inp=>{ vals[inp.id.replace("ctrl_","")] = inp.value; });
@@ -2476,7 +2586,9 @@ function computeSlidingWindow({array, maxSum}){
     if(len>bestLen){ bestLen=len; bestRange=[left,right]; msg += ` New best length ${bestLen}.`; }
     steps.push({left,right,bestRange:[...bestRange],message:msg});
   }
-  steps.push({left,right:array.length-1,bestRange:[...bestRange],final:true,message:`Done. Longest window with sum ≤ ${maxSum} has length ${bestLen} (indices [${bestRange[0]},${bestRange[1]}]).`});
+  steps.push({left,right:array.length-1,bestRange:[...bestRange],final:true,message: bestLen
+    ? `Done. Longest window with sum ≤ ${maxSum} has length ${bestLen} (indices [${bestRange[0]},${bestRange[1]}]).`
+    : `Done. No window has sum ≤ ${maxSum} — every single element is already too large.`});
   return steps;
 }
 function renderSlidingWindow(stage, step, input){
@@ -2929,9 +3041,11 @@ const DIAGRAM_REGISTRY = {
     defaultInput:()=>({array:[2,1,5,2,3,2], maxSum:7}),
     compute:computeSlidingWindow,
     renderStep:renderSlidingWindow,
-    controlsHtml:(input)=>diagControlsHTML([{key:"array",label:"Array",value:input.array.join(",")},{key:"maxSum",label:"Max Sum",value:input.maxSum}]),
+    controlsHtml:(input)=>diagControlsHTML([{key:"array",label:"Array (non-negative)",value:input.array.join(",")},{key:"maxSum",label:"Max Sum",value:input.maxSum}]),
     wireControls:(el,input,applyInput)=>wireDiagControls(el, applyInput, v=>{
-      const array = parseArray(v.array); if(!array.length) return null;
+      // Shrinking the window only helps when values are non-negative; with
+      // negatives this greedy window is no longer correct, so drop them.
+      const array = parseArray(v.array).filter(n=>n>=0); if(!array.length) return null;
       return {array, maxSum: parseInt(v.maxSum,10)||0};
     })
   },
@@ -3106,12 +3220,12 @@ function mountDiagram(container, patternId){
       <p class="diag-sandbox-note">${spec.intro} This is a standalone sandbox — edit the values and Apply, independent of the problem above.</p>
       <div class="diag-controls" id="${id('diagControls')}"></div>
       <div class="diag-stage" id="${id('diagStage')}"></div>
-      <div class="diag-status" id="${id('diagStatus')}"></div>
+      <div class="diag-status" id="${id('diagStatus')}" aria-live="polite"></div>
       <div class="diag-transport">
-        <button class="btn secondary" id="${id('diagPrev')}">◀ Step</button>
+        <button class="btn secondary" id="${id('diagPrev')}" aria-label="Previous step">◀ Step</button>
         <button class="btn" id="${id('diagPlay')}">▶ Play</button>
-        <button class="btn secondary" id="${id('diagNext')}">Step ▶</button>
-        <input type="range" class="diag-slider" id="${id('diagSlider')}" min="0" max="${Math.max(0,steps.length-1)}" value="${idx}">
+        <button class="btn secondary" id="${id('diagNext')}" aria-label="Next step">Step ▶</button>
+        <input type="range" class="diag-slider" id="${id('diagSlider')}" aria-label="Step" min="0" max="${Math.max(0,steps.length-1)}" value="${idx}">
         <span class="diag-count" id="${id('diagCount')}"></span>
         <button class="btn secondary" id="${id('diagReset')}">Reset</button>
       </div>
@@ -3174,7 +3288,7 @@ function renderReview(p){
   const tmpl = TEMPLATE_LOOKUP[p.template];
 
   return `
-    <div class="card">
+    <div class="card" id="reviewCard">
       <div class="card-label">Review</div>
       <div class="score-banner">
         <div class="score-num">${scoreCount}/3</div>
@@ -3185,7 +3299,7 @@ function renderReview(p){
         <div class="review-key">KEY WORDS</div>
         <div class="review-val">
           You identified ${r.matchedClues.length} of ${r.cluesTotal} key words/phrases.<br>
-          ${p.recognitionClues.map(c=>`<span class="tag ${r.matchedClues.includes(c)?'good':'bad'}">${c}</span>`).join("")}
+          ${p.recognitionClues.map(c=>`<span class="tag ${r.matchedClues.includes(c)?'good':'bad'}">${r.matchedClues.includes(c)?'✓':'✗'} ${escapeHtml(c)}</span>`).join("")}
           <div style="margin-top:10px; font-family:var(--mono); font-size:11.5px; color:var(--text-faint);">Your words: ${escapeHtml(quizState.keywordsText) || '(none entered)'}</div>
         </div>
       </div>
@@ -3211,7 +3325,8 @@ function renderReview(p){
         <div class="review-key">COMPLEXITY</div>
         <div class="review-val">
           <span class="tag ${r.complexityCorrect?'good':'bad'}">You said: ${quizState.complexity || '—'}</span>
-          ${!r.complexityCorrect?`<span class="tag good">Target: ${p.targetComplexity.time} time, ${p.targetComplexity.space} space</span>`:`<span class="tag good">Space: ${p.targetComplexity.space}</span>`}
+          <span class="tag good">Target: ${escapeHtml(p.targetComplexity.time)} time, ${escapeHtml(p.targetComplexity.space)} space</span>
+          ${COMPLEXITY_ACCEPT[p.id] ? `<div style="margin-top:6px; font-size:12px; color:var(--text-faint);">Closest quiz option${acceptedComplexities(p).length>1?'s':''}: ${acceptedComplexities(p).map(escapeHtml).join(" or ")}</div>` : ''}
         </div>
       </div>
     </div>
@@ -3219,13 +3334,13 @@ function renderReview(p){
     <div class="card">
       <div class="card-label">Why ${pattern.name}?</div>
       <ol class="explain-list">
-        ${p.explanation.map(e=>`<li>${e}</li>`).join("")}
+        ${p.explanation.map(e=>`<li>${escapeHtml(e)}</li>`).join("")}
       </ol>
     </div>
 
     <div class="card">
       <div class="card-label">Generalized Template — ${tmpl.name}</div>
-      <pre class="template">${tmpl.code}</pre>
+      <pre class="template" tabindex="0">${escapeHtml(tmpl.code)}</pre>
     </div>
 
     <div class="card">
@@ -3247,38 +3362,52 @@ function renderPatternLibrary(){
     renderPatternDetail(selectedPatternId);
     return;
   }
-  const stats = computePatternStats();
-  const filtered = PATTERNS.filter(p =>
-    !libraryFilter ||
-    p.name.toLowerCase().includes(libraryFilter.toLowerCase()) ||
-    p.category.toLowerCase().includes(libraryFilter.toLowerCase()) ||
-    p.clues.some(c=>c.toLowerCase().includes(libraryFilter.toLowerCase()))
-  );
-
   el.innerHTML = `
     <div class="page-eyebrow">02 / PATTERN LIBRARY</div>
     <h1>Reference Patterns</h1>
     <p class="page-desc">One canonical page per pattern — clues, data structures, complexity, and a template. Built for recognition, not full tutorials.</p>
     <div class="lib-controls">
-      <input class="search-input" id="libSearch" placeholder="Search patterns, categories, or clues…" value="${libraryFilter}">
+      <label for="libSearch" class="sr-only">Search patterns</label>
+      <input class="search-input" id="libSearch" type="search" autocomplete="off" placeholder="Search patterns, categories, or clues…" value="${escapeAttr(libraryFilter)}">
     </div>
-    <div class="pattern-grid">
-      ${filtered.map(p=>{
-        const s = stats[p.id];
-        const acc = s.attempts ? Math.round((s.correct/s.attempts)*100)+"%" : "not attempted";
-        return `
-        <div class="pattern-card" data-pid="${p.id}">
-          <div class="pattern-card-cat">${p.category}</div>
-          <div class="pattern-card-name">${p.name}</div>
-          <div class="pattern-card-desc">${p.description}</div>
-          <div class="pattern-card-acc">RECOGNITION: ${acc}</div>
-        </div>`;
-      }).join("") || `<div class="empty-state">No patterns match "${libraryFilter}".</div>`}
-    </div>
+    <div class="lib-count" id="libCount" aria-live="polite"></div>
+    <div class="pattern-grid" id="patternGrid"></div>
   `;
-  document.getElementById("libSearch").oninput = (e)=>{ libraryFilter = e.target.value; renderPatternLibrary(); };
-  document.querySelectorAll("[data-pid]").forEach(el2=>{
-    el2.onclick = ()=>{ selectedPatternId = el2.dataset.pid; renderPatternLibrary(); };
+  renderPatternGrid();
+  const search = document.getElementById("libSearch");
+  // Only the grid re-renders while typing, so the input keeps focus/caret.
+  search.oninput = (e)=>{ libraryFilter = e.target.value; renderPatternGrid(); };
+  search.onkeydown = (e)=>{
+    if(e.key==="Escape" && search.value){ search.value=""; libraryFilter=""; renderPatternGrid(); }
+  };
+}
+
+function renderPatternGrid(){
+  const grid = document.getElementById("patternGrid");
+  if(!grid) return;
+  const stats = computePatternStats();
+  const q = libraryFilter.trim().toLowerCase();
+  const filtered = PATTERNS.filter(p =>
+    !q ||
+    p.name.toLowerCase().includes(q) ||
+    p.category.toLowerCase().includes(q) ||
+    p.clues.some(c=>c.toLowerCase().includes(q))
+  );
+  grid.innerHTML = filtered.map(p=>{
+    const s = stats[p.id];
+    const acc = s.attempts ? Math.round((s.correct/s.attempts)*100)+"%" : "not attempted";
+    return `
+    <button type="button" class="pattern-card" data-pid="${p.id}">
+      <span class="pattern-card-cat" style="display:block;">${p.category}</span>
+      <span class="pattern-card-name" style="display:block;">${p.name}</span>
+      <span class="pattern-card-desc" style="display:block;">${p.description}</span>
+      <span class="pattern-card-acc" style="display:block;">RECOGNITION: ${acc}</span>
+    </button>`;
+  }).join("") || `<div class="empty-state">No patterns match "${escapeHtml(libraryFilter)}".</div>`;
+  const count = document.getElementById("libCount");
+  if(count) count.textContent = q ? `${filtered.length} of ${PATTERNS.length} patterns` : "";
+  grid.querySelectorAll("[data-pid]").forEach(el2=>{
+    el2.onclick = ()=>{ selectedPatternId = el2.dataset.pid; renderPatternLibrary(); window.scrollTo(0,0); };
   });
 }
 
@@ -3289,7 +3418,7 @@ function renderPatternDetail(pid){
   const acc = stats.attempts ? Math.round((stats.correct/stats.attempts)*100)+"%" : "not attempted yet";
 
   el.innerHTML = `
-    <span class="back-link" id="backToLib">← Back to library</span>
+    <button type="button" class="back-link" id="backToLib">← Back to library</button>
     <div class="page-eyebrow">${p.category.toUpperCase()}</div>
     <h1>${p.name}</h1>
     <p class="page-desc">${p.description}</p>
@@ -3316,7 +3445,7 @@ function renderPatternDetail(pid){
 
     <div class="detail-section">
       <div class="detail-label">General Template${p.templates.length>1?'s':''}</div>
-      ${p.templates.map(t=>`<div style="margin-bottom:12px;"><div style="font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:6px;">${t.name}</div><pre class="template">${t.code}</pre></div>`).join("")}
+      ${p.templates.map(t=>`<div style="margin-bottom:12px;"><div style="font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:6px;">${t.name}</div><pre class="template" tabindex="0">${escapeHtml(t.code)}</pre></div>`).join("")}
     </div>
 
     ${p.comparisons.length ? `
@@ -3327,10 +3456,10 @@ function renderPatternDetail(pid){
         return `
         <div style="margin-bottom:14px;">
           <div style="font-size:13px; margin-bottom:8px; color:var(--text-dim);">${p.name} vs ${other.name}</div>
-          <table class="comparison-table">
-            <tr><th>${p.name}</th><th>${other.name}</th></tr>
+          <div class="table-scroll"><table class="comparison-table">
+            <tr><th scope="col">${p.name}</th><th scope="col">${other.name}</th></tr>
             ${c.rows.map(row=>`<tr><td>${row[0]}</td><td>${row[1]}</td></tr>`).join("")}
-          </table>
+          </table></div>
         </div>`;
       }).join("")}
     </div>` : ''}
@@ -3340,7 +3469,7 @@ function renderPatternDetail(pid){
       <div class="related-row">
         ${p.relatedPatterns.map(rid=>{
           const rp = PATTERNS.find(x=>x.id===rid);
-          return rp ? `<span class="related-chip" data-pid="${rp.id}">${rp.name}</span>` : '';
+          return rp ? `<button type="button" class="related-chip" data-pid="${rp.id}">${rp.name}</button>` : '';
         }).join("")}
       </div>
     </div>
@@ -3350,10 +3479,16 @@ function renderPatternDetail(pid){
       <div class="chip-row"><span class="chip">${acc} ${stats.attempts?`(${stats.correct}/${stats.attempts})`:''}</span></div>
     </div>
   `;
-  document.getElementById("backToLib").onclick = ()=>{ selectedPatternId=null; renderPatternLibrary(); };
+  document.getElementById("backToLib").onclick = ()=>{
+    const from = selectedPatternId;
+    selectedPatternId=null; renderPatternLibrary();
+    // Return focus to the card the user came from
+    el.querySelector(`.pattern-card[data-pid="${from}"]`)?.focus();
+  };
   document.querySelectorAll(".related-chip").forEach(el2=>{
-    el2.onclick = ()=>{ selectedPatternId = el2.dataset.pid; renderPatternLibrary(); };
+    el2.onclick = ()=>{ selectedPatternId = el2.dataset.pid; renderPatternLibrary(); window.scrollTo(0,0); document.getElementById("backToLib")?.focus({preventScroll:true}); };
   });
+  document.getElementById("backToLib").focus({preventScroll:true});
 }
 
 /* =========================================================
@@ -3392,7 +3527,7 @@ function renderProgress(){
         return `
         <div class="perf-row">
           <div class="perf-name">${p.name}</div>
-          <div class="perf-bar-track"><div class="perf-bar-fill ${cls}" style="width:${acc}%"></div></div>
+          <div class="perf-bar-track" aria-hidden="true"><div class="perf-bar-fill ${cls}" style="width:${acc}%"></div></div>
           <div class="perf-pct">${acc}%</div>
         </div>`;
       }).join("") : `<div class="empty-state">No attempts yet. Head to Practice to start a session.</div>`}
@@ -3416,7 +3551,7 @@ function renderProgress(){
         return `
         <div class="history-row">
           <div class="history-left">
-            <span class="history-dot ${a.patternCorrect?'ok':'no'}"></span>
+            <span class="history-dot ${a.patternCorrect?'ok':'no'}" role="img" aria-label="${a.patternCorrect?'correct':'incorrect'}"></span>
             <span>${p?p.title:'Unknown problem'}</span>
             <span style="color:var(--text-faint);">— ${pat?pat.name:a.pattern}</span>
           </div>
@@ -3424,7 +3559,20 @@ function renderProgress(){
         </div>`;
       }).join("") : `<div class="empty-state">Nothing here yet.</div>`}
     </div>
+
+    ${attempts.length ? `
+    <div class="btn-row">
+      <button class="btn secondary" id="btnResetProgress">Reset progress</button>
+    </div>` : ''}
   `;
+
+  const resetBtn = document.getElementById("btnResetProgress");
+  if(resetBtn) resetBtn.onclick = ()=>{
+    if(!confirm("Delete all " + attempts.length + " saved attempts? This can't be undone.")) return;
+    clearAttempts();
+    renderProgress();
+    renderSidebarFoot();
+  };
 
   const weakBtn = document.getElementById("btnPracticeWeak");
   if(weakBtn) weakBtn.onclick = ()=>{

@@ -64,6 +64,11 @@
     canvas.style.width  = cw + 'px';
     canvas.style.height = ch + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Keep the graph on-screen when the canvas changes size (rotation, window resize)
+    if (W && H && cw && ch && (cw !== W || ch !== H)) {
+      var sx = cw / W, sy = ch / H;
+      graph.nodes.forEach(function (n) { n.x *= sx; n.y *= sy; });
+    }
     W = cw; H = ch;
     draw();
   }
@@ -113,6 +118,11 @@
 
   // Pending edge for weight picker
   var pendingEdgeU = null, pendingEdgeV = null;
+
+  var DRAG_THRESHOLD = 5;      // px of movement before a press counts as a drag
+  var MAX_NODES      = 60;     // keeps Floyd-Warshall's O(V³) step list manageable
+  var REDUCED_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var dragMoved = false, downPos = null, touchStartPos = null;
 
   /* ── Speed map ── */
   var SPEED_MAP = [0, 900, 500, 250, 120, 70, 35, 18, 9, 4, 1];
@@ -248,14 +258,9 @@
       if (st === 'relaxed' || st === 'tree' || st === 'mst') e++;
     }
     stats.visited = v; stats.queued = q; stats.edges = e;
-    if (s.type === 'path') {
-      var m = s.message.match(/Cost:\s*([\d.∞]+)/);
-      if (m) stats.cost = m[1];
-    }
-    if (s.type === 'done') {
-      var m = s.message.match(/cost[= g]+([\d.]+)/i) || s.message.match(/weight[: ]+([\d.]+)/i);
-      if (m) stats.cost = m[1];
-    }
+    // Engine attaches a numeric .cost to path/total steps (regex-parsing the
+    // message missed negative costs and "hops")
+    if (typeof s.cost === 'number') stats.cost = formatCost(s.cost);
     updateStats();
   }
 
@@ -278,15 +283,22 @@
     dispNodeStates = {}; dispEdgeStates = {}; dispDistances = null;
     stats = { visited: 0, queued: 0, edges: 0, cost: null };
     clearLog();
+    target = Math.max(0, Math.min(target, steps.length));
     for (var i = 0; i < target; i++) {
       var s = steps[i];
-      dispNodeStates = cloneObj(s.nodeStates);
-      dispEdgeStates = cloneObj(s.edgeStates);
       if (s.distances) dispDistances = s.distances;
+      if (typeof s.cost === 'number') stats.cost = formatCost(s.cost);
+      // Rebuild the recent log so stepping back doesn't wipe the history
+      if (i >= target - LOG_MAX) addLog(s);
     }
     stepIndex = target;
-    if (target > 0) { applyStepDisplay(steps[target - 1]); addLog(steps[target - 1]); }
+    if (target > 0) applyStepDisplay(steps[target - 1]);
     updateStats(); updateProgress(); draw();
+  }
+
+  function formatCost(c) {
+    if (!isFinite(c)) return '∞';
+    return Number.isInteger(c) ? String(c) : c.toFixed(2);
   }
 
   function jumpToEnd() {
@@ -302,12 +314,16 @@
     if (stepIndex >= steps.length) replayTo(0);
     playing = true;
     btnPlay.innerHTML = '&#9646;&#9646;';
+    btnPlay.setAttribute('aria-label', 'Pause');
+    btnPlay.classList.add('playing');
     scheduleNext();
   }
   function stopPlay() {
     playing = false;
     if (playTimer) { clearTimeout(playTimer); playTimer = null; }
     btnPlay.innerHTML = '&#9654;';
+    btnPlay.setAttribute('aria-label', 'Play');
+    btnPlay.classList.remove('playing');
   }
   function scheduleNext() {
     if (!playing) return;
@@ -541,23 +557,21 @@
       if (hit) {
         if (isLongPress) {
           /* Long-press / right-click = set end */
-          endNodeId = hit;
-          resetTraversal(); draw();
+          setEnd(hit);
           vibrateShort();
           return;
         }
+        /* Start a drag; a click without movement sets the start node on release */
         dragNode = hit;
+        dragMoved = false;
+        downPos = { x: pos.x, y: pos.y };
         var n = nodeById(hit);
         dragOffX = pos.x - n.x;
         dragOffY = pos.y - n.y;
-        /* On touch: short tap = set start, drag = move */
-        if (!IS_TOUCH) {
-          startNodeId = hit;
-          resetTraversal();
-        }
       }
     } else if (activeTool === 'node') {
       if (!hit) {
+        if (graph.nodes.length >= MAX_NODES) { setStatus('Node limit (' + MAX_NODES + ') reached'); return; }
         var id = makeNodeId();
         graph.nodes.push({ id: id, x: pos.x, y: pos.y });
         if (!startNodeId) startNodeId = id;
@@ -569,7 +583,9 @@
         if (!edgeStart) {
           edgeStart = hit;
           setStatus('Tap second node…');
-        } else if (hit !== edgeStart && !hasEdge(edgeStart, hit)) {
+        } else if (hit !== edgeStart && hasEdge(edgeStart, hit)) {
+        setStatus('Edge already exists'); edgeStart = null;
+      } else if (hit !== edgeStart) {
           pendingEdgeU = edgeStart;
           pendingEdgeV = hit;
           edgeStart = null;
@@ -586,8 +602,12 @@
       if (hit) {
         graph.nodes = graph.nodes.filter(function (n) { return n.id !== hit; });
         graph.edges = graph.edges.filter(function (e) { return e.u !== hit && e.v !== hit; });
+        if (edgeStart === hit) { edgeStart = null; setStatus(''); }
         if (startNodeId === hit) startNodeId = graph.nodes.length ? graph.nodes[0].id : null;
         if (endNodeId   === hit) endNodeId   = graph.nodes.length > 1 ? graph.nodes[graph.nodes.length-1].id : null;
+        if (startNodeId && startNodeId === endNodeId && graph.nodes.length > 1) {
+          endNodeId = graph.nodes[graph.nodes.length - 1].id === startNodeId ? graph.nodes[0].id : graph.nodes[graph.nodes.length - 1].id;
+        }
         resetTraversal(); draw();
       } else {
         var ek = edgeAt(pos.x, pos.y);
@@ -599,15 +619,40 @@
     }
   }
 
+  function setStart(id) {
+    if (!id) return;
+    if (id === endNodeId) endNodeId = startNodeId;   // swap rather than make S = E
+    startNodeId = id;
+    initAndReset();
+  }
+  function setEnd(id) {
+    if (!id) return;
+    if (id === startNodeId) startNodeId = endNodeId;
+    endNodeId = id;
+    initAndReset();
+  }
+
+  function moveDragNode(pos) {
+    var n = nodeById(dragNode);
+    if (!n) return;
+    if (downPos && Math.abs(pos.x - downPos.x) + Math.abs(pos.y - downPos.y) > DRAG_THRESHOLD) dragMoved = true;
+    if (!dragMoved) return;
+    // Clamp so nodes can't be dragged off the canvas and lost
+    n.x = Math.max(NODE_R, Math.min(W - NODE_R, pos.x - dragOffX));
+    n.y = Math.max(NODE_R, Math.min(H - NODE_R, pos.y - dragOffY));
+  }
+
+  function endMouseDrag() {
+    if (activeTool === 'select' && dragNode && !dragMoved) setStart(dragNode);
+    dragNode = null; dragMoved = false; downPos = null;
+  }
+
   /* ── Mouse events ── */
   canvas.addEventListener('mousemove', function (e) {
     lastTouchPos = evXY(e);
     hoverNode = nodeAt(lastTouchPos.x, lastTouchPos.y);
     hoverEdge = hoverNode ? null : edgeAt(lastTouchPos.x, lastTouchPos.y);
-    if (dragNode) {
-      var n = nodeById(dragNode);
-      if (n) { n.x = lastTouchPos.x - dragOffX; n.y = lastTouchPos.y - dragOffY; }
-    }
+    if (dragNode) moveDragNode(lastTouchPos);
     canvas.style.cursor = activeTool === 'select'
       ? (hoverNode ? (dragNode ? 'grabbing' : 'grab') : 'default')
       : 'crosshair';
@@ -623,23 +668,18 @@
       /* Right-click: set end node */
       var pos = evXY(e);
       var hit = nodeAt(pos.x, pos.y);
-      if (hit) { endNodeId = hit; resetTraversal(); draw(); }
+      if (hit) setEnd(hit);
       return;
     }
+    if (e.button !== 0) return;
     onPointerDown(evXY(e), false);
   });
 
-  canvas.addEventListener('mouseup', function () {
-    if (activeTool === 'select' && dragNode) {
-      /* Short click without drag = set start */
-      var n = nodeById(dragNode);
-      if (n) {
-        var movedFar = Math.abs(n.x - (lastTouchPos ? lastTouchPos.x - dragOffX : n.x)) < 4 &&
-                       Math.abs(n.y - (lastTouchPos ? lastTouchPos.y - dragOffY : n.y)) < 4;
-        if (movedFar) { startNodeId = dragNode; resetTraversal(); }
-      }
-    }
-    dragNode = null;
+  /* Listen on window so releasing outside the canvas still ends the drag
+     (previously the node stayed stuck to the cursor) */
+  window.addEventListener('mouseup', function (e) {
+    if (e.button !== 0 || !dragNode) return;
+    endMouseDrag();
     canvas.style.cursor = 'default';
     draw();
   });
@@ -650,8 +690,11 @@
   canvas.addEventListener('touchstart', function (e) {
     e.preventDefault();
     if (panelOpen) { closePanel(); return; }
+    if (e.touches.length > 1) { clearTimeout(longPressTimer); dragNode = null; return; }
     var pos = evXY(e);
     lastTouchPos = pos;
+    touchStartPos = pos;
+    dragMoved = false;
     hoverNode = nodeAt(pos.x, pos.y);
     longPressFired = false;
 
@@ -680,15 +723,19 @@
     var pos = evXY(e);
     lastTouchPos = pos;
 
-    /* If we moved significantly, cancel long-press */
-    if (longPressTimer && !longPressFired) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
+    var movedPx = touchStartPos ? Math.abs(pos.x - touchStartPos.x) + Math.abs(pos.y - touchStartPos.y) : 0;
+    /* Cancel long-press only on real movement, not finger jitter */
+    if (movedPx > DRAG_THRESHOLD) {
+      dragMoved = true;
+      if (longPressTimer && !longPressFired) { clearTimeout(longPressTimer); longPressTimer = null; }
     }
 
-    if (dragNode) {
+    if (dragNode && dragMoved) {
       var n = nodeById(dragNode);
-      if (n) { n.x = pos.x - dragOffX; n.y = pos.y - dragOffY; }
+      if (n) {
+        n.x = Math.max(NODE_R, Math.min(W - NODE_R, pos.x - dragOffX));
+        n.y = Math.max(NODE_R, Math.min(H - NODE_R, pos.y - dragOffY));
+      }
     }
     draw();
   }, { passive: false });
@@ -698,30 +745,26 @@
     clearTimeout(longPressTimer);
     var pos = evXY(e);
 
-    if (!longPressFired) {
-      /* Determine if this was a tap (no/tiny movement) or a drag */
-      var moved = dragNode && lastTouchPos &&
-                  (Math.abs(lastTouchPos.x - pos.x) > 6 || Math.abs(lastTouchPos.y - pos.y) > 6);
-
-      if (!moved) {
-        /* Tap — run pointer-down action */
-        if (activeTool === 'select' && dragNode) {
-          startNodeId = dragNode;
-          resetTraversal();
-        } else {
-          onPointerDown(pos, false);
-        }
+    if (!longPressFired && touchStartPos) {
+      /* Tap vs drag: compare against where the touch STARTED (the old check
+         compared the last move position with the end position, which are
+         always equal, so every drag also set the start node) */
+      if (!dragMoved) {
+        if (activeTool === 'select' && dragNode) setStart(dragNode);
+        else onPointerDown(pos, false);
       }
     }
 
     dragNode = null;
     hoverNode = null;
+    touchStartPos = null;
+    if (activeTool !== 'edge') lastTouchPos = null;
     draw();
   }, { passive: false });
 
   canvas.addEventListener('touchcancel', function () {
     clearTimeout(longPressTimer);
-    dragNode = null; draw();
+    dragNode = null; touchStartPos = null; draw();
   }, { passive: true });
 
   /* ── Haptic feedback (where available) ── */
@@ -740,6 +783,7 @@
     weightInput.value = '5';
     weightValDisp.textContent = '5';
     weightPicker.classList.add('visible');
+    setTimeout(function () { weightInput.focus(); }, 0);
     /* Position near the midpoint of the edge, or center on mobile */
     if (!IS_MOBILE && pos) {
       var pu = nodeById(pendingEdgeU), pv = nodeById(pendingEdgeV);
@@ -754,14 +798,21 @@
   }
 
   function hideWeightPicker() { weightPicker.classList.remove('visible'); }
+  function isPickerOpen() { return weightPicker.classList.contains('visible'); }
+
+  weightPicker.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter')  { e.preventDefault(); wpConfirm.click(); }
+    if (e.key === 'Escape') { e.preventDefault(); wpCancel.click(); }
+  });
 
   wpConfirm.addEventListener('click', function () {
-    if (pendingEdgeU && pendingEdgeV) {
-      var w = parseInt(weightInput.value) || 5;
+    if (pendingEdgeU && pendingEdgeV && nodeById(pendingEdgeU) && nodeById(pendingEdgeV) && !hasEdge(pendingEdgeU, pendingEdgeV)) {
+      var w = parseInt(weightInput.value, 10);
+      if (!isFinite(w)) w = 5;
       graph.edges.push({ u: pendingEdgeU, v: pendingEdgeV, w: w });
-      pendingEdgeU = pendingEdgeV = null;
       resetTraversal(); draw();
     }
+    pendingEdgeU = pendingEdgeV = null;
     hideWeightPicker();
   });
 
@@ -777,7 +828,10 @@
     activeTool = name; edgeStart = null; setStatus('');
     Object.keys(toolBtns).forEach(function (k) {
       toolBtns[k].classList.toggle('active', k === name);
+      toolBtns[k].setAttribute('aria-pressed', k === name ? 'true' : 'false');
     });
+    if (pendingEdgeU) { pendingEdgeU = pendingEdgeV = null; hideWeightPicker(); }
+    draw();
   }
 
   Object.keys(toolBtns).forEach(function (k) {
@@ -794,7 +848,16 @@
 
   chkDirected.addEventListener('change', function () {
     graph.directed = chkDirected.checked;
-    resetTraversal(); draw();
+    if (!graph.directed) {
+      // Collapse A→B + B→A into one undirected edge so keys stay unique
+      var seen = {};
+      graph.edges = graph.edges.filter(function (e) {
+        var k = ekey(e.u, e.v);
+        if (seen[k]) return false;
+        seen[k] = true; return true;
+      });
+    }
+    initAndReset();
   });
   chkWeighted.addEventListener('change', draw);
 
@@ -829,10 +892,11 @@
   ══════════════════════════════════════════════════════ */
   algoBtns.forEach(function (btn) {
     btn.addEventListener('click', function () {
-      algoBtns.forEach(function (b) { b.classList.remove('active'); });
+      algoBtns.forEach(function (b) { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
       btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
       currentAlgo = btn.getAttribute('data-algo');
-      btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      btn.scrollIntoView({ behavior: REDUCED_MOTION ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
       if (currentAlgo === 'topo' && !graph.directed) {
         chkDirected.checked = true;
         graph.directed = true;
@@ -847,7 +911,7 @@
   btnPlay.addEventListener('click',     togglePlay);
   btnStepFwd.addEventListener('click',  function () { stopPlay(); stepForward(); });
   btnStepBack.addEventListener('click', function () { stopPlay(); stepBack(); });
-  btnReset.addEventListener('click',    initAndReset);
+  btnReset.addEventListener('click',    function () { initAndReset(); });
   btnEnd.addEventListener('click',      function () { stopPlay(); jumpToEnd(); });
 
   function syncSpeed(val) {
@@ -861,12 +925,23 @@
   /* ── Keyboard ── */
   document.addEventListener('keydown', function (e) {
     var tag = e.target.tagName;
-    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if (e.key === 'Escape') {
+      if (isPickerOpen()) { wpCancel.click(); return; }
+      if (edgeStart) { edgeStart = null; setStatus(''); draw(); return; }
+      if (panelOpen) { closePanel(); return; }
+      return;
+    }
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;     // leave browser shortcuts (Ctrl+R, Ctrl+D…) alone
+    if (isPickerOpen()) return;
+    // Space/Enter on a focused button should press that button, not toggle play
+    if (tag === 'BUTTON' && (e.code === 'Space' || e.code === 'Enter')) return;
     switch (e.code) {
       case 'Space':      e.preventDefault(); togglePlay();              break;
       case 'ArrowRight': e.preventDefault(); stopPlay(); stepForward(); break;
       case 'ArrowLeft':  e.preventDefault(); stopPlay(); stepBack();    break;
       case 'KeyR':       initAndReset();                                break;
+      case 'Home':       e.preventDefault(); stopPlay(); replayTo(0);   break;
       case 'End':        e.preventDefault(); stopPlay(); jumpToEnd();   break;
       case 'KeyS':       setTool('select'); break;
       case 'KeyN':       setTool('node');   break;
@@ -896,13 +971,14 @@
   function updateInfo() {
     var meta = GraphEngine.meta[currentAlgo];
     algoTitle.textContent = meta.name;
+    document.title = 'Graphvis — ' + meta.name;
     algoDesc.textContent  = meta.desc;
     badgeTime.textContent  = meta.time;
     badgeSpace.textContent = meta.space;
     badgeOpt.textContent   = meta.optimal;
   }
 
-  var LOG_MAX = 60;
+  var LOG_MAX = 60;   // also used by replayTo
   function clearLog() { stepLog.innerHTML = ''; }
   function addLog(s) {
     var el = document.createElement('div');

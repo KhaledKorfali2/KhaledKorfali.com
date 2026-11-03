@@ -707,6 +707,8 @@ body.code-collapsed #code-open-btn { display: flex; }
   border-color: rgba(139,79,200,0.3);
   color: #c39fef;
 }
+.editor-tab.locked { font-style: italic; }
+.code-editor[readonly] { color: #8f877a; cursor: default; }
 
 #editor-wrap { flex: 1; position: relative; overflow: hidden; }
 
@@ -755,10 +757,25 @@ body.code-collapsed #code-open-btn { display: flex; }
 }
 .apply-btn:hover { background: rgba(139,79,200,0.28); border-color: rgba(139,79,200,0.6); }
 
+.editor-keys {
+  font-family: var(--font-code);
+  font-size: 10px;
+  color: rgba(255,255,255,0.35);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.editor-keys kbd { padding: 0 4px; font-size: 9.5px; }
+.editor-error:empty { display: none; }
+.editor-error:not(:empty) ~ .apply-btn { flex-shrink: 0; }
+#editor-footer:has(.editor-error:not(:empty)) .editor-keys { display: none; }
+
 .editor-error {
   font-family: var(--font-code);
   font-size: 11px;
-  color: #e06060;
+  color: #e0a060;
   flex: 1;
   padding-right: 10px;
   white-space: nowrap;
@@ -856,8 +873,11 @@ body.resizing-sidebar * {
   display: none; position: fixed; inset: 0;
   background: rgba(30,27,22,0.45); z-index: 101;
   opacity: 0; transition: opacity 0.25s;
+  /* Invisible backdrop must not swallow taps on the whole page */
+  pointer-events: none;
 }
-#mobile-sheet-backdrop.visible { opacity: 1; }
+#mobile-sheet-backdrop.visible { opacity: 1; pointer-events: auto; }
+#mobile-lesson-desc { font-size: 13px; line-height: 1.6; color: var(--ink-2); margin-bottom: 16px; }
 
 #mobile-knobs-sheet {
   display: none; position: fixed; bottom: 0; left: 0; right: 0;
@@ -903,7 +923,48 @@ body.resizing-sidebar * {
 
 @media (max-width: 640px) {
   :root { --sidebar-w: 0px; }
+  /* Off-canvas lesson drawer */
+  #sidebarExpandTab { display: flex !important; top: auto; bottom: 16px; transform: none; z-index: 99; }
+  body.mobile-sidebar-open #sidebar {
+    transform: none; width: min(280px, 85vw) !important; max-width: 85vw;
+    z-index: 103; box-shadow: var(--shadow-lg);
+  }
+  body.mobile-sidebar-open #sidebarExpandTab { display: none !important; }
+  /* Editor lessons still need the editor on phones */
+  body.is-editor #code-pane { display: flex; height: 45vh; }
+  #nav-btns .nav-btn { padding: 6px 10px; }
   #sidebar { transform: translateX(-100%); }
   #code-pane { display: none; }
   #topstrip { padding: 0 12px; }
+}
+/* ══════════════════════════════════════
+   BACK LINK
+══════════════════════════════════════ */
+.back-link {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: var(--ink-4);
+  transition: background 0.12s, color 0.12s;
+}
+.back-link:hover { background: var(--paper-mid); color: var(--accent); }
+
+/* ══════════════════════════════════════
+   ACCESSIBILITY
+══════════════════════════════════════ */
+:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+.lesson-item:focus-visible,
+.code-editor:focus-visible { outline-offset: -2px; }
+.code-editor:focus-visible { outline-color: rgba(195,159,239,0.6); }
+input[type="range"]:focus-visible { outline-offset: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

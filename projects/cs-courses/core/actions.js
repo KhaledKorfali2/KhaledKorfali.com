@@ -33,7 +33,19 @@ window.Actions = (function () {
   document.addEventListener("click", (e) => dispatch("click", e));
   document.addEventListener("change", (e) => dispatch("change", e));
   document.addEventListener("input", (e) => dispatch("input", e));
-  document.addEventListener("keydown", (e) => dispatch("keydown", e));
+  document.addEventListener("keydown", (e) => {
+    dispatch("keydown", e);
+    // Keyboard activation for non-<button> clickables (cards, tree rows, SVG
+    // graph nodes...) that opt in with role="button"/"radio"/"checkbox" +
+    // tabindex. Enter/Space fire the same delegated click handlers a mouse
+    // would, so every clickable in the app is reachable without a pointer.
+    if (e.defaultPrevented || (e.key !== "Enter" && e.key !== " ")) return;
+    const t = e.target;
+    if (!t || !t.getAttribute || /^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+    if (!/^(button|radio|checkbox|treeitem)$/.test(t.getAttribute("role") || "")) return;
+    e.preventDefault();
+    t.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
 
   return { register };
 })();

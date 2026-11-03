@@ -4,14 +4,17 @@
 //  SECURITY MODEL
 //  ══════════════
 //  All preview output is written via iframe.srcdoc into an iframe
-//  with sandbox="allow-scripts" and NO allow-same-origin.
-//  This gives the iframe a null origin — it cannot access:
+//  with an EMPTY sandbox attribute (no allow-scripts, no
+//  allow-same-origin). Scripts never run in the preview at all, and
+//  the frame has an opaque origin — it cannot access:
 //    • parent / window.top / window.opener
 //    • document.cookie  •  localStorage  •  sessionStorage
 //    • any DOM outside itself
 //
 //  The srcdoc also includes a strict Content-Security-Policy meta
-//  tag that blocks ALL external resource loads.
+//  tag that blocks ALL external resource loads and all scripts
+//  (defence in depth: the regex sanitisers below are best-effort
+//  and are NOT the security boundary — the sandbox + CSP are).
 //
 //  For editor-mode lessons, user-typed CSS and HTML pass through
 //  sanitiseCSS() and sanitiseHTML() before reaching the iframe.
@@ -24,8 +27,8 @@
 //  The only innerHTML writes are:
 //    1. The syntax-highlighted read-only code display — values
 //       are escaped via esc() before any HTML token wrapping.
-//    2. lesson.callout — lesson-author controlled static strings,
-//       not user input. These are hardcoded in lessons.js.
+//    2. lesson.callout / lesson.editorHint — lesson-author controlled
+//       static strings, not user input. Hardcoded in lessons.js.
 // ================================================================
 
 'use strict';
@@ -37,6 +40,27 @@ let completed       = new Set();
 let knobValues      = {};
 let activeTab       = 'css';
 let activeEditorTab = 'css';
+
+// ── Persistence (best-effort; storage may be unavailable) ─────
+const STORE_KEY = 'cssPlayground.v1';
+
+function loadStored() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return {};
+    const data = JSON.parse(raw);
+    return (data && typeof data === 'object') ? data : {};
+  } catch { return {}; }
+}
+
+function saveStored() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      completed: [...completed],
+      lesson: allLessons[currentIndex]?.id,
+    }));
+  } catch { /* private mode / quota — progress just won't persist */ }
+}
 
 // ── Lesson list ───────────────────────────────────────────────
 function buildLessonList() {
@@ -153,7 +177,7 @@ function buildIframeSrcdoc(css, html) {
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy"
-  content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:;">
+  content="default-src 'none'; style-src 'unsafe-inline'; script-src 'none'; img-src data:; font-src data:; base-uri 'none'; form-action 'none';">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
@@ -193,6 +217,12 @@ function updatePreview() {
 
   frame.srcdoc = buildIframeSrcdoc(css, html);
   renderCode(css, html);
+
+  if (lesson.type === 'editor') {
+    editorError.textContent = sanitiseCSS(css) !== css
+      ? 'url(), @import and similar are disabled in the preview'
+      : '';
+  }
 }
 
 function getValidatedValues(lesson) {
@@ -245,19 +275,22 @@ function highlightCSS(css) {
     l = l.replace(
       /^(\s*)([\w-]+)(\s*:\s*)(.*?)(;?\s*)$/,
       (_, ws, prop, colon, val, semi) =>
-        `${ws}<span class="tok-prop">${esc(prop)}</span>${esc(colon)}${colourValue(val)}${esc(semi)}`
+        // l is already HTML-escaped above — don't escape the captures again
+        `${ws}<span class="tok-prop">${prop}</span>${colon}${colourValue(val)}${semi}`
     );
 
     return l;
   }).join('\n');
 }
 
+/** val must already be HTML-escaped. */
 function colourValue(val) {
   const v = String(val).trim();
   if (/^#[0-9a-f]{3,8}$/i.test(v) || /^(rgb|hsl|rgba|hsla)\(/.test(v))
-    return `<span class="tok-color">${esc(val)}</span>`;
-  return esc(val).replace(/(-?[\d.]+)(px|em|rem|%|deg|s|ms|fr|vw|vh|ch|ex)?/g, (m, n, u) =>
-    `<span class="tok-num">${esc(n)}</span>${u ? `<span class="tok-unit">${esc(u)}</span>` : ''}`
+    return `<span class="tok-color">${val}</span>`;
+  // Only standalone numbers — not digits inside #hex, names or entities
+  return String(val).replace(/(^|[^\w#.&;-])(-?\d*\.?\d+)(px|em|rem|%|deg|ms|s|fr|vw|vh|ch|ex)?(?![\w.])/g, (m, pre, n, u) =>
+    `${pre}<span class="tok-num">${n}</span>${u ? `<span class="tok-unit">${u}</span>` : ''}`
   );
 }
 
@@ -394,25 +427,14 @@ function showEditorMode(lesson) {
   const cssTab  = document.querySelector('.editor-tab[data-etab="css"]');
   const htmlTab = document.querySelector('.editor-tab[data-etab="html"]');
 
-  if (lesson.lockedHTML) {
-    htmlTab.style.opacity       = '0.35';
-    htmlTab.style.pointerEvents = 'none';
-    htmlTab.title = 'HTML is locked for this lesson';
-  } else {
-    htmlTab.style.opacity       = '';
-    htmlTab.style.pointerEvents = '';
-    htmlTab.title = '';
-  }
-
-  if (lesson.lockedCSS) {
-    cssTab.style.opacity       = '0.35';
-    cssTab.style.pointerEvents = 'none';
-    cssTab.title = 'CSS is locked for this lesson';
-  } else {
-    cssTab.style.opacity       = '';
-    cssTab.style.pointerEvents = '';
-    cssTab.title = '';
-  }
+  // Locked tabs stay viewable (you need to see the HTML's class names
+  // to style it) but are read-only.
+  editorHtmlEl.readOnly = !!lesson.lockedHTML;
+  editorCssEl.readOnly  = !!lesson.lockedCSS;
+  htmlTab.classList.toggle('locked', !!lesson.lockedHTML);
+  cssTab.classList.toggle('locked',  !!lesson.lockedCSS);
+  htmlTab.textContent = lesson.lockedHTML ? 'HTML (read-only)' : 'HTML';
+  cssTab.textContent  = lesson.lockedCSS  ? 'CSS (read-only)'  : 'CSS';
 
   if (lesson.editorHint) {
     // editorHint is lesson-author content; use innerHTML intentionally (same trust level as callout)
@@ -423,8 +445,7 @@ function showEditorMode(lesson) {
   }
 
   editorError.textContent = '';
-  switchEditorTab('css');
-  updatePreview();
+  switchEditorTab(lesson.lockedCSS ? 'html' : 'css');
 }
 
 function hideEditorMode() {
@@ -434,8 +455,10 @@ function hideEditorMode() {
 
 function switchEditorTab(tab) {
   activeEditorTab = tab;
-  document.querySelectorAll('.editor-tab').forEach(b =>
-    b.classList.toggle('active', b.dataset.etab === tab));
+  document.querySelectorAll('.editor-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.etab === tab);
+    b.setAttribute('aria-pressed', String(b.dataset.etab === tab));
+  });
   editorCssEl .style.display = tab === 'css'  ? 'block' : 'none';
   editorHtmlEl.style.display = tab === 'html' ? 'block' : 'none';
 }
@@ -449,13 +472,28 @@ applyBtn?.addEventListener('click', () => {
 });
 
 [editorCssEl, editorHtmlEl].forEach(ta => {
+  // Tab indents, but Esc releases the trap so keyboard users can
+  // Tab out of the editor (WCAG 2.1.2 No Keyboard Trap).
+  let tabReleased = false;
+  ta?.addEventListener('focus', () => { tabReleased = false; });
   ta?.addEventListener('keydown', e => {
-    if (e.key === 'Tab') {
+    if (e.key === 'Escape') { tabReleased = true; return; }
+    if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey
+        && !tabReleased && !ta.readOnly) {
       e.preventDefault();
-      const start = ta.selectionStart, end = ta.selectionEnd;
-      ta.value = ta.value.slice(0, start) + '  ' + ta.value.slice(end);
-      ta.selectionStart = ta.selectionEnd = start + 2;
+      // execCommand keeps the edit on the native undo stack (Ctrl+Z);
+      // fall back to direct assignment where it's unsupported.
+      let ok = false;
+      try { ok = document.execCommand('insertText', false, '  '); } catch { ok = false; }
+      if (!ok) {
+        const start = ta.selectionStart, end = ta.selectionEnd;
+        ta.value = ta.value.slice(0, start) + '  ' + ta.value.slice(end);
+        ta.selectionStart = ta.selectionEnd = start + 2;
+        ta.dispatchEvent(new Event('input'));
+      }
+      return;
     }
+    if (e.key !== 'Tab') tabReleased = false;
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       editorError.textContent = '';
@@ -477,11 +515,21 @@ function addHintButton(lesson) {
   const btn = document.createElement('button');
   btn.id = 'hintBtn';
   btn.className = 'small-btn';
-  btn.textContent = 'Show hint';
-  btn.dataset.tip = 'Replace your code with a working solution';
+  btn.textContent = 'Show solution';
+  btn.dataset.tip = 'Swap in a working solution (click again to restore your code)';
+  let saved = null;   // the user's own code while the solution is shown
   btn.addEventListener('click', () => {
-    if (lesson.solutionCSS  && !lesson.lockedCSS)  editorCssEl.value  = lesson.solutionCSS;
-    if (lesson.solutionHTML && !lesson.lockedHTML) editorHtmlEl.value = lesson.solutionHTML;
+    if (saved) {
+      editorCssEl.value  = saved.css;
+      editorHtmlEl.value = saved.html;
+      saved = null;
+      btn.textContent = 'Show solution';
+    } else {
+      saved = { css: editorCssEl.value, html: editorHtmlEl.value };
+      if (lesson.solutionCSS  && !lesson.lockedCSS)  editorCssEl.value  = lesson.solutionCSS;
+      if (lesson.solutionHTML && !lesson.lockedHTML) editorHtmlEl.value = lesson.solutionHTML;
+      btn.textContent = 'Restore my code';
+    }
     updatePreview();
   });
   document.getElementById('preview-actions')?.appendChild(btn);
@@ -503,6 +551,9 @@ function loadLesson(index) {
   document.getElementById('lesson-chapter').textContent = lesson.chapterLabel;
   document.getElementById('lesson-title').textContent   = lesson.title;
   document.getElementById('lesson-desc').textContent    = lesson.description;
+  const mobileDesc = document.getElementById('mobile-lesson-desc');
+  if (mobileDesc) mobileDesc.textContent = lesson.description;
+  document.body.classList.toggle('is-editor', lesson.type === 'editor');
 
   // Badge
   const badge = document.getElementById('lesson-type-badge');
@@ -557,6 +608,7 @@ function loadLesson(index) {
   updatePreview();
   switchTab('css');
   document.getElementById('code-scroll').scrollTop = 0;
+  saveStored();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -591,7 +643,11 @@ function buildSidebar() {
         btn.appendChild(edDot);
       }
 
-      btn.addEventListener('click', () => { markCurrentComplete(); loadLesson(flatIndex); });
+      btn.addEventListener('click', () => {
+        if (flatIndex !== currentIndex) markCurrentComplete();
+        loadLesson(flatIndex);
+        document.body.classList.remove('mobile-sidebar-open');
+      });
       group.appendChild(btn);
     }
     listEl.appendChild(group);
@@ -601,6 +657,7 @@ function buildSidebar() {
 function markCurrentComplete() {
   completed.add(allLessons[currentIndex].id);
   updateProgress();
+  saveStored();
 }
 
 function updateProgress() {
@@ -610,9 +667,12 @@ function updateProgress() {
     if (!dot) return;
     el.classList.toggle('done',   completed.has(id));
     el.classList.toggle('active', i === currentIndex);
+    if (i === currentIndex) el.setAttribute('aria-current', 'page');
+    else el.removeAttribute('aria-current');
   });
   const pct = allLessons.length ? completed.size / allLessons.length * 100 : 0;
   document.getElementById('progress-bar-fill').style.width = pct + '%';
+  document.getElementById('progress-bar-track')?.setAttribute('aria-valuenow', String(Math.round(pct)));
   document.getElementById('progress-label').textContent =
     `${completed.size} / ${allLessons.length} complete`;
 }
@@ -621,28 +681,52 @@ function updateProgress() {
 //  PANE COLLAPSE / EXPAND
 // ══════════════════════════════════════════════════════════════
 
-// Sidebar
+// Collapsed panes are made `inert` so their (zero-width) contents
+// drop out of the tab order; focus moves to the matching re-open button.
+const isPhone = () => window.matchMedia('(max-width: 640px)').matches;
+
+function setPane(cls, paneId, collapsed, focusId) {
+  document.body.classList.toggle(cls, collapsed);
+  const pane = document.getElementById(paneId);
+  if (pane) pane.inert = collapsed;
+  document.getElementById(focusId)?.focus();
+}
+
+// Sidebar (desktop: collapse; phone: off-canvas drawer)
 document.getElementById('sidebarCollapseBtn')?.addEventListener('click', () => {
-  document.body.classList.add('sidebar-collapsed');
+  if (isPhone()) { document.body.classList.remove('mobile-sidebar-open'); return; }
+  setPane('sidebar-collapsed', 'sidebar', true, 'sidebarExpandTab');
 });
 document.getElementById('sidebarExpandTab')?.addEventListener('click', () => {
-  document.body.classList.remove('sidebar-collapsed');
+  if (isPhone()) { document.body.classList.add('mobile-sidebar-open'); return; }
+  setPane('sidebar-collapsed', 'sidebar', false, 'sidebarCollapseBtn');
+});
+
+// Tap outside the open drawer closes it
+document.addEventListener('click', e => {
+  if (!document.body.classList.contains('mobile-sidebar-open')) return;
+  if (e.target.closest('#sidebar, #sidebarExpandTab')) return;
+  document.body.classList.remove('mobile-sidebar-open');
 });
 
 // Controls pane
 document.getElementById('controlsCollapseBtn')?.addEventListener('click', () => {
-  document.body.classList.add('controls-collapsed');
+  setPane('controls-collapsed', 'controls-pane', true, 'controls-open-btn');
 });
 document.getElementById('controls-open-btn')?.addEventListener('click', () => {
-  document.body.classList.remove('controls-collapsed');
+  setPane('controls-collapsed', 'controls-pane', false, 'controlsCollapseBtn');
 });
 
 // Code pane
 document.getElementById('codeCollapseBtn')?.addEventListener('click', () => {
-  document.body.classList.add('code-collapsed');
+  setPane('code-collapsed', 'code-scroll', true, 'code-open-btn');
+  document.getElementById('editor-area').inert = true;
+  document.getElementById('code-label').inert = true;
 });
 document.getElementById('code-open-btn')?.addEventListener('click', () => {
-  document.body.classList.remove('code-collapsed');
+  setPane('code-collapsed', 'code-scroll', false, 'codeCollapseBtn');
+  document.getElementById('editor-area').inert = false;
+  document.getElementById('code-label').inert = false;
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -759,6 +843,7 @@ document.getElementById('resetBtn')?.addEventListener('click', () => {
   if (lesson.type === 'editor') {
     editorCssEl.value  = lesson.starterCSS  || '';
     editorHtmlEl.value = lesson.starterHTML || '';
+    addHintButton(lesson);   // drop any stale "Restore my code" state
   } else {
     for (const k of (lesson.knobs || [])) knobValues[k.id] = k.default;
     buildKnobs(lesson, 'knobs-area');
@@ -772,8 +857,10 @@ document.getElementById('resetBtn')?.addEventListener('click', () => {
 // ══════════════════════════════════════════════════════════════
 function switchTab(tab) {
   activeTab = tab;
-  document.querySelectorAll('.code-tab').forEach(b =>
-    b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.code-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tab);
+    b.setAttribute('aria-pressed', String(b.dataset.tab === tab));
+  });
   document.getElementById('code-css') .classList.toggle('active', tab === 'css');
   document.getElementById('code-html').classList.toggle('active', tab === 'html');
 }
@@ -787,8 +874,19 @@ const mobileBtn      = document.getElementById('mobile-knobs-btn');
 const mobileSheet    = document.getElementById('mobile-knobs-sheet');
 const mobileBackdrop = document.getElementById('mobile-sheet-backdrop');
 
-function openMobileSheet()  { mobileSheet.classList.add('open');    mobileBackdrop.classList.add('visible'); }
-function closeMobileSheet() { mobileSheet.classList.remove('open'); mobileBackdrop.classList.remove('visible'); }
+function openMobileSheet() {
+  mobileSheet.classList.add('open');
+  mobileBackdrop.classList.add('visible');
+  mobileSheet.setAttribute('aria-hidden', 'false');
+  mobileBtn?.setAttribute('aria-expanded', 'true');
+}
+function closeMobileSheet() {
+  if (!mobileSheet.classList.contains('open')) return;
+  mobileSheet.classList.remove('open');
+  mobileBackdrop.classList.remove('visible');
+  mobileSheet.setAttribute('aria-hidden', 'true');
+  mobileBtn?.setAttribute('aria-expanded', 'false');
+}
 
 mobileBtn     ?.addEventListener('click', openMobileSheet);
 mobileBackdrop?.addEventListener('click', closeMobileSheet);
@@ -846,30 +944,54 @@ document.addEventListener('mouseout', e => {
   const t = findTipEl(e.target);
   if (t && !t.contains(e.relatedTarget)) { clearTimeout(tipTimer); hideTip(); }
 });
+// Keyboard users get the same tooltips on focus
+document.addEventListener('focusin', e => {
+  const t = findTipEl(e.target);
+  let kb = false;
+  try { kb = !!t && t.matches(':focus-visible'); } catch { kb = false; }
+  if (kb) showTip(t.dataset.tip, t.getBoundingClientRect());
+  else hideTip();
+});
+document.addEventListener('focusout', hideTip);
 
 // ══════════════════════════════════════════════════════════════
 //  KEYBOARD SHORTCUTS
 // ══════════════════════════════════════════════════════════════
 document.addEventListener('keydown', e => {
-  const tag = document.activeElement?.tagName;
-  // Don't intercept when user is typing in inputs/textareas
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  // Escape closes the mobile sheet / drawer from anywhere
+  if (e.key === 'Escape') {
+    closeMobileSheet();
+    document.body.classList.remove('mobile-sidebar-open');
+  }
 
-  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+  const tag = document.activeElement?.tagName;
+  // Don't intercept when user is typing in inputs/textareas, or using
+  // a modified shortcut (Alt+← is browser Back, etc.)
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+
+  // Only ←/→ — ↑/↓ are left alone so they still scroll panes.
+  if (e.key === 'ArrowRight') {
     e.preventDefault();
     if (currentIndex < allLessons.length - 1) { markCurrentComplete(); loadLesson(currentIndex + 1); }
   }
-  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+  if (e.key === 'ArrowLeft') {
     e.preventDefault();
     if (currentIndex > 0) { markCurrentComplete(); loadLesson(currentIndex - 1); }
   }
-  // Escape to close mobile sheet
-  if (e.key === 'Escape') closeMobileSheet();
 });
 
 // ══════════════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════════════
 buildLessonList();
-buildSidebar();
-loadLesson(0);
+{
+  const stored = loadStored();
+  if (Array.isArray(stored.completed)) {
+    const valid = new Set(allLessons.map(l => l.id));
+    for (const id of stored.completed) if (valid.has(id)) completed.add(id);
+  }
+  buildSidebar();
+  const resume = allLessons.findIndex(l => l.id === stored.lesson);
+  loadLesson(resume >= 0 ? resume : 0);
+}

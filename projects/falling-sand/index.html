@@ -3,18 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Particle Sandbox</title>
+  <title>Particle Sandbox — Falling Sand</title>
+  <meta name="description" content="A falling-sand particle sandbox: paint sand, water, fire, smoke and walls and watch them interact.">
+  <meta name="theme-color" content="#090909">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <canvas id="canvas"></canvas>
+  <canvas id="canvas" role="img" aria-label="Particle sandbox. Click or touch and drag to paint the selected element."></canvas>
 
   <!-- HUD: top-left stats -->
-  <div id="hud">
+  <div id="hud" aria-hidden="true">
     <span id="fpsCounter">— fps</span>
     <span id="particleCounter">0 particles</span>
+    <span id="pausedBadge" hidden>Paused · Space</span>
   </div>
+
+  <a id="backLink" href="/projects.html" aria-label="Back to projects">←<span class="back-text"> Projects</span></a>
 
   <!--
     Toolbar:
@@ -27,7 +34,7 @@
     <div id="pill">
 
       <!-- Active element badge -->
-      <div id="pillActive">
+      <div id="pillActive" aria-live="polite">
         <span id="pillDot" class="elem-dot" style="background:#e6b84a"></span>
         <span id="pillLabel">Sand</span>
       </div>
@@ -35,20 +42,20 @@
       <div class="pill-sep"></div>
 
       <!-- One dot per element for fast switching -->
-      <div id="pillDots">
-        <button class="qdot active" data-type="sand"   title="Sand (1)"  style="--c:#e6b84a"></button>
-        <button class="qdot"       data-type="water"   title="Water (2)" style="--c:#4a9edd"></button>
-        <button class="qdot"       data-type="fire"    title="Fire (3)"  style="--c:#e84a1a"></button>
-        <button class="qdot"       data-type="smoke"   title="Smoke (4)" style="--c:#8899aa"></button>
-        <button class="qdot"       data-type="wall"    title="Wall (5)"  style="--c:#888"></button>
-        <button class="qdot eraser-qdot" data-type="eraser" title="Erase (E)"></button>
+      <div id="pillDots" role="group" aria-label="Element">
+        <button type="button" class="qdot active" data-type="sand"   title="Sand (1)"  aria-label="Sand (1)"  aria-pressed="true"  style="--c:#e6b84a"></button>
+        <button type="button" class="qdot"       data-type="water"   title="Water (2)" aria-label="Water (2)" aria-pressed="false" style="--c:#4a9edd"></button>
+        <button type="button" class="qdot"       data-type="fire"    title="Fire (3)"  aria-label="Fire (3)"  aria-pressed="false" style="--c:#e84a1a"></button>
+        <button type="button" class="qdot"       data-type="smoke"   title="Smoke (4)" aria-label="Smoke (4)" aria-pressed="false" style="--c:#8899aa"></button>
+        <button type="button" class="qdot"       data-type="wall"    title="Wall (5)"  aria-label="Wall (5)"  aria-pressed="false" style="--c:#888"></button>
+        <button type="button" class="qdot eraser-qdot" data-type="eraser" title="Erase (E)" aria-label="Erase (E)" aria-pressed="false"></button>
       </div>
 
       <div class="pill-sep"></div>
 
       <!-- Expand toggle -->
-      <button id="expandBtn" aria-expanded="false" title="More options (Tab)">
-        <svg id="expandIcon" width="13" height="13" viewBox="0 0 13 13" fill="none"
+      <button id="expandBtn" type="button" aria-expanded="false" aria-controls="panel" aria-label="More options" title="More options">
+        <svg id="expandIcon" aria-hidden="true" focusable="false" width="13" height="13" viewBox="0 0 13 13" fill="none"
              stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M2 8.5l4.5-4 4.5 4"/>
         </svg>
@@ -62,11 +69,11 @@
 
         <!-- Color row (only shown for sand / wall) -->
         <div id="colorGroup" class="panel-row">
-          <span class="ctrl-label">Colour</span>
+          <label class="ctrl-label" for="colorPicker">Colour</label>
           <input type="color" id="colorPicker" value="#e6b84a" title="Colour">
           <label class="toggle-label">
             <input type="checkbox" id="autoHueToggle" checked>
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
             <span>Auto hue</span>
           </label>
         </div>
@@ -75,7 +82,7 @@
 
         <!-- Brush size -->
         <div class="panel-row">
-          <span class="ctrl-label">Brush</span>
+          <label class="ctrl-label" for="brushSize">Brush</label>
           <input type="range" id="brushSize" min="1" max="8" value="3" step="1">
           <span id="brushSizeVal">3</span>
         </div>
@@ -84,10 +91,10 @@
 
         <!-- Mode -->
         <div class="panel-row">
-          <span class="ctrl-label">Mode</span>
-          <div class="seg">
-            <button class="mode-btn active" data-mode="deposit">Deposit</button>
-            <button class="mode-btn"        data-mode="surface">Surface</button>
+          <span class="ctrl-label" id="modeLabel">Mode</span>
+          <div class="seg" role="group" aria-labelledby="modeLabel">
+            <button type="button" class="mode-btn active" data-mode="deposit" aria-pressed="true"  title="Paint particles where you draw">Deposit</button>
+            <button type="button" class="mode-btn"        data-mode="surface" aria-pressed="false" title="Sand/wall: stack on top of whatever is under the brush">Surface</button>
           </div>
         </div>
 
@@ -95,13 +102,22 @@
 
         <!-- Reset -->
         <div class="panel-row">
-          <button id="resetBtn" title="Clear canvas (R)">
-            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor"
+          <button id="resetBtn" type="button" title="Clear canvas (R)">
+            <svg aria-hidden="true" focusable="false" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor"
                  stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M1 7a6 6 0 1 0 1.1-3.4"/><path d="M1 2v3h3"/>
             </svg>
             Reset
           </button>
+        </div>
+
+        <div class="panel-divider shortcuts-divider"></div>
+
+        <div class="panel-row shortcuts" aria-label="Keyboard shortcuts">
+          <span><kbd>1</kbd>–<kbd>5</kbd> element</span>
+          <span><kbd>E</kbd> erase</span>
+          <span><kbd>Space</kbd> pause</span>
+          <span><kbd>R</kbd> reset</span>
         </div>
 
       </div><!-- /panelInner -->
@@ -110,8 +126,8 @@
   </div><!-- /toolbar -->
 
   <!-- Circular brush cursor -->
-  <div id="brushCursor"></div>
+  <div id="brushCursor" aria-hidden="true"></div>
 
   <script src="script.js"></script>
 </body>
-</html>
+</html>

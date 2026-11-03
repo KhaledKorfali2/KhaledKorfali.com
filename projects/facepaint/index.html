@@ -3,25 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FacePaint</title>
+  <title>FacePaint — Draw With Your Face</title>
+  <meta name="description" content="Hands-free drawing in the browser: steer with your nose, open your mouth to paint and wink to switch colours. Face tracking runs locally with MediaPipe.">
+  <meta name="theme-color" content="#0c0c0f">
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <!-- Pinned + SRI. If you bump this version, update FACE_MESH_VERSION in js/facemesh.js and recompute the hash. -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js"
+          integrity="sha384-nKiz5QrpRlMQLw5nrZcprT7N9vmmAcIgV8TuGuep4x91V4JIPsXa+D44Wxj0guoa"
+          crossorigin="anonymous"></script>
 </head>
 <body>
 
   <!-- ── Startup overlay ───────────────────────────────────────── -->
-  <div id="startup">
+  <div id="startup" role="dialog" aria-modal="true" aria-labelledby="logo-big" aria-describedby="startup-desc">
+    <a class="back-link startup-back" href="/projects.html">← Projects</a>
     <div>
       <div id="logo-big">Face<span>Paint</span></div>
       <div id="tagline">HANDS-FREE DRAWING</div>
     </div>
-    <p>Draw with your face. Open your mouth to draw, close it to stop.<br>Wink left for previous color, wink right for next.</p>
-    <button id="startBtn">Enable Camera →</button>
-    <div class="spinner" id="spinner"></div>
-    <div id="loading-msg"></div>
+    <p id="startup-desc">Draw with your face. Open your mouth to draw, close it to stop.<br>Wink left for previous color, wink right for next.</p>
+    <button id="startBtn" type="button">Enable Camera →</button>
+    <div class="spinner" id="spinner" aria-hidden="true"></div>
+    <div id="loading-msg" role="status" aria-live="polite"></div>
+    <p class="privacy-note">Face tracking runs entirely in your browser — video never leaves your device.</p>
   </div>
 
   <!-- ── Main app ──────────────────────────────────────────────── -->
@@ -29,8 +36,11 @@
 
     <!-- Header / HUD -->
     <header id="header">
-      <div id="logo">Face<span class="dot">Paint</span></div>
-      <div id="hud">
+      <div class="header-left">
+        <a class="back-link" href="/projects.html" aria-label="Back to projects">←<span class="back-text"> Projects</span></a>
+        <h1 id="logo">Face<span class="dot">Paint</span></h1>
+      </div>
+      <div id="hud" aria-live="polite">
         <div class="hud-pill draw-off" id="hud-draw">
           <span class="label">Draw</span>
           <span class="value" id="hud-draw-val">OFF</span>
@@ -52,8 +62,8 @@
       <video id="video" autoplay playsinline muted></video>
       <canvas id="mesh-canvas"></canvas>
       <canvas id="draw-canvas"></canvas>
-      <div id="cursor"></div>
-      <div id="gesture-flash"></div>
+      <div id="cursor" class="lost" aria-hidden="true"></div>
+      <div id="gesture-flash" role="status" aria-live="polite"></div>
     </div>
 
     <!-- Sidebar -->
@@ -61,9 +71,9 @@
 
       <div class="sidebar-section">
         <div class="section-title">Colors</div>
-        <div id="palette"></div>
+        <div id="palette" role="group" aria-label="Brush colour"></div>
         <div id="brush-row">
-          <label>Size</label>
+          <label for="brushSize">Size</label>
           <input type="range" id="brushSize" min="1" max="40" value="6">
           <span id="brushSizeVal">6</span>
         </div>
@@ -92,21 +102,28 @@
             <span class="desc">Next color</span>
           </div>
         </div>
+        <div class="section-title kbd-title">Keyboard</div>
+        <div class="control-list">
+          <div class="control-item"><span class="gesture-tag"><kbd>[</kbd> <kbd>]</kbd></span><span class="desc">Prev / next color</span></div>
+          <div class="control-item"><span class="gesture-tag"><kbd>Z</kbd></span><span class="desc">Undo</span></div>
+          <div class="control-item"><span class="gesture-tag"><kbd>M</kbd> <kbd>V</kbd></span><span class="desc">Mesh / camera</span></div>
+          <div class="control-item"><span class="gesture-tag"><kbd>Ctrl</kbd>+<kbd>S</kbd></span><span class="desc">Save PNG</span></div>
+        </div>
       </div>
 
       <div class="sidebar-section">
         <div class="section-title">Sensitivity</div>
         <div class="thresh-row">
           <div class="thresh-item">
-            <label>Mouth open <span id="mouthThreshVal">0.060</span></label>
+            <label for="mouthThresh">Mouth open <span id="mouthThreshVal">0.060</span></label>
             <input type="range" id="mouthThresh" min="0.02" max="0.15" step="0.005" value="0.06">
           </div>
           <div class="thresh-item">
-            <label>Wink <span id="winkThreshVal">0.20</span></label>
+            <label for="winkThresh">Wink <span id="winkThreshVal">0.20</span></label>
             <input type="range" id="winkThresh" min="0.05" max="0.40" step="0.01" value="0.20">
           </div>
           <div class="thresh-item">
-            <label>Smoothing <span id="smoothVal">0.20</span></label>
+            <label for="smoothSlider">Smoothing <span id="smoothVal">0.20</span></label>
             <input type="range" id="smoothSlider" min="0.05" max="0.60" step="0.05" value="0.20">
           </div>
         </div>
@@ -116,11 +133,12 @@
 
     <!-- Toolbar -->
     <div id="toolbar">
-      <button class="tool-btn danger" id="clearBtn">🗑 Clear</button>
-      <button class="tool-btn" id="saveBtn">💾 Save PNG</button>
-      <button class="tool-btn active" id="meshToggle">🔲 Mesh</button>
-      <button class="tool-btn active" id="camToggle">📷 Camera</button>
-      <button class="tool-btn" id="undoBtn">↩ Undo</button>
+      <button type="button" class="tool-btn" id="undoBtn" title="Undo (Z)"><span aria-hidden="true">↩</span> Undo</button>
+      <button type="button" class="tool-btn danger" id="clearBtn" title="Clear canvas"><span aria-hidden="true">🗑</span> Clear</button>
+      <button type="button" class="tool-btn" id="saveBtn" title="Save PNG (Ctrl+S)"><span aria-hidden="true">💾</span> Save PNG</button>
+      <span class="toolbar-spacer"></span>
+      <button type="button" class="tool-btn active" id="meshToggle" aria-pressed="true" title="Show face mesh (M)"><span aria-hidden="true">🔲</span> Mesh</button>
+      <button type="button" class="tool-btn active" id="camToggle" aria-pressed="true" title="Show camera preview (V)"><span aria-hidden="true">📷</span> Camera</button>
     </div>
 
   </div>

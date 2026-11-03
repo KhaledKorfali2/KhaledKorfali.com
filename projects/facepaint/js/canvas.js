@@ -25,8 +25,9 @@ export function undo() {
 // ── Resize ────────────────────────────────────────────────────────────────────
 export function resizeDrawCanvas() {
     const rect = drawCanvas.getBoundingClientRect();
-    const w = rect.width;
-    const h = rect.height;
+    const w = Math.round(rect.width);
+    const h = Math.round(rect.height);
+    if (w === drawCanvas.width && h === drawCanvas.height) return;
 
     // Snapshot existing content so it survives the resize
     let snap = null;
@@ -41,9 +42,24 @@ export function resizeDrawCanvas() {
 }
 
 // ── Stroke state ──────────────────────────────────────────────────────────────
+// Midpoint smoothing: each segment runs from the previous midpoint, curving
+// through the previous point, to the new midpoint — so consecutive segments
+// join exactly and the stroke has no gaps.
 let lastX = null;
 let lastY = null;
+let midX = null;
+let midY = null;
 let strokeStarted = false;
+let strokeSize = 6;
+let strokeHasSegment = false;
+
+function applyStrokeStyle(brushSize) {
+    drawCtx.strokeStyle = currentColor().hex;
+    drawCtx.fillStyle = currentColor().hex;
+    drawCtx.lineWidth = brushSize;
+    drawCtx.lineCap = "round";
+    drawCtx.lineJoin = "round";
+}
 
 export function beginStroke() {
     if (!strokeStarted) {
@@ -53,35 +69,50 @@ export function beginStroke() {
 }
 
 export function endStroke() {
-    lastX = null;
-    lastY = null;
+    if (lastX !== null) {
+        applyStrokeStyle(strokeSize);
+        if (strokeHasSegment) {
+            // Finish the tail from the last midpoint to the last point
+            drawCtx.beginPath();
+            drawCtx.moveTo(midX, midY);
+            drawCtx.lineTo(lastX, lastY);
+            drawCtx.stroke();
+        } else {
+            // A "tap" (mouth opened without moving) leaves a dot
+            drawCtx.beginPath();
+            drawCtx.arc(lastX, lastY, strokeSize / 2, 0, Math.PI * 2);
+            drawCtx.fill();
+        }
+    }
+    lastX = lastY = midX = midY = null;
     strokeStarted = false;
+    strokeHasSegment = false;
 }
 
 /**
- * Draw a line segment to (x, y).
- * Uses quadratic interpolation through midpoints for smooth curves.
+ * Draw a smoothed segment to (x, y).
  * brushSize is passed in so canvas.js doesn't need to know about the UI.
  */
 export function drawTo(x, y, brushSize) {
+    strokeSize = brushSize;
     if (lastX === null) {
-        lastX = x;
-        lastY = y;
+        lastX = midX = x;
+        lastY = midY = y;
         return;
     }
 
     const mx = (lastX + x) / 2;
     const my = (lastY + y) / 2;
 
+    applyStrokeStyle(brushSize);
     drawCtx.beginPath();
-    drawCtx.moveTo(lastX, lastY);
+    drawCtx.moveTo(midX, midY);
     drawCtx.quadraticCurveTo(lastX, lastY, mx, my);
-    drawCtx.strokeStyle = currentColor().hex;
-    drawCtx.lineWidth = brushSize;
-    drawCtx.lineCap = "round";
-    drawCtx.lineJoin = "round";
     drawCtx.stroke();
 
+    strokeHasSegment = true;
+    midX = mx;
+    midY = my;
     lastX = x;
     lastY = y;
 }

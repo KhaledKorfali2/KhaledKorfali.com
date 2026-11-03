@@ -20,7 +20,8 @@
       title: 'Pick an Algorithm',
       body: 'These buttons switch between <strong>12 sorting algorithms</strong> — from classic ones ' +
             'like <code>Bubble</code> and <code>Quick</code> to more exotic ones like <code>Gnome</code> and <code>Comb</code>.<br><br>' +
-            'Scroll left/right if some are off-screen. The active algorithm is highlighted in yellow.',
+            'Scroll left/right if some are off-screen. The active algorithm is highlighted in yellow.<br><br>' +
+            'Switching algorithms keeps the <strong>same array</strong>, so you can compare their counts fairly.',
       placement: 'bottom',
       padding: 6
     },
@@ -56,8 +57,9 @@
       title: 'Step-by-Step Controls',
       body: '<strong>◀◀</strong> and <strong>▶▶</strong> move one atomic operation at a time — ' +
             'perfect for understanding exactly what the algorithm does at each comparison or swap.<br><br>' +
-            '<strong>↺</strong> generates a fresh random array.<br>' +
-            '<strong>▶|</strong> jumps to the end instantly.',
+            '<strong>↺</strong> generates a fresh random array (<code>R</code>).<br>' +
+            '<strong>▶|</strong> jumps to the end instantly (<code>End</code>; <code>Home</code> rewinds).<br>' +
+            'Pressing <strong>▶</strong> after a run finishes replays the same array.',
       placement: 'top',
       padding: 10
     },

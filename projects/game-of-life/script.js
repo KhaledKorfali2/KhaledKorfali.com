@@ -63,8 +63,10 @@ function resizeCanvas() {
 
   canvas.width        = c * CELL;
   canvas.height       = r * CELL;
-  canvas.style.width  = vw + "px";
-  canvas.style.height = canvasH + "px";
+  // Exact CSS size = backing size: stretching the bitmap by a few px made the
+  // whole grid blurry. Any sub-cell remainder just shows the page background.
+  canvas.style.width  = canvas.width  + "px";
+  canvas.style.height = canvas.height + "px";
   // Always anchored to top-left; the bar sits below it naturally.
   canvas.style.top    = "0";
   canvas.style.left   = "0";
@@ -286,12 +288,14 @@ function setPlaying(v) {
   if (playIcon)  playIcon.style.display  = v ? "none" : "";
   if (pauseIcon) pauseIcon.style.display = v ? ""     : "none";
   if (playLabel) playLabel.textContent   = v ? "Pause" : "Play";
+  if (playBtn)   playBtn.setAttribute("aria-pressed", String(v));
 
   // Mobile
   const mPlayBtn   = document.getElementById("mobilePlayBtn");
   const mPlayIcon  = document.getElementById("mobilePlayIcon");
   const mPauseIcon = document.getElementById("mobilePauseIcon");
   if (mPlayBtn)   mPlayBtn.classList.toggle("playing", v);
+  if (mPlayBtn)   mPlayBtn.setAttribute("aria-label", v ? "Pause" : "Play");
   if (mPlayIcon)  mPlayIcon.style.display  = v ? "none" : "";
   if (mPauseIcon) mPauseIcon.style.display = v ? ""     : "none";
 }
@@ -388,6 +392,7 @@ function openSheet() {
   sheet?.classList.add("open");
   sheetBackdrop?.classList.add("visible");
   settingsBtn?.classList.add("open");
+  settingsBtn?.setAttribute("aria-expanded", "true");
 }
 
 function closeSheet() {
@@ -395,6 +400,7 @@ function closeSheet() {
   sheet?.classList.remove("open");
   sheetBackdrop?.classList.remove("visible");
   settingsBtn?.classList.remove("open");
+  settingsBtn?.setAttribute("aria-expanded", "false");
 }
 
 settingsBtn?.addEventListener("click", () => sheetOpen ? closeSheet() : openSheet());
@@ -422,13 +428,18 @@ function buildBitRow(containerId, getArr, large = false) {
 
   for (let n = 0; n <= 8; n++) {
     const btn = document.createElement("button");
+    btn.type        = "button";
     btn.className   = "bit-btn";
     btn.textContent = n;
     btn.dataset.n   = n;
+    const kind = containerId.startsWith("born") ? "Born" : "Survive";
+    btn.setAttribute("aria-label", `${kind} with ${n} neighbour${n === 1 ? "" : "s"}`);
+    btn.setAttribute("aria-pressed", "false");
     btn.addEventListener("click", () => {
       const arr = getArr();
       arr[n] = !arr[n];
-      btn.classList.toggle("on", arr[n]);
+      // Keep desktop + mobile rows in sync
+      updateBitUI();
       // Deselect named-rule highlights since we've diverged
       document.querySelectorAll("#ruleSeg .seg-btn, #ruleSegMobile .sheet-btn")
         .forEach(b => b.classList.remove("active"));
@@ -440,12 +451,16 @@ function buildBitRow(containerId, getArr, large = false) {
 
 function updateBitUI() {
   ["bornBits", "bornBitsMobile"].forEach(id => {
-    document.getElementById(id)?.querySelectorAll(".bit-btn").forEach((btn, n) =>
-      btn.classList.toggle("on", born[n]));
+    document.getElementById(id)?.querySelectorAll(".bit-btn").forEach((btn, n) => {
+      btn.classList.toggle("on", born[n]);
+      btn.setAttribute("aria-pressed", String(born[n]));
+    });
   });
   ["surviveBits", "surviveBitsMobile"].forEach(id => {
-    document.getElementById(id)?.querySelectorAll(".bit-btn").forEach((btn, n) =>
-      btn.classList.toggle("on", survive[n]));
+    document.getElementById(id)?.querySelectorAll(".bit-btn").forEach((btn, n) => {
+      btn.classList.toggle("on", survive[n]);
+      btn.setAttribute("aria-pressed", String(survive[n]));
+    });
   });
 }
 
@@ -577,13 +592,22 @@ window.addEventListener("mouseup",    onDrawEnd);
 canvas.addEventListener("mousemove",  onDrawMove);
 canvas.addEventListener("touchstart", onDrawStart, { passive: false });
 window.addEventListener("touchend",   onDrawEnd);
+window.addEventListener("touchcancel",onDrawEnd);
+window.addEventListener("blur",       onDrawEnd);
 canvas.addEventListener("touchmove",  onDrawMove,  { passive: false });
 
 // ── Keyboard shortcuts ───────────────────────────────────────
 document.addEventListener("keydown", e => {
-  if (e.target !== document.body && e.target !== canvas) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;   // don't hijack Ctrl+R / Ctrl+C
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  if (e.key === "Escape") { if (sheetOpen) { closeSheet(); settingsBtn?.focus(); } hideTip(); return; }
+  // Shortcuts used to work only when nothing was focused, so they silently
+  // stopped after clicking any button. Now they work everywhere except text
+  // fields — but Space/Enter still activate a keyboard-focused button.
+  const onButton = t && t.tagName === "BUTTON" && t.matches(":focus-visible");
   switch (e.key) {
-    case " ": e.preventDefault(); setPlaying(!running); break;
+    case " ": if (onButton) return; e.preventDefault(); setPlaying(!running); break;
     case ".": case "ArrowRight": setPlaying(false); step(); break;
     case "c": case "C": doClear(); break;
     case "r": case "R": doRandom(); break;
@@ -593,6 +617,7 @@ document.addEventListener("keydown", e => {
 // ── Keyboard hints (desktop) ─────────────────────────────────
 const hints = document.createElement("div");
 hints.id = "keyhints";
+hints.setAttribute("aria-hidden", "true"); // same info is in each button's tooltip
 hints.innerHTML = "Space &nbsp;Play/Pause<br>. / → &nbsp;&nbsp;Step<br>C &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Clear<br>R &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Random";
 document.body.appendChild(hints);
 
@@ -659,6 +684,15 @@ function findTipTarget(el) {
   return null;
 }
 
+// Keyboard: show the tip when a control receives keyboard focus
+document.addEventListener("focusin", e => {
+  const target = findTipTarget(e.target);
+  if (!target || !e.target.matches(":focus-visible")) return;
+  clearTimeout(tipTimeout);
+  showTip(target.dataset.tip, target.getBoundingClientRect());
+});
+document.addEventListener("focusout", hideTip);
+
 // Desktop: hover with 300 ms delay
 // FIX: use relatedTarget so moving mouse between child elements
 // doesn't cause flicker — only hide when leaving the tip target.
@@ -692,9 +726,10 @@ document.addEventListener("touchstart", e => {
 }, { passive: true });
 
 // ── Resize ───────────────────────────────────────────────────
-window.addEventListener("resize", () => {
-  // Preserve existing cells across resize
-  const oldAlive = alive ? new Uint8Array(alive) : null;
+function handleResize() {
+  // Preserve existing cells (and their ages) across resize
+  const oldAlive = alive;
+  const oldAge   = age;
   const oldCols  = cols;
   const oldRows  = rows;
 
@@ -706,13 +741,22 @@ window.addEventListener("resize", () => {
     const mr = Math.min(rows, oldRows);
     for (let r = 0; r < mr; r++) {
       for (let c = 0; c < mc; c++) {
-        const v = oldAlive[c + r * oldCols];
+        const oi = c + r * oldCols;
+        const v  = oldAlive[oi];
         alive[idx(c, r)] = v;
+        age  [idx(c, r)] = v ? oldAge[oi] : 0;
         population += v;
       }
     }
     lastPop = -1;
   }
+}
+
+// Debounced — mobile URL-bar show/hide fires many resize events.
+let resizeTimer = 0;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(handleResize, 100);
 });
 
 // ── Init ─────────────────────────────────────────────────────

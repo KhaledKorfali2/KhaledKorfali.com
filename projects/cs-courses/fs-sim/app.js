@@ -31,6 +31,8 @@
       expanded: { "/": true, "/home": true, "/home/khaled": true },
       termHistory: [{ type: "sys", text: "khaled-sim v1.0 — type 'help' to list commands" }],
       permDraft: null,
+      oldCwd: null,
+      mountMsg: null,
       links: { target: "", dir: "/home/khaled", name: "mylink", mode: "symbolic", msg: null },
       challengeAnswers: {},
       challengeResult: {},
@@ -48,6 +50,26 @@
       : window.FsWidgets.renderLessonWidget(key);
   }
 
+  // Older saves can carry shapes this version no longer produces (e.g. the
+  // /proc dirs were seeded with a 10-char "dr-xr-xr-x" perm string, which
+  // double-printed the type letter). Patch them up rather than crash.
+  function migrateState(state, fresh) {
+    if (!state.fs || state.fs.type !== "dir" || !Array.isArray(state.fs.children)) {
+      ["fs", "cwd", "selectedPath", "expanded", "permDraft", "links"].forEach((k) => { state[k] = fresh[k]; });
+    }
+    const fixPerms = (node) => {
+      if (typeof node.perms === "string" && node.perms.length === 10) node.perms = node.perms.slice(1);
+      if (node.children) node.children.forEach(fixPerms);
+    };
+    fixPerms(state.fs);
+    ["processes", "mounts", "termHistory"].forEach((k) => { if (!Array.isArray(state[k])) state[k] = fresh[k]; });
+    ["expanded", "challengeAnswers", "challengeResult"].forEach((k) => { if (!state[k] || typeof state[k] !== "object") state[k] = fresh[k]; });
+    if (!state.links || typeof state.links !== "object") state.links = fresh.links;
+    const cwdNode = typeof state.cwd === "string" ? M.getNode(state.fs, state.cwd) : null;
+    if (!cwdNode || cwdNode.type !== "dir") state.cwd = "/";
+    return state;
+  }
+
   const Engine = window.Curriculum.createEngine({
     course: window.FsCourse.COURSE,
     storageKey: "fs-simulator-progress-v1",
@@ -58,6 +80,7 @@
     footerNote: "educational prototype — progress saves automatically in this browser",
     resetExtraWarning: "restore the default filesystem",
     createDomainState,
+    migrateState,
     sandboxNav: SANDBOX_NAV,
     defaultSandboxView: "explorer",
     scrollPreserveSelectors: [".tree-scroll", "#term-history"],

@@ -112,9 +112,20 @@ window.VimGrammar = (function () {
   }
 
   /* =============================== registers =============================== */
+  // Which keys are real register names after a " prefix. Anything else
+  // (Escape, a stray symbol...) cancels the pending command, like Vim does.
+  const REGISTER_NAME_RE = /^[a-zA-Z0-9"\-_+*.:\/]$/;
+  const MARK_NAME_RE = /^[a-zA-Z'`<>\[\]]$/;
+  const MACRO_REG_RE = /^[a-z0-9"]$/;
+  function regKey(name) {
+    if (!name || name === '"') return "unnamed";
+    return /^[A-Z]$/.test(name) ? name.toLowerCase() : name;
+  }
+
   function setRegister(engine, name, text, linewise, blockwise) {
     const ed = engine.state.editor;
     if (name === "_") return; // black hole register: discard
+    if (name === '"') name = null;
     if (name && /^[A-Z]$/.test(name)) {
       // Uppercase register name -> append to the corresponding lowercase register,
       // exactly like real Vim's "A / "B / ... convention.
@@ -130,12 +141,27 @@ window.VimGrammar = (function () {
     }
     ed.registers[name || "unnamed"] = { text, linewise, blockwise: !!blockwise };
   }
+  // Real Vim (:help quote1 / quote-): a delete of a line or more shifts the
+  // numbered ring "1-"9; a delete *within* one line (dw, x, diw...) goes to
+  // the small-delete register "- instead and leaves the ring alone. A named
+  // register target ("add) skips both. The unnamed register always ends up
+  // pointing at whatever was just deleted (unless it went to the black hole).
   function setRegisterAfterDelete(engine, text, linewise, explicitName, blockwise) {
     const ed = engine.state.editor;
-    if (explicitName) { setRegister(engine, explicitName, text, linewise, blockwise); return; }
-    for (let n = 9; n >= 2; n--) { if (ed.registers[String(n - 1)]) ed.registers[String(n)] = ed.registers[String(n - 1)]; }
-    ed.registers["1"] = { text, linewise, blockwise: !!blockwise };
-    ed.registers.unnamed = { text, linewise, blockwise: !!blockwise };
+    if (explicitName === "_") return;
+    const entry = { text, linewise, blockwise: !!blockwise };
+    if (explicitName && explicitName !== '"') {
+      setRegister(engine, explicitName, text, linewise, blockwise);
+      ed.registers.unnamed = { ...ed.registers[regKey(explicitName)] };
+      return;
+    }
+    if (!linewise && !blockwise && text.indexOf("\n") === -1) {
+      ed.registers["-"] = entry;
+    } else {
+      for (let n = 9; n >= 2; n--) { if (ed.registers[String(n - 1)]) ed.registers[String(n)] = ed.registers[String(n - 1)]; }
+      ed.registers["1"] = entry;
+    }
+    ed.registers.unnamed = { ...entry };
   }
 
   /* =============================== marks =============================== */
@@ -320,7 +346,9 @@ window.VimGrammar = (function () {
 
     let target = null, inclusive = false, linewise = false;
     if (m === "h") target = { line: cur.line, col: Math.max(0, cur.col - count) };
-    else if (m === "l") target = { line: cur.line, col: Math.min(B.lastCol(ed.lines, cur.line), cur.col + count) };
+    // As an operator target, l may step one past the last character (that's
+    // how "dl"/"cl"/"s" reach the final character of a line).
+    else if (m === "l") target = { line: cur.line, col: Math.min(p.operator ? (ed.lines[cur.line] || "").length : B.lastCol(ed.lines, cur.line), cur.col + count) };
     else if (m === "j") { linewise = true; target = { line: Math.min(ed.lines.length - 1, cur.line + count), col: wantColFor(ed) }; }
     else if (m === "k") { linewise = true; target = { line: Math.max(0, cur.line - count), col: wantColFor(ed) }; }
     else if (m === "0") target = { line: cur.line, col: 0 };
@@ -341,7 +369,7 @@ window.VimGrammar = (function () {
         target = t;
       } else {
         let t = cur; for (let i = 0; i < count; i++) t = B.wordForward(ed.lines, t);
-        target = t;
+        target = p.operator ? clipWordMotionToLine(ed.lines, cur, t) : t;
       }
     }
     else if (m === "b") { let t = cur; for (let i = 0; i < count; i++) t = B.wordBackward(ed.lines, t); target = t; }
@@ -357,7 +385,7 @@ window.VimGrammar = (function () {
         target = t;
       } else {
         let t = cur; for (let i = 0; i < count; i++) t = B.wordForward(ed.lines, t, true);
-        target = t;
+        target = p.operator ? clipWordMotionToLine(ed.lines, cur, t) : t;
       }
     }
     else if (m === "B") { let t = cur; for (let i = 0; i < count; i++) t = B.wordBackward(ed.lines, t, true); target = t; }
@@ -372,7 +400,13 @@ window.VimGrammar = (function () {
     else if (m === "L") { linewise = true; const l = ed.lines.length - 1; target = { line: l, col: B.firstNonBlankCol(ed.lines[l]) }; }
     else if (m === "%") { inclusive = true; target = B.matchPercent(ed.lines, cur); if (!target) return null; }
     else if (m === "{") target = B.paragraphBackward(ed.lines, cur);
-    else if (m === "}") target = B.paragraphForward(ed.lines, cur);
+    else if (m === "}") {
+      target = B.paragraphForward(ed.lines, cur);
+      // No blank line before the end of the buffer: as an operator target,
+      // } then reaches through the very last character (Vim makes it inclusive).
+      const last = ed.lines.length - 1;
+      if (p.operator && target.line === last && (ed.lines[last] || "").trim() !== "") target = { line: last, col: (ed.lines[last] || "").length };
+    }
     else if (m === "f" || m === "t") { inclusive = true; target = B.findCharForward(ed.lines, cur, p.findChar, m === "t"); if (!target) return null; ed.lastFind = { type: m, char: p.findChar }; }
     else if (m === "F" || m === "T") { target = B.findCharBackward(ed.lines, cur, p.findChar, m === "T"); if (!target) return null; ed.lastFind = { type: m, char: p.findChar }; }
     else if (m === ";") {
@@ -389,9 +423,46 @@ window.VimGrammar = (function () {
     } else return null;
 
     if (!target) return null;
-    target = B.clampPos(ed.lines, target);
-    const range = orderRange(cur, target, inclusive, linewise, ed.lines);
-    return { range, newCursor: target };
+    const clamped = B.clampPos(ed.lines, target);
+    // The cursor itself can never rest past a line's last character, but an
+    // exclusive operator range may legitimately END there (e.g. "dw" on the
+    // last word of the buffer, or "dl" on the final character) — so only the
+    // cursor gets the Normal-mode clamp, not the operator's range.
+    const rangeEnd = p.operator && !linewise && !inclusive
+      ? { line: B.clampLine(ed.lines, target.line), col: Math.max(0, Math.min((ed.lines[B.clampLine(ed.lines, target.line)] || "").length, target.col)) }
+      : clamped;
+    const range = orderRange(cur, rangeEnd, inclusive, linewise, ed.lines);
+    return { range, newCursor: clamped };
+  }
+
+  // :help word — "Another special case: When using the 'w' motion in
+  // combination with an operator and the last word moved over is at the end
+  // of a line, the end of that word becomes the end of the operated text,
+  // not the first word in the next line." Without this, "dw" on a line's
+  // last word would also eat the newline and the next line's indentation.
+  function clipWordMotionToLine(lines, cur, t) {
+    if (t.line <= cur.line) return t;
+    const beforeTarget = (lines[t.line] || "").slice(0, t.col);
+    if (/\S/.test(beforeTarget)) return t;
+    // Walk back to the last line that actually has text after the cursor's line.
+    let l = t.line - 1;
+    while (l > cur.line && !(lines[l] || "").trim()) l--;
+    return { line: l, col: (lines[l] || "").length };
+  }
+
+  /* =============================== indent (>, <) =============================== */
+  // Shift a line by one shiftwidth the way Vim does: measure the existing
+  // indent in display columns, add/subtract shiftwidth, then rebuild it with
+  // tabs+spaces (noexpandtab) or spaces only (expandtab). Blank lines are
+  // left alone by > (Vim never indents an empty line).
+  function shiftLine(ed, line, dir) {
+    if (dir > 0 && line.length === 0) return line;
+    const lead = (line.match(/^[ \t]*/) || [""])[0];
+    const ts = ed.settings.tabstop, sw = ed.settings.shiftwidth;
+    const width = B.visualColumn(lead, lead.length, ts);
+    const target = Math.max(0, dir > 0 ? width + sw : width - sw);
+    const indent = ed.settings.expandtab ? " ".repeat(target) : "\t".repeat(Math.floor(target / ts)) + " ".repeat(target % ts);
+    return indent + line.slice(lead.length);
   }
 
   /* =============================== operator application =============================== */
@@ -406,6 +477,11 @@ window.VimGrammar = (function () {
     const ed = engine.state.editor;
     if (range.empty) { if (op === "c") enterInsertAt(engine, range.start); return; }
     const text = B.rangeText(ed.lines, range);
+    // A change (c) is ONE undo step in Vim: the delete and whatever you then
+    // type are undone together. So no undo node is pushed at delete time —
+    // the insert snapshot is set to the pre-delete buffer instead, and the
+    // single node gets pushed when Escape ends the insert.
+    const beforeChange = ed.lines;
     if (op === "d" || op === "c") {
       setRegisterAfterDelete(engine, text, range.linewise, registerName);
       if (op === "c" && range.linewise) {
@@ -417,11 +493,13 @@ window.VimGrammar = (function () {
         // typed text silently merged into whatever line happened to follow.
         const newLines = ed.lines.slice();
         const spliceOldCount = range.end.line - range.start.line + 1;
-        newLines.splice(range.start.line, spliceOldCount, "");
+        // Like Vim, keep the first line's indent when changing whole lines.
+        const keepIndent = ed.settings.autoindent ? (ed.lines[range.start.line].match(/^[ \t]*/) || [""])[0] : "";
+        newLines.splice(range.start.line, spliceOldCount, keepIndent);
         shiftMarksForSplice(ed, range.start.line, spliceOldCount, 1);
         ed.lines = newLines;
-        pushUndoNode(engine, "change");
-        enterInsertAt(engine, { line: range.start.line, col: 0 });
+        enterInsertAt(engine, { line: range.start.line, col: keepIndent.length });
+        ed.insertSnapshot = beforeChange;
         return;
       }
       const oldLineCount = ed.lines.length;
@@ -442,23 +520,23 @@ window.VimGrammar = (function () {
         // insert-mode position directly rather than reading it back through
         // that clamp.
         ed.lines = newLines;
-        pushUndoNode(engine, "change");
         const line = newLines[range.start.line] || "";
         enterInsertAt(engine, { line: range.start.line, col: Math.max(0, Math.min(line.length, range.start.col)) });
+        ed.insertSnapshot = beforeChange;
       } else {
         commitEdit(engine, newLines, range.start, "delete");
       }
     } else if (op === "y") {
-      const target = registerName || "0";
+      if (registerName === "_") return;
+      const target = registerName && registerName !== '"' ? registerName : "0";
       setRegister(engine, target, text, range.linewise);
-      if (target !== "unnamed") ed.registers.unnamed = { text, linewise: range.linewise };
-      ed.cursor = B.clampPos(ed.lines, range.start);
+      ed.registers.unnamed = { ...ed.registers[regKey(target)] };
+      // yj/yk/yy leave the cursor where it was; charwise yanks go to the start.
+      ed.cursor = B.clampPos(ed.lines, range.linewise ? { line: range.start.line, col: ed.cursor.line === range.start.line ? ed.cursor.col : 0 } : range.start);
     } else if (op === ">" || op === "<") {
       const newLines = ed.lines.slice();
-      const sw = ed.settings.shiftwidth;
-      const dedentRe = new RegExp("^ {1," + sw + "}");
-      for (let l = range.start.line; l <= range.end.line; l++) newLines[l] = op === ">" ? " ".repeat(sw) + newLines[l] : newLines[l].replace(dedentRe, "");
-      commitEdit(engine, newLines, { line: range.start.line, col: 0 }, "indent");
+      for (let l = range.start.line; l <= range.end.line; l++) newLines[l] = shiftLine(ed, newLines[l], op === ">" ? 1 : -1);
+      commitEdit(engine, newLines, { line: range.start.line, col: B.firstNonBlankCol(newLines[range.start.line]) }, "indent");
     } else if (op === "g~" || op === "gu" || op === "gU") {
       const applyCase = (s) => (op === "gu" ? s.toLowerCase() : op === "gU" ? s.toUpperCase() : s.split("").map((c) => (c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase())).join(""));
       const newLines = ed.lines.slice();
@@ -585,6 +663,7 @@ window.VimGrammar = (function () {
       }
       return;
     }
+    if (key.length !== 1) return; // unhandled Ctrl-combos must not type their token name
     const r = B.insertTextAt(ed.lines, ed.cursor, key);
     ed.lines = r.lines; ed.cursor = r.end;
   }
@@ -596,6 +675,12 @@ window.VimGrammar = (function () {
   function recordLastVisual(ed) {
     if (!ed.visualAnchor) return;
     ed.lastVisual = { mode: ed.mode, anchor: { ...ed.visualAnchor }, cursor: { ...ed.cursor } };
+    // The '< and '> marks: start and end of the last selection (what
+    // :'<,'> ranges refer to).
+    const a = ed.visualAnchor, c = ed.cursor;
+    const aFirst = a.line < c.line || (a.line === c.line && a.col <= c.col);
+    ed.marks["<"] = { ...(aFirst ? a : c) };
+    ed.marks[">"] = { ...(aFirst ? c : a) };
   }
   function enterVisual(engine, kind) {
     const ed = engine.state.editor;
@@ -655,8 +740,9 @@ window.VimGrammar = (function () {
       }
       setRegisterAfterDelete(engine, texts.join("\n"), false, null, true);
       if (op === "y") { ed.cursor = { line: top, col: Math.min(left, B.lastCol(ed.lines, top)) }; return; }
+      const beforeBlock = ed.lines;
       ed.lines = newLines;
-      pushUndoNode(engine, op === "c" ? "change" : "delete");
+      if (op !== "c") pushUndoNode(engine, "delete");
       if (op === "c") {
         // Real Vim propagates whatever gets typed here to the same column on
         // every other line in the block once Escape is pressed (feedInsertKey
@@ -664,6 +750,7 @@ window.VimGrammar = (function () {
         // left column are left alone, matching "c" (not padded, unlike "A").
         ed._blockInsert = { top, bottom, col: left, pad: false };
         enterInsertAt(engine, { line: top, col: left });
+        ed.insertSnapshot = beforeBlock;
       } else {
         ed.cursor = { line: top, col: Math.min(left, B.lastCol(ed.lines, top)) };
       }
@@ -691,9 +778,7 @@ window.VimGrammar = (function () {
       // Real Vim indents/dedents the whole affected lines in block mode too,
       // regardless of the block's column range — same as linewise visual.
       const newLines = ed.lines.slice();
-      const sw = ed.settings.shiftwidth;
-      const dedentRe = new RegExp("^ {1," + sw + "}");
-      for (let l = top; l <= bottom; l++) newLines[l] = op === ">" ? " ".repeat(sw) + newLines[l] : newLines[l].replace(dedentRe, "");
+      for (let l = top; l <= bottom; l++) newLines[l] = shiftLine(ed, newLines[l], op === ">" ? 1 : -1);
       ed.lines = newLines;
       pushUndoNode(engine, "indent");
       ed.cursor = { line: top, col: 0 };
@@ -717,6 +802,7 @@ window.VimGrammar = (function () {
       return;
     }
     const col = isAppend ? right + 1 : left;
+    const beforeBlock = ed.lines;
     // Real Vim's block-append ("A") pads lines shorter than the block with
     // spaces so the appended text lines up in a column on every line; block-
     // insert ("I") does not pad — it simply skips lines that don't reach it.
@@ -726,6 +812,7 @@ window.VimGrammar = (function () {
       ? (() => { ed.lines = ed.lines.slice(); ed.lines[top] = line + " ".repeat(col - line.length); return col; })()
       : Math.min(col, line.length);
     enterInsertAt(engine, { line: top, col: startCol });
+    ed.insertSnapshot = beforeBlock; // so the padding is part of the same undo step
   }
 
   function applyVisualOperator(engine, op) {
@@ -772,6 +859,17 @@ window.VimGrammar = (function () {
     if (key === "y") return applyVisualOperator(engine, "y");
     if (key === ">" || key === "<") return applyVisualOperator(engine, key);
     if (key === "~") return applyVisualOperator(engine, "g~");
+    if (key === ":") {
+      // Visual ":" pre-fills the '<,'> range so the command applies to the selection.
+      recordLastVisual(ed); ed.mode = "normal"; ed.visualAnchor = null;
+      enterCommand(engine); ed.commandLine = "'<,'>"; return;
+    }
+    if (key === "J") {
+      const r = orderRange(ed.visualAnchor, ed.cursor, true, true, ed.lines);
+      recordLastVisual(ed); ed.mode = "normal"; ed.visualAnchor = null; resetParse(ed);
+      ed.cursor = { line: r.start.line, col: ed.cursor.col };
+      return doJoinLines(engine, { count1: String(Math.max(2, r.end.line - r.start.line + 1)), count2: "" });
+    }
     if (key === "u") return applyVisualOperator(engine, "gu");
     if (key === "U") return applyVisualOperator(engine, "gU");
     resetParse(ed);
@@ -897,23 +995,166 @@ window.VimGrammar = (function () {
     return " ".repeat(ts - (vcol % ts));
   }
 
+  /* --------------------------------- Vim pattern -> JS RegExp --------------------------------- */
+  // Vim patterns are "magic" by default, which is nearly the OPPOSITE of JS:
+  // ( ) | + ? { } are literal characters unless backslashed (\( \) \| \+ \=
+  // \{n,m}), and \< \> mark word boundaries. \v ("very magic") switches to
+  // JS-like syntax, and \c / \C force case-insensitive / -sensitive. Without
+  // this translation, /\<the\> or :s/\(\w\+\)/[\1]/ would silently do
+  // something different here than in a real Vim.
+  function vimPatternToJs(pat) {
+    let src = "", icase = null, veryMagic = false, braceOpen = false, i = 0;
+    for (; i < pat.length; i++) {
+      const ch = pat[i];
+      if (ch === "\\" && i + 1 < pat.length) {
+        const n = pat[++i];
+        if (n === "v") { veryMagic = true; continue; }
+        if (n === "m" || n === "M" || n === "V") { veryMagic = false; continue; }
+        if (n === "c") { icase = true; continue; }
+        if (n === "C") { icase = false; continue; }
+        if (n === "<" || n === ">") { src += "\\b"; continue; }
+        if (!veryMagic && "()|+?".indexOf(n) !== -1) { src += n; continue; }
+        if (!veryMagic && n === "=") { src += "?"; continue; }
+        if (!veryMagic && n === "{") { src += "{"; braceOpen = true; continue; }
+        if (n === "}" && braceOpen) { src += "}"; braceOpen = false; continue; }
+        src += "\\" + n;
+        continue;
+      }
+      if (veryMagic) {
+        src += ch === "<" || ch === ">" ? "\\b" : ch === "=" ? "?" : ch;
+        continue;
+      }
+      if (ch === "}" && braceOpen) { src += "}"; braceOpen = false; continue; }
+      src += "()|+?{}".indexOf(ch) !== -1 ? "\\" + ch : ch;
+    }
+    return { source: src, icase };
+  }
+  function compileVimPattern(ed, pattern, extraFlags) {
+    const c = vimPatternToJs(pattern);
+    const ic = c.icase !== null ? c.icase : shouldIgnoreCase(ed, pattern);
+    try { return new RegExp(c.source, (extraFlags || "") + (ic ? "i" : "")); } catch (e) { return null; }
+  }
+
+  // Expands a :s replacement string the way Vim does: & and \0 = the whole
+  // match, \1-\9 = capture groups, \r = line break, \t = tab, \& \\ = literal.
+  function expandReplacement(rep, match, groups) {
+    let out = "";
+    for (let i = 0; i < rep.length; i++) {
+      const ch = rep[i];
+      if (ch === "&") { out += match; continue; }
+      if (ch === "\\" && i + 1 < rep.length) {
+        const n = rep[++i];
+        if (/[0-9]/.test(n)) out += n === "0" ? match : (groups[Number(n) - 1] || "");
+        else if (n === "r" || n === "n") out += "\n";
+        else if (n === "t") out += "\t";
+        else out += n;
+        continue;
+      }
+      out += ch;
+    }
+    return out;
+  }
+
+  // :[range]s/pat/rep/[flags] — delimiter is "/" and "\/" escapes it; the
+  // trailing "/" is optional, exactly like Vim.
+  const SUB_RE = /^s\/((?:\\.|[^\\/])*)\/((?:\\.|[^\\/])*)(?:\/([a-zA-Z&]*))?$/;
+  const GLOBAL_RE = /^(g!?|v)\/((?:\\.|[^\\/])*)\/(.*)$/;
+
+  // :[range] — %, N, ., $, 'x marks (incl. '< '>), optional +N/-N offsets,
+  // and "a,b" pairs. Returns { range:{start,end}|null, rest, error }.
+  function parseCommandRange(ed, cmd) {
+    const addr = "(?:\\d+|\\.|\\$|'[a-zA-Z<>])?(?:[+-]\\d*)?";
+    const m = cmd.match(new RegExp("^(%|" + addr + "(?:," + addr + ")?)"));
+    const text = m ? m[1] : "";
+    const rest = cmd.slice(text.length).replace(/^\s+/, "");
+    if (!text) return { range: null, rest };
+    const last = ed.lines.length - 1;
+    if (text === "%") return { range: { start: 0, end: last }, rest };
+    const toLine = (a) => {
+      if (a === "") return ed.cursor.line;
+      const mm = a.match(/^(\d+|\.|\$|'[a-zA-Z<>])?([+-]\d*)?$/);
+      if (!mm) return undefined;
+      let base = ed.cursor.line;
+      if (mm[1] === "$") base = last;
+      else if (mm[1] && mm[1][0] === "'") { const mk = resolveMarkPosition(ed, mm[1][1]); if (!mk) return null; base = mk.line; }
+      else if (mm[1] && mm[1] !== ".") base = parseInt(mm[1], 10) - 1;
+      if (mm[2]) base += mm[2].length > 1 ? parseInt(mm[2], 10) : (mm[2] === "+" ? 1 : -1);
+      return base;
+    };
+    const parts = text.split(",");
+    const a = toLine(parts[0]);
+    const b = parts.length > 1 ? toLine(parts[1]) : a;
+    if (a === null || b === null) return { error: "E20: Mark not set", rest };
+    if (a === undefined || b === undefined) return { error: "E14: Invalid address", rest };
+    return { range: { start: Math.min(a, b), end: Math.max(a, b) }, rest, single: parts.length === 1 };
+  }
+
+  // Shared by :s, :g/../s, and the live preview, so the preview's count is
+  // always exactly what Enter will do.
+  function substituteLines(ed, lineIdxs, pattern, replacement, flags) {
+    const global = flags.indexOf("g") !== -1;
+    if (flags.indexOf("i") !== -1) pattern = "\\c" + pattern;
+    if (flags.indexOf("I") !== -1) pattern = "\\C" + pattern;
+    const re = compileVimPattern(ed, pattern, global ? "g" : "");
+    if (!re) return { error: "E486: Pattern not found: " + pattern };
+    const newLines = ed.lines.slice();
+    let count = 0, lineCount = 0, lastLine = -1;
+    lineIdxs.forEach((i) => {
+      let hit = false;
+      newLines[i] = newLines[i].replace(re, (...a) => {
+        const tail = typeof a[a.length - 1] === "object" ? 3 : 2;
+        count++; hit = true;
+        return expandReplacement(replacement, a[0], a.slice(1, a.length - tail));
+      });
+      if (hit) { lineCount++; lastLine = i; }
+    });
+    return { newLines, count, lineCount, lastLine };
+  }
+
+  // A substitution can introduce line breaks (\r); re-split so every array
+  // entry is exactly one line again.
+  function resplitLines(lines) {
+    return lines.some((l) => l.indexOf("\n") !== -1) ? [].concat(...lines.map((l) => l.split("\n"))) : lines;
+  }
+
   function executeCommandLine(engine) {
     const ed = engine.state.editor;
-    const cmd = ed.commandLine;
+    const full = ed.commandLine.trim();
     ed.mode = "normal"; ed.commandLine = ""; resetParse(ed);
-    const subMatch = cmd.match(/^(%?)s\/(.*?)\/(.*?)\/([a-z]*)$/);
+    if (!full) return;
+    const parsed = parseCommandRange(ed, full);
+    if (parsed.error) { ed.message = parsed.error; return; }
+    const cmd = parsed.rest;
+    const range = parsed.range;
+    const last = ed.lines.length - 1;
+
+    // ":42" / ":$" / ":'a" on their own jump to that line (clamped, like Vim).
+    if (range && !cmd) {
+      const target = Math.max(0, Math.min(last, range.end));
+      recordJumpMark(engine);
+      ed.cursor = { line: target, col: B.firstNonBlankCol(ed.lines[target] || "") };
+      ed.wantCol = ed.cursor.col;
+      return;
+    }
+    if (range && (range.start < 0 || range.end > last)) { ed.message = "E16: Invalid range"; return; }
+
+    const subMatch = cmd.match(SUB_RE);
     if (subMatch) {
-      const [, scope, pattern, replacement, flags] = subMatch;
-      const global = flags.includes("g");
-      let re;
-      try { re = new RegExp(pattern, (global ? "g" : "") + (shouldIgnoreCase(ed, pattern) ? "i" : "")); } catch (e) { ed.message = "E486: Pattern not found: " + pattern; return; }
-      const newLines = ed.lines.slice();
-      const targetLines = scope === "%" ? newLines.map((_, i) => i) : [ed.cursor.line];
-      let count = 0;
-      targetLines.forEach((i) => { newLines[i] = newLines[i].replace(re, () => { count++; return replacement; }); });
-      ed.lines = newLines;
+      const [, rawPattern, replacement, flags] = subMatch;
+      const pattern = rawPattern || (ed.lastSearch && ed.lastSearch.pattern) || "";
+      if (!pattern) { ed.message = "E35: No previous regular expression"; return; }
+      const r = range || { start: ed.cursor.line, end: ed.cursor.line };
+      const idxs = []; for (let i = r.start; i <= r.end; i++) idxs.push(i);
+      const res = substituteLines(ed, idxs, pattern, replacement, flags || "");
+      if (res.error) { ed.message = res.error; return; }
+      if (!res.count) { ed.message = "E486: Pattern not found: " + pattern; return; }
+      ed.lines = resplitLines(res.newLines);
+      // Vim leaves the cursor on the last line where a substitution happened.
+      const extra = ed.lines.length - res.newLines.length;
+      const landLine = Math.min(ed.lines.length - 1, res.lastLine + (extra > 0 ? extra : 0));
+      ed.cursor = { line: landLine, col: B.firstNonBlankCol(ed.lines[landLine] || "") };
       pushUndoNode(engine, "substitute");
-      ed.message = `${count} substitution${count === 1 ? "" : "s"} made`;
+      ed.message = res.lineCount > 1 || res.count > 1 ? `${res.count} substitution${res.count === 1 ? "" : "s"} on ${res.lineCount} line${res.lineCount === 1 ? "" : "s"}` : "";
       return;
     }
     // :g/pattern/cmd runs cmd on every line matching pattern; :v (or :g!) is
@@ -921,46 +1162,58 @@ window.VimGrammar = (function () {
     // trailing "s/from/to/[g]" (substitute) are supported as the command,
     // which covers the overwhelming majority of real-world :g usage without
     // building out a full Ex-command interpreter for its right-hand side.
-    const gMatch = cmd.match(/^(g!?|v)\/(.*?)\/(.*)$/);
+    const gMatch = cmd.match(GLOBAL_RE);
     if (gMatch) {
       const [, gtype, pattern, rest] = gMatch;
       const invert = gtype !== "g";
-      let re;
-      try { re = new RegExp(pattern, shouldIgnoreCase(ed, pattern) ? "i" : ""); } catch (e) { ed.message = "E486: Pattern not found: " + pattern; return; }
+      const re = compileVimPattern(ed, pattern, "");
+      if (!re) { ed.message = "E486: Pattern not found: " + pattern; return; }
+      const r = range || { start: 0, end: last };
       const matchingIdx = [];
-      ed.lines.forEach((l, i) => { if (re.test(l) !== invert) matchingIdx.push(i); });
+      for (let i = r.start; i <= r.end; i++) if (re.test(ed.lines[i]) !== invert) matchingIdx.push(i);
+      if (!matchingIdx.length) { ed.message = `${invert ? "E538: Pattern found in every line" : "E486: Pattern not found"}: ${pattern}`; return; }
       if (rest === "d" || rest === "delete") {
-        if (!matchingIdx.length) { ed.message = "Pattern not found: " + pattern; return; }
-        const newLines = ed.lines.filter((_, i) => !matchingIdx.includes(i));
+        const removed = new Set(matchingIdx);
+        const newLines = ed.lines.filter((_, i) => !removed.has(i));
+        setRegisterAfterDelete(engine, matchingIdx.map((i) => ed.lines[i]).join("\n"), true, null);
         ed.lines = newLines.length ? newLines : [""];
-        ed.cursor = B.clampPos(ed.lines, ed.cursor);
+        ed.cursor = B.clampPos(ed.lines, { line: Math.min(matchingIdx[matchingIdx.length - 1] - matchingIdx.length + 1, ed.lines.length - 1), col: 0 });
         pushUndoNode(engine, "global-delete");
         ed.message = `${matchingIdx.length} fewer line${matchingIdx.length === 1 ? "" : "s"}`;
         return;
       }
-      const subOnMatches = rest.match(/^s\/(.*?)\/(.*?)\/([a-z]*)$/);
+      const subOnMatches = rest.match(SUB_RE);
       if (subOnMatches) {
         const [, subPattern, subReplacement, subFlags] = subOnMatches;
-        const subGlobal = subFlags.includes("g");
-        let subRe;
-        try { subRe = new RegExp(subPattern, (subGlobal ? "g" : "") + (shouldIgnoreCase(ed, subPattern) ? "i" : "")); } catch (e) { ed.message = "E486: Pattern not found: " + subPattern; return; }
-        const newLines = ed.lines.slice();
-        let count = 0;
-        matchingIdx.forEach((i) => { newLines[i] = newLines[i].replace(subRe, () => { count++; return subReplacement; }); });
-        ed.lines = newLines;
+        const res = substituteLines(ed, matchingIdx, subPattern || pattern, subReplacement, subFlags || "");
+        if (res.error) { ed.message = res.error; return; }
+        if (!res.count) { ed.message = "E486: Pattern not found: " + (subPattern || pattern); return; }
+        ed.lines = resplitLines(res.newLines);
+        ed.cursor = B.clampPos(ed.lines, ed.cursor);
         pushUndoNode(engine, "global-substitute");
-        ed.message = `${count} substitution${count === 1 ? "" : "s"} on ${matchingIdx.length} line${matchingIdx.length === 1 ? "" : "s"}`;
+        ed.message = `${res.count} substitution${res.count === 1 ? "" : "s"} on ${res.lineCount} line${res.lineCount === 1 ? "" : "s"}`;
         return;
       }
-      ed.message = `E492: Not an editor command: ${cmd}`;
+      ed.message = `E492: Not an editor command: ${full}`;
       return;
     }
-    if (cmd === "w") { ed.message = '"buffer" written'; return; }
-    if (cmd === "q") {
-      if (activeTab(ed).windows.length > 1) { closeWindow(engine); return; }
-      ed.message = "cannot close the only sandbox buffer"; return;
+    // :[range]d — delete lines (default: the current one).
+    if (cmd === "d" || cmd === "delete") {
+      const r = range || { start: ed.cursor.line, end: ed.cursor.line };
+      const n = r.end - r.start + 1;
+      setRegisterAfterDelete(engine, ed.lines.slice(r.start, r.end + 1).join("\n"), true, null);
+      const newLines = ed.lines.slice(); newLines.splice(r.start, n);
+      shiftMarksForSplice(ed, r.start, n, 0);
+      commitEdit(engine, newLines.length ? newLines : [""], { line: Math.min(r.start, Math.max(0, newLines.length - 1)), col: 0 }, "delete");
+      if (n > 2) ed.message = `${n} fewer lines`;
+      return;
     }
-    if (cmd === "wq") { ed.message = '"buffer" written'; return; }
+    if (range) { ed.message = `E492: Not an editor command: ${full}`; return; }
+    if (cmd === "w" || cmd === "write") { ed.message = `"${(ed.buffers[ed.activeBufferId] || {}).name || "buffer"}" ${ed.lines.length}L written (simulated)`; return; }
+    if (cmd === "q" || cmd === "q!" || cmd === "quit" || cmd === "wq" || cmd === "x" || cmd === "wq!") {
+      if (activeTab(ed).windows.length > 1) { closeWindow(engine); return; }
+      ed.message = cmd[0] === "w" || cmd === "x" ? "written — but this sandbox can't actually quit, so the buffer stays open" : "this sandbox can't actually quit (in real Vim, :q closes the window and :q! discards changes)"; return;
+    }
 
     if (cmd === "noh" || cmd === "nohl" || cmd === "nohlsearch") { ed.hlsearchSuppressed = true; ed.message = ""; return; }
     const setMatch = cmd.match(/^se(?:t)?\s+(.*)$/);
@@ -1008,12 +1261,15 @@ window.VimGrammar = (function () {
     const ed = engine.state.editor;
     if (key === "Escape") { ed.mode = "normal"; ed.commandLine = ""; return; }
     if (key === "Enter") return executeCommandLine(engine);
-    if (key === "Backspace") { ed.commandLine = ed.commandLine.slice(0, -1); return; }
+    if (key === "Backspace") {
+      if (!ed.commandLine) { ed.mode = "normal"; return; } // like Vim: <BS> on an empty : line cancels
+      ed.commandLine = ed.commandLine.slice(0, -1); return;
+    }
+    if (key === "Tab" || key.indexOf("ctrl-") === 0) return;
     ed.commandLine += key;
   }
 
   /* =============================== search =============================== */
-  function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
   // ignorecase makes search/substitute case-insensitive; smartcase overrides
   // that back to case-SENSITIVE the moment the pattern itself contains an
@@ -1032,8 +1288,9 @@ window.VimGrammar = (function () {
   // rendering, which has to highlight a whole matched range, not just where
   // it starts.
   function findAllMatches(lines, pattern, ignoreCase) {
+    const c = vimPatternToJs(pattern);
     let re;
-    try { re = new RegExp(pattern, ignoreCase ? "gi" : "g"); } catch (e) { return null; }
+    try { re = new RegExp(c.source, (c.icase !== null ? c.icase : ignoreCase) ? "gi" : "g"); } catch (e) { return null; }
     const text = B.flatten(lines);
     const matches = [];
     let m;
@@ -1129,7 +1386,11 @@ window.VimGrammar = (function () {
     const ed = engine.state.editor;
     if (key === "Escape") { ed.mode = "normal"; ed.searchLine = ""; ed.searchOperatorContext = null; resetParse(ed); return; }
     if (key === "Enter") return executeSearchLine(engine);
-    if (key === "Backspace") { ed.searchLine = ed.searchLine.slice(0, -1); return; }
+    if (key === "Backspace") {
+      if (!ed.searchLine) { ed.mode = "normal"; ed.searchOperatorContext = null; resetParse(ed); return; }
+      ed.searchLine = ed.searchLine.slice(0, -1); return;
+    }
+    if (key === "Tab" || key.indexOf("ctrl-") === 0) return;
     ed.searchLine += key;
   }
 
@@ -1145,7 +1406,11 @@ window.VimGrammar = (function () {
     const wordRange = B.textObjectWord(ed.lines, ed.cursor, false);
     if (!wordRange) { ed.message = "E348: No string under cursor"; resetParse(ed); return; }
     const word = B.rangeText(ed.lines, wordRange);
-    const pattern = "\\b" + escapeRegExp(word) + "\\b";
+    if (!word.trim()) { ed.message = "E348: No string under cursor"; resetParse(ed); return; }
+    // Same pattern real Vim builds: whole-word \<...\> for keyword
+    // characters, with Vim's own magic characters escaped.
+    const escaped = word.replace(/[\\\/.*$^~\[\]]/g, "\\$&");
+    const pattern = /^\w/.test(word) ? "\\<" + escaped + "\\>" : escaped;
     ed.lastSearch = { pattern, direction };
     applySearchAsMotionOrJump(engine, p, pattern, direction);
   }
@@ -1160,21 +1425,36 @@ window.VimGrammar = (function () {
     return { count: matches.length, valid: true };
   }
 
+  function isSubstituteCommand(engineOrEd, commandLine) {
+    const ed = engineOrEd.state ? engineOrEd.state.editor : engineOrEd;
+    const parsed = parseCommandRange(ed, commandLine);
+    return !parsed.error && /^s\//.test(parsed.rest);
+  }
+  function isGlobalCommand(engineOrEd, commandLine) {
+    const ed = engineOrEd.state ? engineOrEd.state.editor : engineOrEd;
+    const parsed = parseCommandRange(ed, commandLine);
+    return !parsed.error && /^(g!?|v)\//.test(parsed.rest);
+  }
+
   function previewSubstitute(engine, commandLine) {
     const ed = engine.state.editor;
-    const m = commandLine.match(/^(%?)s\/(.*?)\/(.*?)\/([a-z]*)$/);
+    const parsed = parseCommandRange(ed, commandLine);
+    if (parsed.error) return { valid: false, error: parsed.error };
+    const m = parsed.rest.match(SUB_RE);
     if (!m) return { valid: false };
-    const [, scopeFlag, pattern, replacement, flags] = m;
+    const [, rawPattern, replacement, rawFlags] = m;
+    const flags = rawFlags || "";
+    const pattern = rawPattern || (ed.lastSearch && ed.lastSearch.pattern) || "";
     const global = flags.includes("g");
-    let re;
-    try { re = new RegExp(pattern, shouldIgnoreCase(ed, pattern) ? "gi" : "g"); } catch (e) { return { valid: false, error: "bad pattern" }; }
-    const targetLines = scopeFlag === "%" ? ed.lines : [ed.lines[ed.cursor.line]];
-    let matchCount = 0, lineCount = 0;
-    targetLines.forEach((lineText) => {
-      const found = lineText.match(re);
-      if (found) { lineCount++; matchCount += global ? found.length : 1; }
-    });
-    return { valid: true, scope: scopeFlag === "%" ? "whole buffer" : "current line only", pattern, replacement, flags, global, matchCount, lineCount };
+    const r = parsed.range || { start: ed.cursor.line, end: ed.cursor.line };
+    if (r.start < 0 || r.end > ed.lines.length - 1) return { valid: false, error: "E16: Invalid range" };
+    const idxs = []; for (let i = r.start; i <= r.end; i++) idxs.push(i);
+    const res = pattern ? substituteLines(ed, idxs, pattern, replacement, flags) : { count: 0, lineCount: 0 };
+    if (res.error) return { valid: false, error: "bad pattern" };
+    const scope = !parsed.range ? "current line only"
+      : (r.start === 0 && r.end === ed.lines.length - 1) ? "whole buffer"
+      : r.start === r.end ? `line ${r.start + 1}` : `lines ${r.start + 1}\u2013${r.end + 1}`;
+    return { valid: true, scope, pattern, replacement, flags, global, matchCount: res.count, lineCount: res.lineCount };
   }
 
   // Live preview for :g/:v — mirrors previewSubstitute, but for the global
@@ -1183,25 +1463,25 @@ window.VimGrammar = (function () {
   // exactly what will happen before Enter is pressed.
   function previewGlobal(engine, commandLine) {
     const ed = engine.state.editor;
-    const m = commandLine.match(/^(g!?|v)\/(.*?)\/(.*)$/);
+    const parsed = parseCommandRange(ed, commandLine);
+    const m = parsed.error ? null : parsed.rest.match(GLOBAL_RE);
     if (!m) return { valid: false };
     const [, gtype, pattern, rest] = m;
     const invert = gtype !== "g";
-    let re;
-    try { re = new RegExp(pattern, shouldIgnoreCase(ed, pattern) ? "i" : ""); } catch (e) { return { valid: false, error: "bad pattern" }; }
+    const re = compileVimPattern(ed, pattern, "");
+    if (!re) return { valid: false, error: "bad pattern" };
     const matchingIdx = [];
-    ed.lines.forEach((l, i) => { if (re.test(l) !== invert) matchingIdx.push(i); });
+    const r = parsed.range || { start: 0, end: ed.lines.length - 1 };
+    ed.lines.forEach((l, i) => { if (i >= r.start && i <= r.end && re.test(l) !== invert) matchingIdx.push(i); });
     const base = { valid: true, invert, pattern, matchingCount: matchingIdx.length, totalLines: ed.lines.length };
     if (rest === "" ) return { ...base, cmdKind: "incomplete" };
     if (rest === "d" || rest === "delete") return { ...base, cmdKind: "delete" };
-    const subMatch = rest.match(/^s\/(.*?)\/(.*?)\/([a-z]*)$/);
+    const subMatch = rest.match(SUB_RE);
     if (subMatch) {
       const [, subPattern, subReplacement, subFlags] = subMatch;
-      const subGlobal = subFlags.includes("g");
-      let subRe, subMatchCount = 0;
-      try { subRe = new RegExp(subPattern, shouldIgnoreCase(ed, subPattern) ? "gi" : "g"); } catch (e) { return { ...base, cmdKind: "substitute", cmdValid: false }; }
-      matchingIdx.forEach((i) => { const found = ed.lines[i].match(subRe); if (found) subMatchCount += subGlobal ? found.length : 1; });
-      return { ...base, cmdKind: "substitute", cmdValid: true, subPattern, subReplacement, subGlobal, subMatchCount };
+      const res = substituteLines(ed, matchingIdx, subPattern || pattern, subReplacement, subFlags || "");
+      if (res.error) return { ...base, cmdKind: "substitute", cmdValid: false };
+      return { ...base, cmdKind: "substitute", cmdValid: true, subPattern, subReplacement, subGlobal: (subFlags || "").includes("g"), subMatchCount: res.count };
     }
     return { ...base, cmdKind: "unknown" };
   }
@@ -1209,9 +1489,15 @@ window.VimGrammar = (function () {
   /* =============================== simple normal-mode commands =============================== */
   function doPaste(engine, p, after) {
     const ed = engine.state.editor;
-    const reg = ed.registers[p.register || "unnamed"];
+    const count = totalCount(p);
+    const name = regKey(p.register);
+    const src = ed.registers[name];
     resetParse(ed);
-    if (!reg || !reg.text) { ed.message = "nothing to paste"; return; }
+    if (!src || !src.text) { ed.message = name === "unnamed" ? "E353: Nothing in register \"" : `E353: Nothing in register ${name}`; return; }
+    // A count repeats the put: 3p pastes the register three times.
+    const reg = count > 1
+      ? { ...src, text: src.blockwise ? src.text.split("\n").map((l) => l.repeat(count)).join("\n") : src.linewise ? Array(count).fill(src.text).join("\n") : src.text.repeat(count) }
+      : src;
     if (reg.blockwise) {
       // Each stored line goes at the same column on consecutive buffer
       // lines (padding short lines with spaces so the block still lines up),
@@ -1257,13 +1543,13 @@ window.VimGrammar = (function () {
       const end = Math.min(lineText.length - 1, ed.cursor.col + count - 1);
       if (end < ed.cursor.col || lineText.length === 0) return;
       const range = { start: { line: ed.cursor.line, col: ed.cursor.col }, end: { line: ed.cursor.line, col: end }, linewise: false };
-      setRegisterAfterDelete(engine, B.rangeText(ed.lines, range), false, null);
+      setRegisterAfterDelete(engine, B.rangeText(ed.lines, range), false, p.register);
       commitEdit(engine, B.deleteRange(ed.lines, range), ed.cursor, "delete-char");
     } else {
       const start = Math.max(0, ed.cursor.col - count);
       if (start >= ed.cursor.col) return;
       const range = { start: { line: ed.cursor.line, col: start }, end: { line: ed.cursor.line, col: ed.cursor.col - 1 }, linewise: false };
-      setRegisterAfterDelete(engine, B.rangeText(ed.lines, range), false, null);
+      setRegisterAfterDelete(engine, B.rangeText(ed.lines, range), false, p.register);
       commitEdit(engine, B.deleteRange(ed.lines, range), { line: ed.cursor.line, col: start }, "delete-char");
     }
     ed.wantCol = ed.cursor.col;
@@ -1271,7 +1557,13 @@ window.VimGrammar = (function () {
   function doToEndOfLine(engine, p, op) {
     const ed = engine.state.editor;
     resetParse(ed);
-    const range = { start: { ...ed.cursor }, end: { line: ed.cursor.line, col: B.lastCol(ed.lines, ed.cursor.line) }, linewise: false };
+    // A count extends D/C/Y over that many lines (2D = to end of the next line).
+    const endLine = Math.min(ed.lines.length - 1, ed.cursor.line + totalCount(p) - 1);
+    const range = { start: { ...ed.cursor }, end: { line: endLine, col: B.lastCol(ed.lines, endLine) }, linewise: false };
+    if (!(ed.lines[ed.cursor.line] || "").length && endLine === ed.cursor.line) {
+      if (op === "c") enterInsertAt(engine, { ...ed.cursor });
+      return; // nothing to delete/yank on an empty line
+    }
     applyOperator(engine, op, range, p.register);
   }
   function doToggleCaseUnderCursor(engine, p) {
@@ -1387,6 +1679,7 @@ window.VimGrammar = (function () {
       tabInsertText(ed).split("").forEach((ch) => overwriteOneChar(ed, ch));
       return;
     }
+    if (key.length !== 1) return;
     overwriteOneChar(ed, key);
   }
   function overwriteOneChar(ed, ch) {
@@ -1444,10 +1737,18 @@ window.VimGrammar = (function () {
   const MAX_MACRO_DEPTH = 50;
   const MAX_MACRO_STEPS = 20000;
   function startMacroRecording(engine, reg) { const ed = engine.state.editor; ed.macroRecording = reg; ed.macroKeys = []; }
-  function stopMacroRecording(engine) { const ed = engine.state.editor; if (ed.macroRecording) { ed.macros[ed.macroRecording] = ed.macroKeys.slice(); ed.macroRecording = null; } }
+  // qA (uppercase) appends to macro a instead of replacing it, like Vim.
+  function stopMacroRecording(engine) {
+    const ed = engine.state.editor;
+    if (!ed.macroRecording) return;
+    const reg = ed.macroRecording;
+    if (/^[A-Z]$/.test(reg)) { const lower = reg.toLowerCase(); ed.macros[lower] = (ed.macros[lower] || []).concat(ed.macroKeys); }
+    else ed.macros[reg] = ed.macroKeys.slice();
+    ed.macroRecording = null;
+  }
   function replayMacro(engine, reg, times) {
     const ed = engine.state.editor;
-    const target = reg === "@" ? ed.lastMacroReg : reg;
+    const target = reg === "@" ? ed.lastMacroReg : regKey(reg);
     const keys = target ? ed.macros[target] : null;
     if (!keys) { ed.message = "macro not set"; return; }
     ed.lastMacroReg = target;
@@ -1633,10 +1934,18 @@ window.VimGrammar = (function () {
 
     if (p.awaitingChar) {
       const kind = p.awaitingChar; p.awaitingChar = null;
-      if (kind === "register") { p.register = key; ed.pending = "pending"; return; }
+      if (kind === "register") {
+        if (!REGISTER_NAME_RE.test(key)) { resetParse(ed); return; }
+        p.register = key; ed.pending = "pending"; return;
+      }
       if (kind === "find") { p.findChar = key; return executeParsed(engine, p); }
       if (kind === "textobject") { p.textObjectChar = key; return executeParsed(engine, p); }
-      if (kind === "mark-set") { setMark(engine, key); resetParse(ed); return; }
+      if (kind === "mark-set") {
+        if (/^[a-zA-Z]$/.test(key)) setMark(engine, key);
+        else if (key !== "Escape") ed.message = "E191: Argument must be a letter or forward/backward quote";
+        resetParse(ed); return;
+      }
+      if ((kind === "mark-jump-line" || kind === "mark-jump-exact") && !MARK_NAME_RE.test(key)) { resetParse(ed); return; }
       if (kind === "mark-jump-line") {
         if (p.operator) {
           if (!resolveMarkPosition(ed, key)) { ed.message = `mark '${key}' not set`; resetParse(ed); return; }
@@ -1651,9 +1960,13 @@ window.VimGrammar = (function () {
         }
         jumpToMark(engine, key, true); resetParse(ed); return;
       }
-      if (kind === "macro-record") { startMacroRecording(engine, key); resetParse(ed); return; }
+      if (kind === "macro-record") {
+        if (MACRO_REG_RE.test(key) || /^[A-Z]$/.test(key)) startMacroRecording(engine, key);
+        resetParse(ed); return;
+      }
       if (kind === "replace-char") { doReplaceChar(engine, p, key); return; }
       if (kind === "macro-replay") {
+        if (!(key === "@" || key === ":" || MACRO_REG_RE.test(key) || /^[A-Z]$/.test(key))) { resetParse(ed); return; }
         const times = totalCount(p);
         resetParse(ed); // clear BEFORE replay so leftover count/operator state can't leak into the macro's own first keystroke
         replayMacro(engine, key, times);
@@ -1716,6 +2029,9 @@ window.VimGrammar = (function () {
     if (!p.operator) {
       if (key === "x") return doDeleteChar(engine, p, true);
       if (key === "X") return doDeleteChar(engine, p, false);
+      // s = cl and S = cc, exactly as Vim defines them.
+      if (key === "s") { p.operator = "c"; p.motion = "l"; return executeParsed(engine, p); }
+      if (key === "S") { p.operator = "c"; p.motion = "LINEWISE_SELF"; return executeParsed(engine, p); }
       if (key === "D") return doToEndOfLine(engine, p, "d");
       if (key === "C") return doToEndOfLine(engine, p, "c");
       if (key === "Y") return doToEndOfLine(engine, p, "y");
@@ -1733,7 +2049,13 @@ window.VimGrammar = (function () {
       if (key === "v") return enterVisual(engine, "visual");
       if (key === "V") return enterVisual(engine, "visual-line");
       if (key === "ctrl-v") return enterVisual(engine, "visual-block");
-      if (key === ":") return enterCommand(engine);
+      if (key === ":") {
+        // A count before ":" pre-fills a range, e.g. 3: -> :.,.+2
+        const n = totalCount(p);
+        enterCommand(engine);
+        if (p.count1 && n > 1) ed.commandLine = `.,.+${n - 1}`;
+        return;
+      }
       if (key === "J") return doJoinLines(engine, p);
       if (key === "R") return enterReplace(engine);
       if (key === "ctrl-a") return doIncrementNumber(engine, p, 1);
@@ -1887,7 +2209,7 @@ window.VimGrammar = (function () {
   return {
     createEditorState, feedKey,
     undo, redo, totalCount, resolveMotion, orderRange,
-    previewSearchMatches, previewSubstitute, previewGlobal,
+    previewSearchMatches, previewSubstitute, previewGlobal, isSubstituteCommand, isGlobalCommand, vimPatternToJs,
     switchToBuffer, createBuffer, deleteBuffer, findBufferByName,
     activeTab, switchToWindow, cycleWindow, splitWindow, closeWindow, onlyWindow,
     switchToTab, newTab, cycleTab, closeTab,

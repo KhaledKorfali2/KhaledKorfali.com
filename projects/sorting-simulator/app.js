@@ -2,8 +2,10 @@
   'use strict';
 
   /* ── Feature detection ── */
-  var IS_MOBILE = window.matchMedia('(max-width: 700px)').matches ||
-                  ('ontouchstart' in window && window.innerWidth <= 700);
+  var MOBILE_MQ = window.matchMedia('(max-width: 700px)');
+  var IS_MOBILE = MOBILE_MQ.matches || ('ontouchstart' in window && window.innerWidth <= 700);
+  function isMobileNow() { return MOBILE_MQ.matches; }   // live value (rotation / resize)
+  var REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ── DOM refs ── */
   var canvas      = document.getElementById('vis');
@@ -74,11 +76,12 @@
   var resizeScheduled = false;
   function resizeCanvas() {
     var wrap = document.getElementById('vis-wrap');
-    W = canvas.width  = wrap.clientWidth  * (window.devicePixelRatio || 1);
-    H = canvas.height = wrap.clientHeight * (window.devicePixelRatio || 1);
+    var dpr  = window.devicePixelRatio || 1;
+    canvas.width  = Math.round(wrap.clientWidth  * dpr);
+    canvas.height = Math.round(wrap.clientHeight * dpr);
     canvas.style.width  = wrap.clientWidth  + 'px';
     canvas.style.height = wrap.clientHeight + 'px';
-    ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);   // absolute, so repeated resizes can't compound
     W = wrap.clientWidth;
     H = wrap.clientHeight;
     draw();
@@ -114,28 +117,41 @@
   }
 
   /* ── Pre-generate steps (chunked so we don't block the UI thread) ── */
+  /* Each build gets a token; a newer init() invalidates older builds so a slow
+     build for a previous algorithm/array can't overwrite the current steps. */
+  var buildToken = 0;
+  var building   = false;
+  var playWhenReady = false;
   function buildSteps(algoKey, arr, callback) {
+    var token = ++buildToken;
     var gen = SortEngine.generate(algoKey, arr);
     var all = [];
-    var CHUNK = 500; // process 500 steps per animation frame
+    var CHUNK = 2000; // steps per frame
+    building = true;
     function chunk() {
+      if (token !== buildToken) return;          // superseded
       var i = 0;
       var result;
       while (i++ < CHUNK && !(result = gen.next()).done) all.push(result.value);
       if (!result || !result.done) {
-        requestAnimationFrame(chunk);
+        // setTimeout (not rAF) so building continues in background tabs
+        setTimeout(chunk, 0);
       } else {
+        building = false;
         callback(all);
       }
     }
-    requestAnimationFrame(chunk);
+    setTimeout(chunk, 0);
   }
 
   /* ── Initialise / reset ── */
-  function init() {
+  function init(keepArray) {
     stopPlay();
-    arraySize   = parseInt(IS_MOBILE ? slSizeM.value : slSize.value);
-    sourceArray = makeArray(arraySize, selInput.value);
+    playWhenReady = false;
+    if (!keepArray || !sourceArray.length) {
+      arraySize   = parseInt(isMobileNow() ? slSizeM.value : slSize.value, 10);
+      sourceArray = makeArray(arraySize, selInput.value);
+    }
     displayArr  = sourceArray.slice();
     steps       = [];
     stepIndex   = 0;
@@ -151,26 +167,35 @@
     buildSteps(currentAlgo, sourceArray, function (s) {
       steps = s;
       updateProgress();
+      if (playWhenReady) { playWhenReady = false; startPlay(); }
     });
   }
 
-  /* ── Apply one step forward ── */
-  function applyStep(s) {
+  /* Apply a step's effect on the bars + counters (shared by forward & replay) */
+  function applyEffect(s) {
     switch (s.type) {
-      case 'compare': stats.comps++;  break;
+      case 'compare': stats.comps++; break;
       case 'swap':
         stats.swaps++;
         stats.writes += 2;
-        var i = s.indices[0], j = s.indices[1];
-        var t = displayArr[i]; displayArr[i] = displayArr[j]; displayArr[j] = t;
+        var a = s.indices[0], b = s.indices[1];
+        var t = displayArr[a]; displayArr[a] = displayArr[b]; displayArr[b] = t;
         break;
       case 'write':
         stats.writes++;
+        // Previously ignored, so merge/insertion/shell/radix/counting never
+        // moved a bar and "finished" with the original unsorted array.
+        if (s.values && s.values.length) displayArr[s.indices[0]] = s.values[0];
         break;
       case 'sorted':
         s.indices.forEach(function (i) { sortedSet.add(i); });
         break;
     }
+  }
+
+  /* ── Apply one step forward ── */
+  function applyStep(s) {
+    applyEffect(s);
     highlights = {};
     s.indices.forEach(function (i) { highlights[i] = s.type; });
     updateStats();
@@ -200,25 +225,16 @@
     highlights = {};
     stats      = { comps: 0, swaps: 0, writes: 0 };
     clearLog();
+    target = Math.max(0, Math.min(target, steps.length));
     for (var i = 0; i < target; i++) {
-      var s = steps[i];
-      switch (s.type) {
-        case 'compare': stats.comps++;  break;
-        case 'swap':
-          stats.swaps++; stats.writes += 2;
-          var a = s.indices[0], b = s.indices[1];
-          var t = displayArr[a]; displayArr[a] = displayArr[b]; displayArr[b] = t;
-          break;
-        case 'write': stats.writes++; break;
-        case 'sorted': s.indices.forEach(function (i) { sortedSet.add(i); }); break;
-      }
+      applyEffect(steps[i]);
+      if (i >= target - LOG_MAX) addLog(steps[i]);   // keep recent history visible
     }
     stepIndex = target;
     if (target > 0) {
       var last = steps[target - 1];
       highlights = {};
       last.indices.forEach(function (i) { highlights[i] = last.type; });
-      addLog(last);
     }
     updateStats();
     updateProgress();
@@ -227,6 +243,7 @@
   }
 
   function jumpToEnd() {
+    if (!steps.length) return;   // still building — don't mark an unsorted array as done
     replayTo(steps.length);
     onDone();
   }
@@ -242,9 +259,11 @@
 
   /* ── Playback ── */
   function startPlay() {
-    if (steps.length === 0) return; // still building
+    if (steps.length === 0) { if (building) playWhenReady = true; return; } // start once built
+    if (stepIndex >= steps.length) replayTo(0);
     playing = true;
     btnPlay.innerHTML = '&#9646;&#9646;';
+    btnPlay.setAttribute('aria-label', 'Pause');
     scheduleNext();
   }
 
@@ -252,6 +271,7 @@
     playing = false;
     if (playTimer) { clearTimeout(playTimer); playTimer = null; }
     btnPlay.innerHTML = '&#9654;';
+    btnPlay.setAttribute('aria-label', 'Play');
   }
 
   function scheduleNext() {
@@ -270,8 +290,10 @@
   }
 
   function togglePlay() {
-    if (stepIndex >= steps.length && steps.length > 0) { init(); setTimeout(startPlay, 50); return; }
-    if (playing) stopPlay();
+    // At the end, Play replays the SAME array (↺ makes a new one). The old code
+    // built a new array and started after a fixed 50 ms — often before the
+    // async step build finished, so nothing played.
+    if (playing || playWhenReady) { playWhenReady = false; stopPlay(); }
     else startPlay();
   }
 
@@ -283,7 +305,8 @@
     write:    '#569cd6',
     sorted:   '#4ec9b0',
     pivot:    '#c586c0',
-    info:     '#569cd6'
+    info:     '#569cd6',
+    read:     '#e8c547'
   };
 
   // Pre-compute lightened colors to avoid hex math every frame
@@ -317,10 +340,10 @@
     var n = displayArr.length;
     if (n === 0) return;
 
-    var pad   = 2;
-    var totalW = W - pad * 2;
-    var barW  = Math.max(1, Math.floor((totalW - (n - 1)) / n));
-    var step  = barW + 1;
+    var gap   = n > W / 3 ? 0 : 1;   // drop the 1px gap when bars would overflow
+    var barW  = Math.max(1, Math.floor((W - 4 - gap * (n - 1)) / n));
+    var step  = barW + gap;
+    var pad   = Math.max(2, Math.floor((W - (n * step - gap)) / 2));   // centre the bars
 
     // Grid lines — only draw if not too cramped
     if (H > 100) {
@@ -418,6 +441,7 @@
   function updateInfo() {
     var meta = SortEngine.meta[currentAlgo];
     algoTitle.textContent  = meta.name;
+    document.title = 'Sortvis — ' + meta.name;
     algoDesc.textContent   = meta.desc;
     badgeBest.textContent  = meta.best;
     badgeAvg.textContent   = meta.avg;
@@ -426,8 +450,8 @@
   }
 
   /* ── Mobile info panel sheet ── */
-  function openPanel()  { infoPanel.classList.add('open');  panelOpen = true;  }
-  function closePanel() { infoPanel.classList.remove('open'); panelOpen = false; }
+  function openPanel()  { infoPanel.classList.add('open');  panelOpen = true;  if (btnInfo) btnInfo.setAttribute('aria-expanded', 'true'); }
+  function closePanel() { infoPanel.classList.remove('open'); panelOpen = false; if (btnInfo) btnInfo.setAttribute('aria-expanded', 'false'); }
   function togglePanel() { if (panelOpen) closePanel(); else openPanel(); }
 
   if (btnInfo) {
@@ -473,38 +497,46 @@
 
   slSize.addEventListener('input', function () { syncSize(slSize.value); init(); });
   slSizeM.addEventListener('input', function () { syncSize(slSizeM.value); init(); });
+  MOBILE_MQ.addEventListener && MOBILE_MQ.addEventListener('change', function () { if (!isMobileNow()) closePanel(); });
   slSpeed.addEventListener('input', function () { syncSpeed(slSpeed.value); });
   slSpeedM.addEventListener('input', function () { syncSpeed(slSpeedM.value); });
 
   /* ── Event wiring ── */
   algoBtns.forEach(function (btn) {
     btn.addEventListener('click', function () {
-      algoBtns.forEach(function (b) { b.classList.remove('active'); });
+      algoBtns.forEach(function (b) { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
       btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
       currentAlgo = btn.getAttribute('data-algo');
       // Scroll active button into view in the nav
-      btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      init();
+      btn.scrollIntoView({ behavior: REDUCED_MOTION ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
+      // Same array, new algorithm — makes algorithms directly comparable
+      init(true);
     });
   });
 
   btnPlay.addEventListener('click', togglePlay);
   btnStepFwd.addEventListener('click',  function () { stopPlay(); stepForward(); });
   btnStepBack.addEventListener('click', function () { stopPlay(); stepBack(); });
-  btnReset.addEventListener('click', init);
+  btnReset.addEventListener('click', function () { init(); });
   btnEnd.addEventListener('click',   function () { stopPlay(); jumpToEnd(); });
-  selInput.addEventListener('change', init);
+  selInput.addEventListener('change', function () { init(); });
 
   /* Keyboard shortcuts */
   document.addEventListener('keydown', function (e) {
     var tag = e.target.tagName;
-    if (tag === 'INPUT' || tag === 'SELECT') return;
+    if (e.key === 'Escape' && panelOpen) { closePanel(); return; }
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // don't hijack Ctrl+R etc.
+    // Space/Enter on a focused button should press that button, not toggle play
+    if (tag === 'BUTTON' && (e.code === 'Space' || e.code === 'Enter')) return;
     switch (e.code) {
       case 'Space':      e.preventDefault(); togglePlay();           break;
       case 'ArrowRight': e.preventDefault(); stopPlay(); stepForward(); break;
       case 'ArrowLeft':  e.preventDefault(); stopPlay(); stepBack();    break;
       case 'KeyR':       init();             break;
       case 'End':        e.preventDefault(); stopPlay(); jumpToEnd();   break;
+      case 'Home':       e.preventDefault(); stopPlay(); replayTo(0);   break;
     }
   });
 

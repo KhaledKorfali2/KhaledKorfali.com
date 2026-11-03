@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Surah Quiz — Arabic Learning</title>
+  <meta name="description" content="Quiz yourself on the 114 surahs of the Qur'an: names, numbers, Meccan/Medinan classification and order.">
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap"
     rel="stylesheet">
@@ -30,8 +31,8 @@
 
   <div class="hero-rule"></div>
 
-  <div class="disclaimer-banner">
-    ⚠️ This quiz is for educational purposes only. Some details (such as Meccan/Medinan classification) may differ
+  <div class="disclaimer-banner" role="note">
+    <span aria-hidden="true">⚠️</span> This quiz is for educational purposes only. Some details (such as Meccan/Medinan classification) may differ
     across scholarly sources.
   </div>
 
@@ -44,14 +45,14 @@
 
       <div class="setting-section">
         <span class="setting-label">Challenge Type</span>
-        <div class="type-picker" id="typePicker">
-          <button class="type-btn active" data-type="recall" aria-pressed="true">
-            <span class="type-icon">⇄</span>
+        <div class="type-picker" id="typePicker" role="group" aria-label="Challenge type">
+          <button type="button" class="type-btn active" data-type="recall" aria-pressed="true">
+            <span class="type-icon" aria-hidden="true">⇄</span>
             <span class="type-name">Recall</span>
             <span class="type-desc">Match names to numbers</span>
           </button>
-          <button class="type-btn" data-type="ordering" aria-pressed="false">
-            <span class="type-icon">↕</span>
+          <button type="button" class="type-btn" data-type="ordering" aria-pressed="false">
+            <span class="type-icon" aria-hidden="true">↕</span>
             <span class="type-name">Ordering</span>
             <span class="type-desc">Arrange by sequence</span>
           </button>
@@ -60,11 +61,11 @@
 
       <div class="setting-section" id="recallOptions">
         <span class="setting-label">Direction</span>
-        <div class="pill-group" id="recallMode">
-          <button class="pill active" data-mode="name-to-number" aria-pressed="true">Name → Number</button>
-          <button class="pill" data-mode="number-to-name" aria-pressed="false">Number → Name</button>
-          <button class="pill" data-mode="revelation" aria-pressed="false">Meccan / Medinan</button>
-          <button class="pill" data-mode="mixed" aria-pressed="false">Mixed</button>
+        <div class="pill-group" id="recallMode" role="group" aria-label="Direction">
+          <button type="button" class="pill active" data-mode="name-to-number" aria-pressed="true">Name → Number</button>
+          <button type="button" class="pill" data-mode="number-to-name" aria-pressed="false">Number → Name</button>
+          <button type="button" class="pill" data-mode="revelation" aria-pressed="false">Meccan / Medinan</button>
+          <button type="button" class="pill" data-mode="mixed" aria-pressed="false">Mixed</button>
         </div>
       </div>
 
@@ -72,17 +73,17 @@
         <div class="two-col">
           <div>
             <span class="setting-label">Set size</span>
-            <div class="pill-group" id="orderCount">
-              <button class="pill active" data-count="5" aria-pressed="true">5</button>
-              <button class="pill" data-count="10" aria-pressed="false">10</button>
-              <button class="pill" data-count="15" aria-pressed="false">15</button>
+            <div class="pill-group" id="orderCount" role="group" aria-label="Set size">
+              <button type="button" class="pill active" data-count="5" aria-pressed="true">5</button>
+              <button type="button" class="pill" data-count="10" aria-pressed="false">10</button>
+              <button type="button" class="pill" data-count="15" aria-pressed="false">15</button>
             </div>
           </div>
           <div>
             <span class="setting-label">Selection</span>
-            <div class="pill-group" id="orderSelection">
-              <button class="pill active" data-consecutive="false" aria-pressed="true">Random</button>
-              <button class="pill" data-consecutive="true" aria-pressed="false">Consecutive</button>
+            <div class="pill-group" id="orderSelection" role="group" aria-label="Selection">
+              <button type="button" class="pill active" data-consecutive="false" aria-pressed="true">Random</button>
+              <button type="button" class="pill" data-consecutive="true" aria-pressed="false">Consecutive</button>
             </div>
           </div>
         </div>
@@ -104,9 +105,9 @@
         </div>
       </div>
 
-      <button class="btn-primary" id="startBtn">
+      <button type="button" class="btn-primary" id="startBtn">
         Begin Quiz
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
           <path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
             stroke-linejoin="round" />
         </svg>
@@ -114,7 +115,7 @@
     </div>
 
     <!-- ── Stats Bar ── -->
-    <div class="stats-bar hidden" id="statsBar">
+    <div class="stats-bar hidden" id="statsBar" aria-label="Session stats">
       <div class="stat">
         <span class="stat-num" id="score">0</span>
         <span class="stat-lbl">Score</span>
@@ -130,14 +131,14 @@
         <span class="stat-lbl">Best</span>
       </div>
       <div class="stats-actions">
-        <button class="btn-ghost-sm" id="restartBtn">Restart</button>
-        <button class="btn-ghost-sm" id="exitBtn">✕ Exit</button>
+        <button type="button" class="btn-ghost-sm" id="restartBtn">Restart</button>
+        <button type="button" class="btn-ghost-sm" id="exitBtn"><span aria-hidden="true">✕</span> Exit</button>
       </div>
     </div>
 
     <!-- ── Progress Bar ── -->
     <div id="progressContainer" class="progress-wrap hidden">
-      <div class="progress-track">
+      <div class="progress-track" id="progressTrack" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <div id="progressBar" class="progress-fill"></div>
       </div>
       <span id="progressLabel" class="progress-label">0 / 0</span>
@@ -147,17 +148,21 @@
     <div id="quiz" class="card quiz-card hidden">
       <div class="question-wrap">
         <p class="question-num" id="questionNum"></p>
-        <h3 id="question" class="question-text"></h3>
+        <h3 id="question" class="question-text" tabindex="-1"></h3>
       </div>
-      <div id="answers" class="answers-grid"></div>
+      <div id="answers" class="answers-grid" role="group" aria-labelledby="question"></div>
+      <p class="kbd-hint" id="kbdHint"></p>
     </div>
+
+    <!-- Screen-reader announcements for answer feedback -->
+    <p id="liveRegion" class="sr-only" role="status" aria-live="polite"></p>
 
     <!-- ── Confirm Bar (recall only) ── -->
     <div id="confirmBar" class="confirm-bar hidden">
-      <p class="confirm-hint">Click again to deselect</p>
-      <button class="btn-primary" id="confirmBtn">
+      <p class="confirm-hint">Click again to deselect · <kbd>Enter</kbd> to confirm</p>
+      <button type="button" class="btn-primary" id="confirmBtn">
         Confirm
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
           <path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
             stroke-linejoin="round" />
         </svg>
@@ -166,8 +171,8 @@
 
     <!-- ── End Screen ── -->
     <div id="endScreen" class="card end-card hidden">
-      <div class="end-icon">✦</div>
-      <h2 class="end-title">Quiz Complete</h2>
+      <div class="end-icon" aria-hidden="true">✦</div>
+      <h2 class="end-title" id="endTitle" tabindex="-1">Quiz Complete</h2>
       <p class="end-mode-label" id="endModeLabel"></p>
       <div class="end-stats">
         <div class="end-stat">
@@ -184,14 +189,14 @@
         </div>
       </div>
       <div class="end-actions">
-        <button class="btn-primary" id="tryAgainBtn">
+        <button type="button" class="btn-primary" id="tryAgainBtn">
           Try Again
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
             <path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
               stroke-linejoin="round" />
           </svg>
         </button>
-        <button class="btn-ghost-outline" id="changeSettingsBtn">Change Settings</button>
+        <button type="button" class="btn-ghost-outline" id="changeSettingsBtn">Change Settings</button>
       </div>
     </div>
 
@@ -199,8 +204,7 @@
 
   <footer>
     <p>Part of the Arabic Learning suite.</p>
-    <a href="../../projects.html" style="color: var(--ink-muted); text-decoration:none; font-size:0.8rem;">← Back to
-      projects</a>
+    <a href="../../projects.html">← Back to projects</a>
   </footer>
 
   <script src="script.js"></script>

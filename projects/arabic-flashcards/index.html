@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Arabic Flashcards</title>
+  <meta name="description" content="Flip through Arabic letter flashcards in their isolated, initial, medial and final forms.">
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&family=Amiri:ital@0;1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../../styles/arabic-tools-shared.css">
+  <link rel="stylesheet" href="../../styles/arabic-tools-shared.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -28,8 +29,8 @@
 
     <!-- Controls -->
     <aside class="controls-panel">
-      <p class="panel-label">Letter Forms</p>
-      <div class="form-group">
+      <p class="panel-label" id="formsLabel">Letter Forms</p>
+      <div class="form-group" role="group" aria-labelledby="formsLabel">
         <label class="check-label">
           <input type="checkbox" class="form-checkbox" value="isolated" checked>
           <span class="check-box"></span>
@@ -54,7 +55,7 @@
 
       <div class="panel-divider"></div>
 
-      <button class="btn-ghost" id="shuffleBtn" style="width:100%;">
+      <button type="button" class="btn-ghost" id="shuffleBtn" style="width:100%;">
         Shuffle
       </button>
 
@@ -62,7 +63,7 @@
 
       <div class="progress-info">
         <span class="panel-label" style="margin:0;">Card</span>
-        <span class="card-counter" id="cardCounter">1 / 1</span>
+        <span class="card-counter" id="cardCounter" aria-live="polite">1 / 1</span>
       </div>
     </aside>
 
@@ -75,14 +76,14 @@
 
       <!-- Nav -->
       <div class="flashcard-nav">
-        <button class="btn-icon" id="prevBtn" aria-label="Previous">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <button type="button" class="btn-icon" id="prevBtn" aria-label="Previous card">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
-        <span class="nav-hint">Click card to flip</span>
-        <button class="btn-icon" id="nextBtn" aria-label="Next">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <span class="nav-hint">Click or press <kbd>Space</kbd> to flip · <kbd>←</kbd> <kbd>→</kbd> to move</span>
+        <button type="button" class="btn-icon" id="nextBtn" aria-label="Next card">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>

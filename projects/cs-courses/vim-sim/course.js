@@ -329,7 +329,7 @@ window.VimCourse = (function () {
     ]},
 
     { id: "m5", title: "Registers", checkpoint: { questions: [
-        { text: "If you type dw with no register specified, where does the deleted text go?", options: ["Nowhere, it's lost", "Only into register \"1", "Into the unnamed register (and, for a delete, also register \"1)", "Into register \"0"], correct: 2 },
+        { text: "If you type dw with no register specified, where does the deleted text go?", options: ["Nowhere, it's lost", "Only into register \"1", "Into the unnamed register (and, since it's smaller than a line, the small-delete register \"-)", "Into register \"0"], correct: 2 },
         { text: "What's specifically different about register \"0 compared to \"1-\"9?", options: ["Nothing, they behave identically", "\"0 only ever holds the most recent yank; \"1-\"9 form a ring of recent deletes/changes that shifts down each time", "\"0 is read-only", "\"0 can't be pasted from"], correct: 1 },
         { text: "You run \"add three separate times. What ends up in register \"a?", options: ["All three deleted lines, concatenated", "Only the line from the third \"add — each one overwrites the register", "Nothing, \"a can only be filled once per session", "An error, since \"a was already in use"], correct: 1 },
         { text: "What happens to text deleted with \"_dd?", options: ["It goes to the unnamed register as normal", "It's discarded entirely — the black hole register never stores anything", "It goes to register \"0", "It's appended to register \"1"], correct: 1 }
@@ -345,7 +345,7 @@ window.VimCourse = (function () {
         { id: "s1", title: "\"0 remembers your last yank specifically", kind: "concept", widget: null,
           body: "A delete overwrites the unnamed register too, which is the classic trap: yank a line, delete a different one to reposition it, then <code>p</code> pastes the delete instead of your yank. Register <code>\"0</code> is the escape hatch &mdash; it only ever holds the most recent <i>yank</i>, immune to deletes in between." },
         { id: "s2", title: "\"1 through \"9 — a shifting ring of recent deletes", kind: "concept", widget: null,
-          body: "Every unnamed delete/change also pushes into <code>\"1</code>, and the previous <code>\"1</code> slides down to <code>\"2</code>, and so on up to <code>\"9</code> falling off the end. That means <code>\"3p</code> can paste something you deleted three operations ago." },
+          body: "Every unnamed delete/change of a whole line or more (<code>dd</code>, <code>dj</code>, <code>cc</code>...) also pushes into <code>\"1</code>, and the previous <code>\"1</code> slides down to <code>\"2</code>, and so on up to <code>\"9</code> falling off the end. That means <code>\"3p</code> can paste something you deleted three operations ago. Smaller deletes inside a single line (<code>dw</code>, <code>x</code>) go to the small-delete register <code>\"-</code> instead, so they don't push your line deletes off the ring." },
         { id: "s3", title: "Practice: yank, then delete around it, then \"0p", kind: "practice", widget: "registers",
           body: "This is the exact scenario the yank register solves.",
           tryIt: "Yank a line with <code>yy</code>, move elsewhere and delete a different line with <code>dd</code>, then compare plain <code>p</code> against <code>\"0p</code>." },

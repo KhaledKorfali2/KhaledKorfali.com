@@ -33,7 +33,7 @@
             '• <strong>▶ Select</strong> — tap a node to set it as the <em>start</em> node (S). ' +
             'Long-press / right-click to set the <em>end</em> node (E). Drag to reposition.<br>' +
             '• <strong>⬤ Add Node</strong> — tap empty space to place a new node<br>' +
-            '• <strong>─ Add Edge</strong> — tap one node then another to connect them<br>' +
+            '• <strong>─ Add Edge</strong> — tap one node then another, then pick a weight (negative weights are allowed — try Bellman-Ford vs Dijkstra!)<br>' +
             '• <strong>✕ Delete</strong> — tap any node or edge to remove it',
       placement: 'right',
       padding: 4
@@ -98,7 +98,7 @@
       body: '• <strong>▶ Play</strong> — run the algorithm automatically (<code>Space</code>)<br>' +
             '• <strong>◀◀ / ▶▶</strong> — step backward or forward one operation (<code>← →</code>)<br>' +
             '• <strong>↺</strong> — reset the traversal but keep your graph intact<br>' +
-            '• <strong>▶|</strong> — jump to the finished state instantly<br><br>' +
+            '• <strong>▶|</strong> — jump to the finished state instantly (<code>End</code>; <code>Home</code> rewinds)<br><br>' +
             'Stepping manually is the best way to truly understand each algorithm.',
       placement: 'top',
       padding: 10

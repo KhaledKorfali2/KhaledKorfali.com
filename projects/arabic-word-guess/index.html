@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Arabic Word Guess</title>
+  <meta name="description" content="A Wordle-style game for guessing Qur'anic Arabic words letter by letter, with hints and a study mode.">
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&family=Amiri:ital@0;1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../styles/arabic-tools-shared.css">
   <link rel="stylesheet" href="styles.css">
@@ -11,12 +12,12 @@
 <body>
 
   <!-- Header (LTR override) -->
-  <header dir="ltr">
+  <header>
     <a href="../../index.html" class="header-logo">folio<span>.</span></a>
     <nav><a href="../../projects.html">← Projects</a></nav>
   </header>
 
-  <section class="hero" dir="ltr">
+  <section class="hero">
     <p class="hero-eyebrow">Arabic Learning</p>
     <h1>Arabic Word <em>Guess.</em></h1>
     <p class="hero-description">
@@ -25,13 +26,13 @@
   </section>
   <div class="hero-rule"></div>
 
-  <main class="game-layout">
+  <main class="game-layout" dir="rtl">
 
     <!-- Top bar: controls -->
     <div class="game-topbar" dir="ltr">
       <div class="topbar-controls">
-        <button id="reset-btn" class="btn-ghost">↺ New Word</button>
-        <button id="toggle-hint-btn" class="btn-ghost">💡 Hint</button>
+        <button type="button" id="reset-btn" class="btn-ghost"><span aria-hidden="true">↺</span> New Word</button>
+        <button type="button" id="toggle-hint-btn" class="btn-ghost"><span aria-hidden="true">💡</span> Hint</button>
       </div>
 
       <div class="topbar-toggles">
@@ -50,16 +51,18 @@
 
     <!-- Hint / target word -->
     <div id="info-strip" class="info-strip" dir="ltr">
-      <p id="hint-txt" class="info-text" style="display:none;"></p>
-      <p id="result-message" class="info-text"></p>
-      <h2 id="target-word" class="target-word" style="display:none;"></h2>
+      <p id="hint-txt" class="info-text hint-text" aria-live="polite" style="display:none;"></p>
+      <p id="result-message" class="info-text" role="status" aria-live="polite"></p>
+      <h2 id="target-word" class="target-word" lang="ar" style="display:none;"></h2>
+      <p id="guess-announcer" class="sr-only" aria-live="polite"></p>
     </div>
 
     <!-- Game board -->
-    <div id="guess-grid" class="guess-grid"></div>
+    <div id="guess-grid" class="guess-grid" lang="ar" role="group" aria-label="Guesses"></div>
 
     <!-- Keyboard -->
-    <div id="keyboard" class="keyboard"></div>
+    <div id="keyboard" class="keyboard" lang="ar" role="group" aria-label="Arabic keyboard"></div>
+    <p class="kbd-hint" dir="ltr">Type with an Arabic keyboard layout, or tap the keys. <kbd>Enter</kbd> submits, <kbd>Backspace</kbd> deletes.</p>
 
     <!-- Hidden native input -->
     <input
@@ -77,7 +80,7 @@
 
   </main>
 
-  <footer dir="ltr">
+  <footer>
     <p>Qur'anic vocabulary</p>
     <a href="../../projects.html">← Back to projects</a>
   </footer>

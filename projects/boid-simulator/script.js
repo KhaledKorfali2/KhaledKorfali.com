@@ -33,6 +33,10 @@ let isDrawing  = false;
 // ── Trail ─────────────────────────────────────────────────────────────────────
 let useTrail = trailToggle ? trailToggle.checked : false;
 
+// ── Viewport (CSS px) & pause state ──────────────────────────────────────────
+let viewW = window.innerWidth, viewH = window.innerHeight;
+let paused = false;
+
 // ── Food particles ────────────────────────────────────────────────────────────
 const foodParticles = [];          // { x, y, life }
 const FOOD_RADIUS   = 4;
@@ -214,10 +218,20 @@ function getBarrierNeighbours(boid) {
 }
 
 // ── Resize ────────────────────────────────────────────────────────────────────
-function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+// Back the canvas with device pixels (capped at 2x for perf) so fish stay crisp
+// on high-DPI screens; all drawing code keeps working in CSS pixels.
+function resizeCanvas() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  viewW = window.innerWidth; viewH = window.innerHeight;
+  canvas.width  = Math.round(viewW * dpr);
+  canvas.height = Math.round(viewH * dpr);
+  canvas.style.width  = viewW + "px";
+  canvas.style.height = viewH + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
 
 // ── Flock management ──────────────────────────────────────────────────────────
-function spawnBoid() { return new Boid(Math.random()*canvas.width, Math.random()*canvas.height, 0); }
+function spawnBoid() { return new Boid(Math.random()*viewW, Math.random()*viewH, 0); }
 function resetFlock() { flock = Array.from({ length: NUM_BOIDS }, spawnBoid); applySlidersToBoids(); }
 function applySlidersToBoids() {
   const align=parseFloat(alignSlider.value), cohese=parseFloat(cohesionSlider.value),
@@ -329,7 +343,7 @@ function drawBarriers() {
 const EYE_HALF = EYE_SIZE / EYE_SCALE / 2;
 
 function draw() {
-  const w = canvas.width, h = canvas.height;
+  const w = viewW, h = viewH;
 
   ctx.fillStyle = useTrail ? _trailColor : bgColor;
   ctx.fillRect(0, 0, w, h);
@@ -339,7 +353,7 @@ function draw() {
   // ── Age & draw food ───────────────────────────────────────────────────────
   for (let i = foodParticles.length - 1; i >= 0; i--) {
     const f = foodParticles[i];
-    f.life--;
+    if (!paused) f.life--;
     if (f.life <= 0) { foodParticles.splice(i, 1); continue; }
     const alpha = Math.min(1, f.life / 40);
     ctx.beginPath();
@@ -359,38 +373,41 @@ function draw() {
   // ── Physics pass ─────────────────────────────────────────────────────────
   for (let i = 0, len = flock.length; i < len; i++) {
     const boid       = flock[i];
-    const candidates = getCandidates(boid);
 
-    boid.flock(candidates);
+    if (!paused) {
+      const candidates = getCandidates(boid);
 
-    // Food seeking
-    boid.seekFood(foodParticles);
+      boid.flock(candidates);
 
-    // Eat nearby food
-    for (let fi = foodParticles.length - 1; fi >= 0; fi--) {
-      const fd = foodParticles[fi];
-      const edx = boid.position.x - fd.x, edy = boid.position.y - fd.y;
-      if (edx * edx + edy * edy < FOOD_EAT_R2) { foodParticles.splice(fi, 1); break; }
-    }
+      // Food seeking
+      boid.seekFood(foodParticles);
 
-    const hits = getBarrierNeighbours(boid);
-    const hl   = hits.length;
-    if (hl > 0) {
-      let bsx = 0, bsy = 0;
-      for (let j = 0; j < hl; j += 2) {
-        const dx = boid.position.x - hits[j], dy = boid.position.y - hits[j+1];
-        const dist = Math.sqrt(dx*dx+dy*dy) || 0.001;
-        bsx += dx/(dist*dist); bsy += dy/(dist*dist);
+      // Eat nearby food
+      for (let fi = foodParticles.length - 1; fi >= 0; fi--) {
+        const fd = foodParticles[fi];
+        const edx = boid.position.x - fd.x, edy = boid.position.y - fd.y;
+        if (edx * edx + edy * edy < FOOD_EAT_R2) { foodParticles.splice(fi, 1); break; }
       }
-      const mag = Math.sqrt(bsx*bsx+bsy*bsy)||1;
-      const nx=(bsx/mag)*boid.maxSpeed, ny=(bsy/mag)*boid.maxSpeed;
-      const mf3=boid.maxForce*3, force=2.2;
-      boid.acceleration.x += Math.min(Math.max((nx-boid.velocity.x)*force,-mf3),mf3);
-      boid.acceleration.y += Math.min(Math.max((ny-boid.velocity.y)*force,-mf3),mf3);
-    }
 
-    boid.edges();
-    boid.update();
+      const hits = getBarrierNeighbours(boid);
+      const hl   = hits.length;
+      if (hl > 0) {
+        let bsx = 0, bsy = 0;
+        for (let j = 0; j < hl; j += 2) {
+          const dx = boid.position.x - hits[j], dy = boid.position.y - hits[j+1];
+          const dist = Math.sqrt(dx*dx+dy*dy) || 0.001;
+          bsx += dx/(dist*dist); bsy += dy/(dist*dist);
+        }
+        const mag = Math.sqrt(bsx*bsx+bsy*bsy)||1;
+        const nx=(bsx/mag)*boid.maxSpeed, ny=(bsy/mag)*boid.maxSpeed;
+        const mf3=boid.maxForce*3, force=2.2;
+        boid.acceleration.x += Math.min(Math.max((nx-boid.velocity.x)*force,-mf3),mf3);
+        boid.acceleration.y += Math.min(Math.max((ny-boid.velocity.y)*force,-mf3),mf3);
+      }
+
+      boid.edges();
+      boid.update();
+    }
     computeEdges(boid);
 
     const ci     = Math.min(255, boid.colorT * 255 | 0);
@@ -441,7 +458,9 @@ function draw() {
 // ══════════════════════════════════════════════════════════════════════════════
 function renderPaletteUI() {
   document.querySelectorAll(".palette-chip").forEach(el => {
-    el.classList.toggle("active", el.dataset.id === activePaletteId);
+    const on = el.dataset.id === activePaletteId;
+    el.classList.toggle("active", on);
+    el.setAttribute("aria-pressed", on ? "true" : "false");
   });
   const ed = document.getElementById("customEditor");
   if (ed) ed.style.display = activePaletteId === "custom" ? "block" : "none";
@@ -454,9 +473,11 @@ function buildPaletteUI() {
 
   PALETTES.forEach(p => {
     const chip = document.createElement("button");
+    chip.type       = "button";
     chip.className  = "palette-chip";
     chip.dataset.id = p.id;
     chip.title      = p.name;
+    chip.setAttribute("aria-label", p.name + " palette");
     const stops = p.stops.map(s=>`rgb(${s.r},${s.g},${s.b}) ${s.t*100}%`).join(", ");
     chip.style.background = `linear-gradient(135deg, ${stops})`;
     chip.innerHTML = `<span>${p.id === "custom" ? "Custom ✏" : p.name}</span>`;
@@ -467,20 +488,21 @@ function buildPaletteUI() {
   const editor = document.getElementById("customEditor");
   if (!editor) return;
   editor.innerHTML = `
-    <div class="custom-row"><span class="custom-label">Background</span>
+    <div class="custom-row"><label class="custom-label" for="cpBg">Background</label>
       <input type="color" class="color-pick" id="cpBg" value="${customPalette.bg}"></div>
-    <div class="custom-row"><span class="custom-label">Slow colour</span>
+    <div class="custom-row"><label class="custom-label" for="cpStop0">Slow colour</label>
       <input type="color" class="color-pick" id="cpStop0" value="${toHex(customPalette.stops[0].r,customPalette.stops[0].g,customPalette.stops[0].b)}"></div>
-    <div class="custom-row"><span class="custom-label">Mid colour</span>
+    <div class="custom-row"><label class="custom-label" for="cpStop1">Mid colour</label>
       <input type="color" class="color-pick" id="cpStop1" value="${toHex(customPalette.stops[1].r,customPalette.stops[1].g,customPalette.stops[1].b)}"></div>
-    <div class="custom-row"><span class="custom-label">Fast colour</span>
+    <div class="custom-row"><label class="custom-label" for="cpStop2">Fast colour</label>
       <input type="color" class="color-pick" id="cpStop2" value="${toHex(customPalette.stops[2].r,customPalette.stops[2].g,customPalette.stops[2].b)}"></div>`;
 
   document.getElementById("cpBg").addEventListener("input",    e => setCustomBg(e.target.value));
   document.getElementById("cpStop0").addEventListener("input", e => setCustomStop(0, e.target.value));
   document.getElementById("cpStop1").addEventListener("input", e => setCustomStop(1, e.target.value));
   document.getElementById("cpStop2").addEventListener("input", e => setCustomStop(2, e.target.value));
-  editor.style.display = "none";
+  // Chips didn't exist yet when the initial palette was applied — sync now
+  renderPaletteUI();
 }
 
 // ── Slider wiring ─────────────────────────────────────────────────────────────
@@ -505,6 +527,8 @@ function setDrawMode(mode) {
   drawMode = mode;
   barrierModeBtn.classList.toggle("active", mode==="barrier");
   eraserModeBtn.classList.toggle("active",  mode==="eraser");
+  barrierModeBtn.setAttribute("aria-pressed", String(mode==="barrier"));
+  eraserModeBtn.setAttribute("aria-pressed",  String(mode==="eraser"));
   canvas.style.cursor = mode==="none" ? "default" : mode==="barrier" ? "crosshair" : "cell";
   updateModeIndicator();
 }
@@ -556,35 +580,66 @@ const settingsBtn     = document.getElementById("settingsBtn");
 const settingsContent = document.getElementById("settingsContent");
 const arrowEl         = settingsBtn.querySelector(".arrow");
 
-settingsBtn.addEventListener("click", () => {
-  const open = settingsContent.classList.toggle("open");
+function setSettingsOpen(open) {
+  settingsContent.classList.toggle("open", open);
+  settingsBtn.setAttribute("aria-expanded", String(open));
   arrowEl.style.transform = open ? "rotate(180deg)" : "rotate(0deg)";
+}
+
+settingsBtn.addEventListener("click", () => {
+  setSettingsOpen(!settingsContent.classList.contains("open"));
 });
 
-document.addEventListener("mousedown", e => {
+function closeSettingsOnOutside(e) {
   const dropdown = document.getElementById("settingsDropdown");
   if (settingsContent.classList.contains("open") && !dropdown.contains(e.target)) {
-    settingsContent.classList.remove("open");
-    arrowEl.style.transform = "rotate(0deg)";
+    setSettingsOpen(false);
   }
-});
-
-document.addEventListener("touchstart", e => {
-  const dropdown = document.getElementById("settingsDropdown");
-  if (settingsContent.classList.contains("open") && !dropdown.contains(e.target)) {
-    settingsContent.classList.remove("open");
-    arrowEl.style.transform = "rotate(0deg)";
-  }
-}, { passive: true });
+}
+document.addEventListener("mousedown", closeSettingsOnOutside);
+document.addEventListener("touchstart", closeSettingsOnOutside, { passive: true });
 
 document.getElementById("resetBtn").addEventListener("click", resetFlock);
 
 const modeIndicator = document.getElementById("modeIndicator");
 function updateModeIndicator() {
-  if      (drawMode==="barrier") { modeIndicator.style.display="block"; modeIndicator.textContent="✏ Draw barriers — click and drag on canvas"; }
-  else if (drawMode==="eraser")  { modeIndicator.style.display="block"; modeIndicator.textContent="⌫ Erase barriers — click and drag on canvas"; }
+  if      (drawMode==="barrier") { modeIndicator.style.display="block"; modeIndicator.textContent="✏ Draw barriers — drag on the canvas · Esc to exit"; }
+  else if (drawMode==="eraser")  { modeIndicator.style.display="block"; modeIndicator.textContent="⌫ Erase barriers — drag on the canvas · Esc to exit"; }
+  else if (paused)               { modeIndicator.style.display="block"; modeIndicator.textContent="❚❚ Paused — press Space to resume"; }
   else                           { modeIndicator.style.display="none"; }
 }
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+function setPaused(v) { paused = v; updateModeIndicator(); }
+
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  const typing = t && (t.isContentEditable || /^(TEXTAREA|SELECT)$/.test(t.tagName) ||
+    (t.tagName === "INPUT" && t.type !== "checkbox"));
+
+  if (e.key === "Escape") {
+    if (settingsContent.classList.contains("open")) { setSettingsOpen(false); settingsBtn.focus(); }
+    else if (drawMode !== "none") setDrawMode("none");
+    return;
+  }
+  if (typing) return;
+  // Let Space/Enter activate a keyboard-focused button as normal
+  const onButton = t && t.tagName === "BUTTON" && t.matches(":focus-visible");
+
+  switch (e.key.toLowerCase()) {
+    case " ":
+      if (onButton) return;
+      e.preventDefault(); setPaused(!paused); break;
+    case "r": resetFlock(); break;
+    case "t":
+      if (trailToggle) { trailToggle.checked = !trailToggle.checked; useTrail = trailToggle.checked; }
+      break;
+    case "d": setDrawMode(drawMode==="barrier" ? "none" : "barrier"); break;
+    case "e": setDrawMode(drawMode==="eraser"  ? "none" : "eraser");  break;
+    case "s": setSettingsOpen(!settingsContent.classList.contains("open")); break;
+  }
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 function setup() {
@@ -601,4 +656,4 @@ function setup() {
   draw();
 }
 
-setup();
+setup();

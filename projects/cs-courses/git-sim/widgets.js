@@ -19,7 +19,8 @@ window.GitWidgets = (function () {
     const spacingX = 74, spacingY = 56, marginX = 46, marginY = 34;
     const maxOrder = commits.reduce((m, c) => Math.max(m, c.order), 0);
     const maxLane = Math.max(0, ...commits.map((c) => c.lane), ...Object.values(r.branchLanes));
-    const width = marginX * 2 + maxOrder * spacingX + 60;
+    const longestTag = Object.keys(r.branches).reduce((m, n) => m + n.length * 7 + 20, 0);
+    const width = marginX * 2 + maxOrder * spacingX + Math.max(60, Math.min(longestTag, 400));
     const height = marginY * 2 + maxLane * spacingY + 20;
     const posOf = (c) => ({ x: marginX + c.order * spacingX, y: marginY + c.lane * spacingY });
     const headHash = G.headHash(r);
@@ -47,20 +48,27 @@ window.GitWidgets = (function () {
       const isHead = c.hash === headHash;
       const isMerge = c.parents.length > 1;
       const isSel = selected === c.hash;
-      nodes += `<g data-selectcommit="${c.hash}" style="cursor:pointer">
+      nodes += `<g data-selectcommit="${esc(c.hash)}" style="cursor:pointer" role="button" tabindex="0" aria-label="commit ${esc(c.hash)}: ${esc(c.message)}${isHead ? " (HEAD)" : ""}${isMerge ? ", merge commit" : ""}">
+        <title>${esc(c.hash)} — ${esc(c.message)}</title>
         ${isHead ? `<circle cx="${p.x}" cy="${p.y}" r="13" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="3,2"/>` : ""}
         <circle cx="${p.x}" cy="${p.y}" r="${isMerge ? 9 : 7}" fill="${laneColor(c.lane)}" stroke="${isSel ? "#fff" : "none"}" stroke-width="2"/>
-        <text x="${p.x}" y="${p.y - 18}" font-size="10" fill="var(--text-dim)" text-anchor="middle" font-family="monospace">${c.hash}</text>
+        <text x="${p.x}" y="${p.y - 18}" font-size="10" fill="var(--text-dim)" text-anchor="middle" font-family="monospace">${esc(c.hash)}</text>
       </g>`;
     });
 
     let labels = "";
+    const stackAt = {};
     Object.entries(r.branches).forEach(([name, hash]) => {
       const c = r.commits[hash];
       if (!c) return;
-      const p = posOf(c);
+      // Several branches can point at the same commit; stack their tags
+      // sideways instead of drawing them on top of each other.
+      const offset = stackAt[hash] || 0;
+      const base = posOf(c);
+      const p = { x: base.x + offset, y: base.y };
       const w = name.length * 7 + 16;
-      labels += `<g data-checkoutbranch="${esc(name)}" style="cursor:pointer">
+      stackAt[hash] = offset + w + 4;
+      labels += `<g data-checkoutbranch="${esc(name)}" style="cursor:pointer" role="button" tabindex="0" aria-label="check out branch ${esc(name)}">
         <rect x="${p.x + 14}" y="${p.y - 10}" width="${w}" height="20" rx="5" fill="${laneColor(c.lane)}" fill-opacity="0.18" stroke="${laneColor(c.lane)}" stroke-opacity="0.5"/>
         <text x="${p.x + 22}" y="${p.y + 4}" font-size="11" fill="${laneColor(c.lane)}" font-family="monospace">${esc(name)}</text>
       </g>`;
@@ -81,7 +89,7 @@ window.GitWidgets = (function () {
         <span class="mono" style="font-size:11px;color:var(--text-dim)">click a commit to inspect it &middot; click a branch tag to check it out</span>
       </div>
       <div class="graph-scroll">
-        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${edges}${nodes}${labels}${headLabel}</svg>
+        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="group" aria-label="Commit graph: ${commits.length} commits, ${Object.keys(r.branches).length} branches">${edges}${nodes}${labels}${headLabel}</svg>
       </div>
     </div>`;
   }
@@ -96,22 +104,22 @@ window.GitWidgets = (function () {
     const pointingBranches = Object.entries(r.branches).filter(([, h]) => h === hash).map(([n]) => n);
     return `<div class="panel">
       <div class="panel-header">
-        <span class="title mono">${icon("database", 15)} commit ${c.hash}</span>
+        <span class="title mono">${icon("database", 15)} commit ${esc(c.hash)}</span>
         ${isHeadHere ? `<span class="pill accent">HEAD</span>` : ""}
       </div>
       <div class="panel-body">
-        <div class="permline">${esc(c.message)}${c.rebasedFrom ? ` <span style="color:var(--text-dim)">(replayed from ${c.rebasedFrom})</span>` : ""}</div>
+        <div class="permline">${esc(c.message)}${c.rebasedFrom ? ` <span style="color:var(--text-dim)">(replayed from ${esc(c.rebasedFrom)})</span>` : ""}</div>
         <div class="info-grid">
           <div><span class="k">author</span><span class="v">${esc(c.author)}</span></div>
           <div><span class="k">date</span><span class="v">${esc(c.date)}</span></div>
-          <div><span class="k">parents</span><span class="v">${c.parents.length ? c.parents.join(", ") : "(root commit)"}</span></div>
-          <div><span class="k">on branch(es)</span><span class="v">${pointingBranches.length ? pointingBranches.join(", ") : "(no branch tip here)"}</span></div>
-          <div><span class="k">files changed</span><span class="v">${c.filesChanged.length ? c.filesChanged.join(", ") : "(none)"}</span></div>
+          <div><span class="k">parents</span><span class="v">${c.parents.length ? esc(c.parents.join(", ")) : "(root commit)"}</span></div>
+          <div><span class="k">on branch(es)</span><span class="v">${pointingBranches.length ? esc(pointingBranches.join(", ")) : "(no branch tip here)"}</span></div>
+          <div><span class="k">files changed</span><span class="v">${c.filesChanged.length ? esc(c.filesChanged.join(", ")) : "(none)"}</span></div>
           <div><span class="k">type</span><span class="v">${c.parents.length > 1 ? "merge commit" : c.parents.length === 0 ? "root commit" : "commit"}</span></div>
         </div>
         <div class="mark-complete-row" style="justify-content:flex-start;gap:8px">
-          <button class="btn" data-checkoutcommit="${c.hash}">Checkout this commit</button>
-          <button class="btn" data-branchhere="${c.hash}">Create branch here</button>
+          <button class="btn" data-checkoutcommit="${esc(c.hash)}">Checkout this commit</button>
+          <button class="btn" data-branchhere="${esc(c.hash)}">Create branch here</button>
         </div>
         <p class="perm-note">Checking out a commit hash directly (instead of a branch name) puts you in <b>detached HEAD</b>: you can look around, or build on top of it, but nothing points here until you make a branch.</p>
       </div>
@@ -125,16 +133,17 @@ window.GitWidgets = (function () {
     const state = ENGINE.state;
     const quick = ["git status", "git log --oneline", "git branch", "edit app.js"];
     return `<div class="panel">
-      <div class="panel-header"><span class="title mono">${icon("terminal", 15)} command console</span><span class="pill accent mono">${G.currentBranchName(state.repo) || "detached"}</span></div>
-      <div id="git-console-history" class="terminal-body">
-        ${state.consoleHistory.map((h) => `<div class="term-line ${h.type} mono">${esc(h.text)}</div>`).join("")}
+      <div class="panel-header"><span class="title mono">${icon("terminal", 15)} command console</span><span class="pill accent mono">${esc(G.currentBranchName(state.repo) || "detached")}</span></div>
+      <div id="git-console-history" class="terminal-body" role="log" aria-label="Git console output">
+        ${state.consoleHistory.map((h) => `<div class="term-line ${esc(h.type)} mono">${esc(h.text)}</div>`).join("")}
         <div class="term-prompt-row">
-          <span class="prompt mono">$</span>
-          <input id="git-console-input" type="text" autocomplete="off" spellcheck="false" placeholder="git ..." />
-          <span class="blink mono" style="color:var(--accent)">&#9608;</span>
+          <label class="prompt mono" for="git-console-input">$</label>
+          <input id="git-console-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" placeholder="git ..." aria-label="git command" />
+          <span class="blink mono" style="color:var(--accent)" aria-hidden="true">&#9608;</span>
         </div>
       </div>
-      <div class="term-quick">${quick.map((q) => `<button data-gitquickcmd="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+      <div class="term-quick" aria-label="Example commands">${quick.map((q) => `<button data-gitquickcmd="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+      <div class="term-hint">&uarr;/&darr; recall previous commands &middot; type <span style="color:var(--accent)">help</span> for the full list</div>
     </div>`;
   }
 
@@ -151,20 +160,20 @@ window.GitWidgets = (function () {
     const col = (title, files, action) => `
       <div class="stage-col">
         <div class="stage-col-title mono">${title}</div>
-        ${files.length ? files.map((f) => `<div class="stage-file mono">${esc(f)}${action ? `<button data-${action.attr}="${esc(f)}">${action.label}</button>` : ""}</div>`).join("") : `<div class="stage-empty mono">empty</div>`}
+        ${files.length ? files.map((f) => `<div class="stage-file mono">${esc(f)}${action ? `<button data-${action.attr}="${esc(f)}" aria-label="${action.aria} ${esc(f)}">${action.label}</button>` : ""}</div>`).join("") : `<div class="stage-empty mono">empty</div>`}
       </div>`;
     return `<div class="panel">
       <div class="panel-header"><span class="title mono">${icon("fileText", 15)} staging area visualizer</span></div>
       <div class="panel-body">
         <div class="stage-flow">
-          ${col("Working tree (modified)", modified, { attr: "stagefile", label: "stage &rarr;" })}
-          <div class="stage-arrow">${icon("chevronRight", 16)}</div>
-          ${col("Staging area (index)", staged, null)}
-          <div class="stage-arrow">${icon("chevronRight", 16)}</div>
+          ${col("Working tree (modified)", modified, { attr: "stagefile", label: "stage &rarr;", aria: "stage" })}
+          <div class="stage-arrow" aria-hidden="true">${icon("chevronRight", 16)}</div>
+          ${col("Staging area (index)", staged, { attr: "unstagefile", label: "&larr; unstage", aria: "unstage" })}
+          <div class="stage-arrow" aria-hidden="true">${icon("chevronRight", 16)}</div>
           ${col("Repository (last commit)", headCommit ? headCommit.filesChanged : [], null)}
         </div>
         <div class="fd-controls" style="margin-top:14px">
-          <select data-editfileselect>${G.WORKSPACE_FILES.filter((f) => r.workspace[f] === "clean").map((f) => `<option value="${esc(f)}">${esc(f)}</option>`).join("") || `<option value="">(everything already modified)</option>`}</select>
+          <select data-editfileselect aria-label="File to edit">${G.WORKSPACE_FILES.filter((f) => r.workspace[f] === "clean").map((f) => `<option value="${esc(f)}">${esc(f)}</option>`).join("") || `<option value="">(everything already modified)</option>`}</select>
           <button class="btn" data-editfilebtn>Simulate an edit</button>
         </div>
         <p class="perm-note">A file moves working tree &rarr; staging area with <span class="mono">git add</span>, then staging area &rarr; repository with <span class="mono">git commit</span>. Nothing is permanent until it's committed.</p>
@@ -185,15 +194,16 @@ window.GitWidgets = (function () {
         <p class="perm-note" style="margin-top:0">Merging <span class="mono">${esc(r.conflict.theirBranch)}</span> touched the same file(s) you changed on this branch. Pick how to resolve each one.</p>
         ${r.conflict.files.map((f) => `
           <div class="conflict-file">
-            <div class="conflict-file-name mono">${esc(f.name)} ${f.resolved ? `<span class="pill teal">resolved: ${f.resolved}</span>` : `<span class="pill coral">unresolved</span>`}</div>
-            <div class="conflict-options">
-              <button class="btn ${f.resolved === "ours" ? "accent" : ""}" data-resolveconflict="${esc(f.name)}:ours">Keep ours</button>
-              <button class="btn ${f.resolved === "theirs" ? "accent" : ""}" data-resolveconflict="${esc(f.name)}:theirs">Keep theirs</button>
-              <button class="btn ${f.resolved === "combined" ? "accent" : ""}" data-resolveconflict="${esc(f.name)}:combined">Combine both</button>
+            <div class="conflict-file-name mono">${esc(f.name)} ${f.resolved ? `<span class="pill teal">resolved: ${esc(f.resolved)}</span>` : `<span class="pill coral">unresolved</span>`}</div>
+            <div class="conflict-options" role="group" aria-label="Resolve ${esc(f.name)}">
+              <button class="btn ${f.resolved === "ours" ? "accent" : ""}" data-resolveconflict="${esc(f.name)}:ours" aria-pressed="${f.resolved === "ours"}">Keep ours</button>
+              <button class="btn ${f.resolved === "theirs" ? "accent" : ""}" data-resolveconflict="${esc(f.name)}:theirs" aria-pressed="${f.resolved === "theirs"}">Keep theirs</button>
+              <button class="btn ${f.resolved === "combined" ? "accent" : ""}" data-resolveconflict="${esc(f.name)}:combined" aria-pressed="${f.resolved === "combined"}">Combine both</button>
             </div>
           </div>`).join("")}
         <div class="mark-complete-row" style="justify-content:flex-start;margin-top:16px">
           <button class="btn accent" data-finishmerge ${allResolved ? "" : "disabled"}>Finish merge</button>
+          <button class="btn" data-gitquickcmd="git merge --abort">Abort merge</button>
         </div>
       </div>
     </div>`;
@@ -206,9 +216,11 @@ window.GitWidgets = (function () {
     return [
       { title: "Create a branch named 'hotfix'", done: !!r.branches.hotfix },
       { title: "Merge 'feature' fully into 'main'", done: !!r.branches.feature && !!r.branches.main && G.isAncestor(r, r.branches.feature, r.branches.main) },
-      { title: "Rebase 'feature' onto 'main' (linear history)", done: !!r.branches.feature && !!r.branches.main && G.commonAncestor(r, r.branches.feature, r.branches.main) === r.branches.main },
+      // Linear = main is an ancestor of feature AND nothing between them is a
+      // merge commit (merging main INTO feature would otherwise also count).
+      { title: "Rebase 'feature' onto 'main' (linear history)", done: !!r.branches.feature && !!r.branches.main && r.branches.feature !== r.branches.main && G.isAncestor(r, r.branches.main, r.branches.feature) && G.commitsSince(r, r.branches.main, r.branches.feature).every((c) => c.parents.length < 2) },
       { title: "Trigger a merge conflict and resolve it", done: !!s.hadConflict && !r.conflict },
-      { title: "Stash changes, then bring them back with stash pop", done: !!s.everStashed && r.stash.length === 0 }
+      { title: "Stash changes, then bring them back with stash pop", done: !!s.everStashed && (s.everPopped !== undefined ? !!s.everPopped : r.stash.length === 0) }
     ];
   }
 
@@ -219,7 +231,7 @@ window.GitWidgets = (function () {
       <div class="panel-body"><div class="challenge-grid">
         ${items.map((it) => `<div class="panel challenge-card">
           <div class="challenge-title">${icon(it.done ? "check" : "trophy", 14)} ${esc(it.title)}</div>
-          <div class="challenge-result mono" style="background:${it.done ? "var(--teal-soft)" : "var(--bg-raised)"};color:${it.done ? "var(--teal)" : "var(--text-dim)"}">${it.done ? "Done!" : "Not yet — try it in the console."}</div>
+          <div class="challenge-result mono" role="status" style="background:${it.done ? "var(--teal-soft)" : "var(--bg-raised)"};color:${it.done ? "var(--teal)" : "var(--text-dim)"}">${it.done ? "Done!" : "Not yet — try it in the console."}</div>
         </div>`).join("")}
       </div></div>
     </div>`;
@@ -258,9 +270,21 @@ window.GitWidgets = (function () {
     }
 
     Actions.register("click", "[data-gitquickcmd]", (el) => runAndRefresh(el.getAttribute("data-gitquickcmd")));
-    Actions.register("keydown", (target, e) => (target.id === "git-console-input" && e.key === "Enter" ? target : null), (el) => {
-      runAndRefresh(el.value);
+    Actions.register("keydown", (target, e) => (target.id === "git-console-input" && e.key === "Enter" && !e.isComposing ? target : null), (el) => {
+      const v = el.value;
       el.value = "";
+      historyIdx = null;
+      runAndRefresh(v);
+    });
+    let historyIdx = null;
+    Actions.register("keydown", (target, e) => (target.id === "git-console-input" && (e.key === "ArrowUp" || e.key === "ArrowDown") ? target : null), (el, e) => {
+      const past = state().consoleHistory.filter((h) => h.type === "cmd" && h.raw).map((h) => h.raw);
+      if (!past.length) return;
+      e.preventDefault();
+      if (historyIdx === null) historyIdx = past.length;
+      historyIdx = Math.max(0, Math.min(past.length, historyIdx + (e.key === "ArrowUp" ? -1 : 1)));
+      el.value = historyIdx === past.length ? "" : past[historyIdx];
+      el.setSelectionRange(el.value.length, el.value.length);
     });
     Actions.register("click", "#git-console-history", () => {
       const inp = document.getElementById("git-console-input");
@@ -272,19 +296,23 @@ window.GitWidgets = (function () {
     Actions.register("click", "[data-checkoutcommit]", (el) => { runAndRefresh(`checkout ${el.getAttribute("data-checkoutcommit")}`); });
     Actions.register("click", "[data-branchhere]", (el) => {
       const hash = el.getAttribute("data-branchhere");
-      runAndRefresh(`checkout ${hash}`);
-      const name = window.prompt ? window.prompt("New branch name?") : null;
-      if (name) runAndRefresh(`checkout -b ${name}`);
+      // Ask first: cancelling must not leave you stranded in detached HEAD.
+      const name = window.prompt ? window.prompt(`New branch name (created at ${hash} and checked out)?`) : null;
+      if (name === null) return;
+      runAndRefresh(`checkout -b "${name.trim().replace(/"/g, "")}" ${hash}`);
     });
 
-    Actions.register("click", "[data-stagefile]", (el) => runAndRefresh(`add ${el.getAttribute("data-stagefile")}`));
+    Actions.register("click", "[data-stagefile]", (el) => runAndRefresh(`git add ${el.getAttribute("data-stagefile")}`));
+    Actions.register("click", "[data-unstagefile]", (el) => runAndRefresh(`git restore --staged ${el.getAttribute("data-unstagefile")}`));
     Actions.register("click", "[data-editfilebtn]", () => {
       const sel = document.querySelector("[data-editfileselect]");
       if (sel && sel.value) runAndRefresh(`edit ${sel.value}`);
     });
 
     Actions.register("click", "[data-resolveconflict]", (el) => {
-      const [file, choice] = el.getAttribute("data-resolveconflict").split(":");
+      const raw = el.getAttribute("data-resolveconflict");
+      const cut = raw.lastIndexOf(":");
+      const file = raw.slice(0, cut), choice = raw.slice(cut + 1);
       const r = state().repo;
       if (r.conflict) { const f = r.conflict.files.find((x) => x.name === file); if (f) f.resolved = choice; }
       ENGINE.render();

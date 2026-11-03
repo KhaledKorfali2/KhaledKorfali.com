@@ -83,15 +83,43 @@ function resizeCanvas() {
   const vw = window.innerWidth;
   const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
 
-  cols = Math.floor(vw / CELL_SIZE);
-  rows = Math.floor(vh / CELL_SIZE);
+  const newCols = Math.max(1, Math.floor(vw / CELL_SIZE));
+  const newRows = Math.max(1, Math.floor(vh / CELL_SIZE));
+  // Mobile browsers fire resize when the URL bar shows/hides; don't wipe the
+  // sandbox unless the grid dimensions actually changed.
+  if (newCols === cols && newRows === rows) return;
 
+  // Snapshot current particles so they survive the resize (bottom-anchored,
+  // so piles stay on the floor when the window gets shorter/taller).
+  const old = TYPE[cur] ? {
+    cols, rows,
+    type: TYPE[cur], vel: VEL[cur], life: LIFE[cur],
+    hue: HUE[cur], sat: SAT[cur], lit: LIT[cur],
+  } : null;
+
+  cols = newCols;
+  rows = newRows;
+
+  // Exact multiple of CELL_SIZE in CSS px: no fractional stretching / blur.
   canvas.width  = cols * CELL_SIZE;
   canvas.height = rows * CELL_SIZE;
-  canvas.style.width  = vw  + "px";
-  canvas.style.height = vh  + "px";
+  canvas.style.width  = canvas.width  + "px";
+  canvas.style.height = canvas.height + "px";
 
   allocGrids();
+  cur = 0; nxt = 1;
+
+  if (old) {
+    const mc = Math.min(cols, old.cols), mr = Math.min(rows, old.rows);
+    for (let r = 0; r < mr; r++) {
+      const or = old.rows - 1 - r, nr = rows - 1 - r;
+      for (let c = 0; c < mc; c++) {
+        const oi = c + or * old.cols, ni = c + nr * cols;
+        TYPE[cur][ni] = old.type[oi]; VEL[cur][ni] = old.vel[oi]; LIFE[cur][ni] = old.life[oi];
+        HUE [cur][ni] = old.hue[oi];  SAT[cur][ni] = old.sat[oi]; LIT [cur][ni] = old.lit[oi];
+      }
+    }
+  }
 }
 
 // ── Grid helpers ─────────────────────────────────────────────
@@ -100,6 +128,17 @@ const inBounds = (c, r) => c >= 0 && c < cols && r >= 0 && r < rows;
 const isEmpty  = (b, c, r) => inBounds(c,r) && TYPE[b][idx(c,r)] === T_EMPTY;
 const getType  = (b, c, r) => inBounds(c,r) ? TYPE[b][idx(c,r)] : -1;
 const isSolid  = (b, c, r) => { const t = getType(b,c,r); return t === T_SAND || t === T_WALL; };
+
+// Target check for moves into the CURRENT row or rows ABOVE it. Those rows
+// haven't been (fully) processed yet this frame, so a particle still sitting
+// there in `cur` will later write itself into `nxt` and overwrite whatever
+// moved in — silently deleting particles. Require the cell to be free in both
+// buffers. (Rows below are already final in `nxt`, so isEmpty(nxt) is enough.)
+const isFree   = (c, r) => {
+  if (!inBounds(c, r)) return false;
+  const i = idx(c, r);
+  return TYPE[nxt][i] === T_EMPTY && TYPE[cur][i] === T_EMPTY;
+};
 
 function setParticle(b, c, r, type, vel, life, h, s, l) {
   const i = idx(c, r);
@@ -167,14 +206,16 @@ const pillLabel      = document.getElementById("pillLabel");
 const colorGroup     = document.getElementById("colorGroup");
 
 // Expand / collapse panel
-expandBtn.addEventListener("click", () => {
-  const expanded = toolbar.classList.toggle("expanded");
-  expandBtn.setAttribute("aria-expanded", expanded);
-});
+function setPanelOpen(open) {
+  toolbar.classList.toggle("expanded", open);
+  expandBtn.setAttribute("aria-expanded", String(open));
+  expandBtn.setAttribute("aria-label", open ? "Hide options" : "More options");
+}
+expandBtn.addEventListener("click", () => setPanelOpen(!toolbar.classList.contains("expanded")));
 
 // Close panel when clicking canvas
-canvas.addEventListener("mousedown",  () => { if (toolbar.classList.contains("expanded")) toolbar.classList.remove("expanded"); });
-canvas.addEventListener("touchstart", () => { if (toolbar.classList.contains("expanded")) toolbar.classList.remove("expanded"); }, { passive: true });
+canvas.addEventListener("mousedown",  () => { if (toolbar.classList.contains("expanded")) setPanelOpen(false); });
+canvas.addEventListener("touchstart", () => { if (toolbar.classList.contains("expanded")) setPanelOpen(false); }, { passive: true });
 
 // Element info for the pill badge
 const ELEM_META = {
@@ -203,8 +244,11 @@ function selectElement(typeStr) {
   }
 
   // Update quick-dot highlights
-  document.querySelectorAll(".qdot").forEach(b =>
-    b.classList.toggle("active", b.dataset.type === typeStr));
+  document.querySelectorAll(".qdot").forEach(b => {
+    const on = b.dataset.type === typeStr;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
 
   // Show/hide colour controls
   colorGroup.style.display = COLORABLE.has(selectedType) ? "flex" : "none";
@@ -217,8 +261,12 @@ document.querySelectorAll(".qdot").forEach(btn => {
 // Mode buttons
 document.querySelectorAll(".mode-btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".mode-btn").forEach(b => {
+      b.classList.remove("active");
+      b.setAttribute("aria-pressed", "false");
+    });
     btn.classList.add("active");
+    btn.setAttribute("aria-pressed", "true");
     brushMode = btn.dataset.mode;
   });
 });
@@ -235,9 +283,27 @@ brushSizeSlider.addEventListener("input", () => {
   updateCursorSize();
 });
 
+// Pause
+let paused = false;
+const pauseBadge = document.getElementById("pausedBadge");
+function setPaused(v) {
+  paused = v;
+  if (pauseBadge) pauseBadge.hidden = !v;
+}
+
 // Keyboard shortcuts
 const keyMap = { "1":"sand","2":"water","3":"fire","4":"smoke","5":"wall","e":"eraser","E":"eraser" };
 document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;   // don't hijack Ctrl+R etc.
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(TEXTAREA|SELECT)$/.test(t.tagName))) return;
+
+  if (e.key === "Escape") { setPanelOpen(false); return; }
+  if (e.key === " ") {
+    // Let Space activate a keyboard-focused button as normal
+    if (t && t.tagName === "BUTTON" && t.matches(":focus-visible")) return;
+    e.preventDefault(); setPaused(!paused); return;
+  }
   if (e.key === "r" || e.key === "R") { resetGrids(); return; }
   if (keyMap[e.key]) selectElement(keyMap[e.key]);
 });
@@ -409,6 +475,8 @@ window.addEventListener("mouseup",    onPointerUp);
 canvas.addEventListener("mousemove",  onPointerMove);
 canvas.addEventListener("touchstart", onPointerDown, { passive: false });
 window.addEventListener("touchend",   onPointerUp);
+window.addEventListener("touchcancel",onPointerUp);
+window.addEventListener("blur",       onPointerUp);
 canvas.addEventListener("touchmove",  onPointerMove, { passive: false });
 
 // ── Simulation ────────────────────────────────────────────────
@@ -427,7 +495,6 @@ function simulate() {
       const i = idx(c, r);
       const type = TYPE[cur][i];
       if (type === T_EMPTY) continue;
-      if (TYPE[nxt][i] === type && type !== T_WALL) continue;
 
       const vel  = VEL [cur][i];
       const life = LIFE[cur][i];
@@ -499,7 +566,7 @@ function updateWater(c, r, vel, h, s, l) {
     const dir = chance(0.5) ? 1 : -1;
     for (let dx=1; dx<=4; dx++) {
       const nc=c+dir*dx;
-      if (!inBounds(nc,r) || !isEmpty(nxt,nc,r)) break;
+      if (!isFree(nc, r)) break;
       setParticle(nxt, nc, r, T_WATER, START_VEL_X10, 255, h, s, l);
       moved=true; break;
     }
@@ -512,19 +579,28 @@ function updateFire(c, r, life, _h) {
   const newLife = life - 2 - rand(3);
   if (newLife <= 0) {
     // Burn out: always leave smoke, sometimes an ember
-    if (inBounds(c, r-1) && isEmpty(nxt, c, r-1)) spawnSmoke(nxt, c, r-1);
-    if (chance(0.2) && inBounds(c, r-1) && isEmpty(nxt, c, r-1)) {
-      /* smoke already placed above; try a column beside */
+    // Burn out: leave smoke above (or in place), sometimes an ember beside
+    if (isFree(c, r-1)) spawnSmoke(nxt, c, r-1);
+    else                spawnSmoke(nxt, c, r);
+    if (chance(0.2)) {
       const ed = chance(0.5) ? 1 : -1;
-      if (inBounds(c+ed, r) && isEmpty(nxt, c+ed, r)) spawnEmber(nxt, c+ed, r);
+      if (isFree(c+ed, r)) spawnEmber(nxt, c+ed, r);
     }
     return;
   }
 
   // Ignite adjacent water → steam
   for (const [dc, dr] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-    if (getType(cur, c+dc, r+dr) === T_WATER && chance(0.05))
-      spawnSteam(nxt, c+dc, r+dr);
+    const wc = c+dc, wr = r+dr;
+    if (getType(cur, wc, wr) === T_WATER && chance(0.05)) {
+      const wi = idx(wc, wr), t = TYPE[nxt][wi];
+      // Only convert if nothing else has claimed that cell in nxt; clear it in
+      // cur so an unprocessed water particle doesn't also survive.
+      if (t === T_EMPTY || t === T_WATER) {
+        spawnSteam(nxt, wc, wr);
+        TYPE[cur][wi] = T_EMPTY;
+      }
+    }
   }
 
   // Fire colour: hot yellow-white core when life is high, orange-red as it fades
@@ -535,15 +611,15 @@ function updateFire(c, r, life, _h) {
   const newL = (50 + lifeFrac * 30) | 0;     // brighter when fresh
 
   // Spawn ember occasionally
-  if (chance(0.04) && inBounds(c, r-1) && isEmpty(nxt, c, r-1))
+  if (chance(0.04) && isFree(c, r-1))
     spawnEmber(nxt, c, r-1);
 
   const upRow = r - 1;
-  if (upRow >= 0 && isEmpty(nxt, c, upRow) && chance(0.65)) {
+  if (isFree(c, upRow) && chance(0.65)) {
     setParticle(nxt, c, upRow, T_FIRE, 0, newLife, newH, 100, newL);
     // Spread heat sideways a bit
     const sd = chance(0.5) ? 1 : -1;
-    if (inBounds(c+sd, r) && isEmpty(nxt, c+sd, r) && chance(0.15))
+    if (isFree(c+sd, r) && chance(0.15))
       setParticle(nxt, c+sd, r, T_FIRE, 0, (newLife * 0.6)|0, newH, 100, newL);
   } else {
     setParticle(nxt, c, r, T_FIRE, 0, newLife, newH, 100, newL);
@@ -565,16 +641,16 @@ function updateSmoke(c, r, life, h, s, l) {
 
   // Smoke rises slowly — only move up with chance
   if (chance(0.55)) {
-    if (inBounds(nc, nr) && isEmpty(nxt, nc, nr))
+    if (isFree(nc, nr))
       setParticle(nxt, nc, nr, T_SMOKE, 0, newLife, h, s, l);
-    else if (inBounds(c, nr) && isEmpty(nxt, c, nr))
+    else if (isFree(c, nr))
       setParticle(nxt, c,  nr, T_SMOKE, 0, newLife, h, s, l);
     else
       setParticle(nxt, c, r,  T_SMOKE, 0, newLife, h, s, l);
   } else {
     // Drift sideways at same height
     const lat = chance(0.5) ? 1 : -1;
-    if (inBounds(c+lat, r) && isEmpty(nxt, c+lat, r))
+    if (isFree(c+lat, r))
       setParticle(nxt, c+lat, r, T_SMOKE, 0, newLife, h, s, l);
     else
       setParticle(nxt, c, r, T_SMOKE, 0, newLife, h, s, l);
@@ -588,9 +664,9 @@ function updateSteam(c, r, life, h, s, l) {
     return;
   }
   const sway = rand(3)-1, nr = r-1;
-  if (inBounds(c+sway, nr) && isEmpty(nxt, c+sway, nr))
+  if (isFree(c+sway, nr))
     setParticle(nxt, c+sway, nr, T_STEAM, 0, newLife, h, s, l);
-  else if (inBounds(c, nr) && isEmpty(nxt, c, nr))
+  else if (isFree(c, nr))
     setParticle(nxt, c,  nr, T_STEAM, 0, newLife, h, s, l);
   else
     setParticle(nxt, c, r,  T_STEAM, 0, newLife, h, s, l);
@@ -604,9 +680,9 @@ function updateEmber(c, r, life, h, s, l) {
   const sway = (chance(0.5) ? 1 : -1) * rand(2);
   const nr   = r - 1;
 
-  if (inBounds(c+sway, nr) && isEmpty(nxt, c+sway, nr))
+  if (isFree(c+sway, nr))
     setParticle(nxt, c+sway, nr, T_EMBER, 0, newLife, h, s, l);
-  else if (inBounds(c, nr) && isEmpty(nxt, c, nr))
+  else if (isFree(c, nr))
     setParticle(nxt, c, nr, T_EMBER, 0, newLife, h, s, l);
   else
     setParticle(nxt, c, r, T_EMBER, 0, newLife, h, s, l);
@@ -667,7 +743,7 @@ function render() {
 let lastTs = performance.now(), frames = 0;
 
 function loop(ts) {
-  simulate();
+  if (!paused) simulate();
   const count = render();
 
   frames++;
@@ -682,7 +758,12 @@ function loop(ts) {
 }
 
 // ── Init ──────────────────────────────────────────────────────
-window.addEventListener("resize", resizeCanvas);
+// Debounced: resizing is a full grid copy, no need to do it every event.
+let resizeTimer = 0;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(resizeCanvas, 100);
+});
 resizeCanvas();
 selectElement("sand");   // set initial state
-requestAnimationFrame(loop);
+requestAnimationFrame(loop);

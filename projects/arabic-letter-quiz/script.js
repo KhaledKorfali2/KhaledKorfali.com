@@ -24,7 +24,9 @@ const letters = {
   "Lam":   { isolated: "ل",  start: "لـ",  middle: "ـلـ", end: "ـل"  },
   "Meem":  { isolated: "م",  start: "مـ",  middle: "ـمـ", end: "ـم"  },
   "Noon":  { isolated: "ن",  start: "نـ",  middle: "ـنـ", end: "ـن"  },
-  "Haa2":  { isolated: "ﻩ",  start: "هـ",  middle: "ـهـ", end: "ـه"  },
+  // ه — was keyed "Haa2" (shown verbatim as an answer option) and used the
+  // presentation-form glyph U+FEE9 instead of the real letter U+0647
+  "Ha":    { isolated: "ه",  start: "هـ",  middle: "ـهـ", end: "ـه"  },
   "Waw":   { isolated: "و",  start: "و",   middle: "ـو",  end: "ـو"  },
   "Ya":    { isolated: "ي",  start: "يـ",  middle: "ـيـ", end: "ـي"  },
 };
@@ -47,6 +49,8 @@ const progressLabel = document.getElementById("progress-label");
 const completeBanner = document.getElementById("completeBanner");
 const completeText  = document.getElementById("completeText");
 const restartBtn    = document.getElementById("restartBtn");
+const feedbackEl    = document.getElementById("feedback");
+const progressTrack = document.getElementById("progress-track");
 
 // ── Helpers ──────────────────────────────────────────────────
 function shuffle(arr) {
@@ -76,13 +80,29 @@ function updateStats() {
   const pct = questions.length > 0
     ? Math.round((qIdx / questions.length) * 100)
     : 0;
+  setProgress(pct);
+}
+
+function setProgress(pct) {
   progressBar.style.width = pct + "%";
   progressLabel.textContent = pct + "%";
+  progressTrack.setAttribute("aria-valuenow", pct);
 }
 
 // ── Load a question ───────────────────────────────────────────
 function loadQuestion() {
   completeBanner.style.display = "none";
+  feedbackEl.textContent = "";
+  feedbackEl.className   = "feedback";
+
+  if (questions.length === 0) {
+    // No forms selected — previously this fell through to "Done! 0 / 0"
+    questionEl.textContent = "";
+    answersEl.innerHTML    = `<p class="empty-msg">Select at least one letter form to start.</p>`;
+    nextBtn.disabled       = true;
+    updateStats();
+    return;
+  }
 
   if (qIdx >= questions.length) {
     showComplete();
@@ -99,10 +119,13 @@ function loadQuestion() {
   shuffle(opts);
 
   answersEl.innerHTML = "";
-  opts.forEach(opt => {
+  opts.forEach((opt, i) => {
     const btn = document.createElement("button");
+    btn.type        = "button";
     btn.className   = "answer-btn";
     btn.textContent = opt;
+    btn.dataset.key = i + 1;
+    btn.setAttribute("aria-keyshortcuts", String(i + 1));
     btn.addEventListener("click", () => handleAnswer(btn, opt === q.name));
     answersEl.appendChild(btn);
   });
@@ -115,21 +138,27 @@ function loadQuestion() {
 function handleAnswer(btn, correct) {
   answersEl.querySelectorAll(".answer-btn").forEach(b => b.disabled = true);
 
+  const answer = questions[qIdx].name;
   if (correct) {
     btn.classList.add("correct");
     score++;
     streak++;
+    feedbackEl.textContent = streak > 1 ? `Correct — ${streak} in a row!` : "Correct!";
+    feedbackEl.className   = "feedback is-correct";
   } else {
     btn.classList.add("wrong");
     streak = 0;
+    feedbackEl.textContent = `Not quite — it's ${answer}.`;
+    feedbackEl.className   = "feedback is-wrong";
     // Reveal correct
     answersEl.querySelectorAll(".answer-btn").forEach(b => {
-      if (b.textContent === questions[qIdx].name) b.classList.add("correct");
+      if (b.textContent === answer) b.classList.add("correct");
     });
   }
 
   updateStats();
   nextBtn.disabled = false;
+  nextBtn.focus({ preventScroll: true });
 }
 
 // ── Completion ────────────────────────────────────────────────
@@ -140,8 +169,11 @@ function showComplete() {
     ? ((score / questions.length) * 100).toFixed(0)
     : 0;
   completeText.textContent = `Done! ${score} / ${questions.length} correct (${pct}%)`;
-  progressBar.style.width   = "100%";
-  progressLabel.textContent = "100%";
+  // Clear the last question so its answers can't be clicked again
+  questionEl.textContent = "✓";
+  answersEl.innerHTML    = "";
+  setProgress(100);
+  restartBtn.focus({ preventScroll: true });
 }
 
 function restart() {
@@ -153,8 +185,23 @@ function restart() {
 }
 
 // ── Event listeners ───────────────────────────────────────────
-nextBtn.addEventListener("click", () => { qIdx++; loadQuestion(); });
+nextBtn.addEventListener("click", () => {
+  if (nextBtn.disabled) return;
+  qIdx++;
+  loadQuestion();
+});
 restartBtn.addEventListener("click", restart);
+
+// Number keys pick an answer, Enter moves on
+document.addEventListener("keydown", (e) => {
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (/^[1-4]$/.test(e.key)) {
+    const btn = answersEl.querySelector(`.answer-btn[data-key="${e.key}"]`);
+    if (btn && !btn.disabled) btn.click();
+  } else if (e.key === "Enter" && !nextBtn.disabled && !e.target.closest("button, a, input")) {
+    nextBtn.click();
+  }
+});
 
 document.querySelectorAll(".form-checkbox").forEach(cb => {
   cb.addEventListener("change", () => {

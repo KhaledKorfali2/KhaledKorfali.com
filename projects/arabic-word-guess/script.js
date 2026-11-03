@@ -8,6 +8,7 @@ const resetBtn         = document.getElementById("reset-btn");
 const studyToggle      = document.getElementById("study-toggle");
 const nativeInput      = document.getElementById("native-input");
 const useNativeKbToggle = document.getElementById("use-native-keyboard");
+const guessAnnouncer   = document.getElementById("guess-announcer");
 
 let quranWords   = [];
 let targetWord   = "";
@@ -19,8 +20,23 @@ let maxAttempts  = 5;
 let gameOver     = false;
 let studyMode    = false;
 let useNativeKb  = useNativeKbToggle.checked;
+let nextWordTimer = null;
 
 const arabicLetters = [..."ابتثجحخدذرزسشصضطظعغفقكلمنهويءىة"];
+
+// Alif variants a physical/phone keyboard may produce → plain alif, which is
+// the only alif on the on-screen keyboard
+const LETTER_ALIASES = { "أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا" };
+// Harakat, Qur'anic marks and tatweel — stripped from words and input
+const DIACRITICS_RE = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g;
+
+function normalizeLetter(ch) {
+  return LETTER_ALIASES[ch] || ch;
+}
+
+function normalizeWord(word) {
+  return [...String(word).replace(DIACRITICS_RE, "").trim()].map(normalizeLetter).join("");
+}
 
 // ── Native keyboard toggle ────────────────────────────────────
 function applyKbMode() {
@@ -49,7 +65,12 @@ function focusNative() {
   const el = document.getElementById(id);
   if (el) el.addEventListener("click", focusNative);
 });
-document.addEventListener("touchstart", focusNative, { passive: true });
+// Re-open the device keyboard on taps — but not when tapping links or the
+// toggles, or it pops up while the user is trying to navigate away
+document.addEventListener("touchstart", (e) => {
+  if (e.target.closest("a, label, input, header, footer")) return;
+  focusNative();
+}, { passive: true });
 
 // ── Word choice ───────────────────────────────────────────────
 function chooseRandomWord() {
@@ -71,29 +92,32 @@ function drawRow(attempt) {
 
 // ── Build on-screen keyboard ──────────────────────────────────
 function createKeyboard() {
-  arabicLetters.forEach(letter => {
-    const key = document.createElement("div");
-    key.className = "key";
-    key.textContent = letter;
-    key.onclick = () => { pressVisualFor(letter); handleKey(letter); };
+  // Real buttons (keyboard/screen-reader operable). preventDefault on
+  // mousedown stops them stealing focus, so a following hardware Enter
+  // submits the guess instead of re-pressing the last clicked key.
+  const makeKey = (label, onPress, extraClass, ariaLabel) => {
+    const key = document.createElement("button");
+    key.type = "button";
+    key.className = "key" + (extraClass ? " " + extraClass : "");
+    key.textContent = label;
+    if (ariaLabel) key.setAttribute("aria-label", ariaLabel);
+    key.addEventListener("mousedown", e => e.preventDefault());
+    key.onclick = onPress;
     keyboard.appendChild(key);
+    return key;
+  };
+
+  arabicLetters.forEach(letter => {
+    makeKey(letter, () => { pressVisualFor(letter); handleKey(letter); });
   });
 
   const spacer = document.createElement("div");
   spacer.style.cssText = "flex-basis:100%; height:4px;";
+  spacer.setAttribute("aria-hidden", "true");
   keyboard.appendChild(spacer);
 
-  const backKey = document.createElement("div");
-  backKey.className = "key key-control";
-  backKey.textContent = "⌫";
-  backKey.onclick = doBackspace;
-  keyboard.appendChild(backKey);
-
-  const enterKey = document.createElement("div");
-  enterKey.className = "key key-control";
-  enterKey.textContent = "⏎";
-  enterKey.onclick = submitGuess;
-  keyboard.appendChild(enterKey);
+  makeKey("⌫", doBackspace, "key-control", "Delete letter");
+  makeKey("⏎", submitGuess, "key-control key-enter", "Submit guess");
 }
 
 // ── Input handling ────────────────────────────────────────────
@@ -111,19 +135,21 @@ function handleKey(letter) {
 
 function updateRow() {
   const row = document.getElementById(`row-${curAttempt}`);
+  if (!row) return;
   row.querySelectorAll(".letter-box").forEach((box, i) => {
     box.textContent = curGuess[i] || "";
+    box.classList.toggle("filled", Boolean(curGuess[i]));
   });
 }
 
 function doBackspace() {
-  if (gameOver && !studyMode) return;
+  if (gameOver) return;
   if (curGuess.length > 0) { curGuess.pop(); updateRow(); }
   if (useNativeKb) focusNative();
 }
 
 function submitGuess() {
-  if (gameOver && !studyMode) return;
+  if (gameOver) return;
   if (curGuess.length === wordLen) {
     checkGuess();
   } else {
@@ -150,7 +176,7 @@ function pressVisualFor(letter) {
 // ── Check guess ───────────────────────────────────────────────
 function checkGuess() {
   const row        = document.getElementById(`row-${curAttempt}`);
-  const targetArr  = targetWord.split("");
+  const targetArr  = [...targetWord];
   const guessArr   = [...curGuess];
   const remaining  = [...targetArr];
 
@@ -180,13 +206,18 @@ function checkGuess() {
   });
 
   const isCorrect = curGuess.join("") === targetWord;
+  announceRow(row);
 
   if (isCorrect) {
     targetWordDisplay.textContent  = targetWord;
     targetWordDisplay.style.display = "block";
     if (studyMode) {
       resultMessage.textContent = "✓ Correct — loading next word…";
-      setTimeout(startGame, 700);
+      // Lock input until the next word loads — previously the solved row
+      // stayed editable and Enter could schedule startGame() twice
+      gameOver = true;
+      clearTimeout(nextWordTimer);
+      nextWordTimer = setTimeout(startGame, 700);
     } else {
       resultMessage.textContent = "🎉 You got it!";
       gameOver = true;
@@ -212,6 +243,16 @@ function checkGuess() {
   }
 }
 
+// Screen-reader summary of a scored row
+function announceRow(row) {
+  const words = { correct: "correct", present: "wrong place", absent: "not in word" };
+  const parts = [...row.children].map(box => {
+    const status = ["correct", "present", "absent"].find(c => box.classList.contains(c));
+    return `${box.textContent} ${words[status] || ""}`;
+  });
+  guessAnnouncer.textContent = `Guess ${curAttempt + 1}: ${parts.join(", ")}`;
+}
+
 // ── Mark keyboard key ─────────────────────────────────────────
 function markKey(letter, status) {
   const key = [...keyboard.children].find(k => k.textContent === letter);
@@ -234,20 +275,27 @@ studyToggle.addEventListener("change", (e) => {
     resultMessage.textContent      = "Study mode: word shown, unlimited tries.";
     targetWordDisplay.textContent  = targetWord;
     targetWordDisplay.style.display = "block";
-  } else {
+  } else if (!gameOver) {
+    // Don't wipe the "The word was:" / win message of a finished game
     resultMessage.textContent = "";
-    if (!gameOver) targetWordDisplay.style.display = "none";
+    targetWordDisplay.style.display = "none";
   }
 });
 
 // ── Hardware keyboard ─────────────────────────────────────────
 document.addEventListener("keydown", (e) => {
   const tag = (e.target?.tagName) || "";
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON") return;
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  // A focused button keeps Enter/Space for itself; letters and Backspace
+  // still reach the game (previously all typing died after clicking
+  // "New Word" because focus stayed on that button)
+  if (tag === "BUTTON" && (e.key === "Enter" || e.key === " ")) return;
   if (e.key === "Backspace") { doBackspace(); e.preventDefault(); pressVisualFor("⌫"); return; }
   if (e.key === "Enter")     { submitGuess(); e.preventDefault(); pressVisualFor("⏎"); return; }
-  if (e.key?.length === 1 && arabicLetters.includes(e.key)) {
-    if (!gameOver || studyMode) { handleKey(e.key); pressVisualFor(e.key); }
+  const ch = e.key?.length === 1 ? normalizeLetter(e.key) : "";
+  if (ch && arabicLetters.includes(ch)) {
+    if (!gameOver) { handleKey(ch); pressVisualFor(ch); }
     e.preventDefault();
   }
 });
@@ -255,17 +303,22 @@ document.addEventListener("keydown", (e) => {
 // ── Native mobile input ───────────────────────────────────────
 if (nativeInput) {
   nativeInput.addEventListener("beforeinput", (e) => {
-    if (!useNativeKb || (gameOver && !studyMode)) return;
+    if (!useNativeKb || gameOver) return;
     if (e.inputType === "deleteContentBackward") { doBackspace(); pressVisualFor("⌫"); }
     else if (e.inputType === "insertLineBreak")  { submitGuess(); pressVisualFor("⏎"); }
-    else if (e.data && arabicLetters.includes(e.data)) { handleKey(e.data); pressVisualFor(e.data); }
+    else if (e.data) {
+      // Some keyboards insert several characters at once (autocomplete)
+      [...e.data].map(normalizeLetter).forEach(ch => {
+        if (arabicLetters.includes(ch)) { handleKey(ch); pressVisualFor(ch); }
+      });
+    }
     e.preventDefault();
     nativeInput.value = "";
   });
 
   nativeInput.addEventListener("input", (e) => {
-    if (!useNativeKb || (gameOver && !studyMode) || !e.target.value) return;
-    const ch = e.target.value.at(-1);
+    if (!useNativeKb || gameOver || !e.target.value) return;
+    const ch = normalizeLetter(e.target.value.at(-1));
     e.target.value = "";
     if (ch === "\n") { submitGuess(); pressVisualFor("⏎"); }
     else if (arabicLetters.includes(ch)) { handleKey(ch); pressVisualFor(ch); }
@@ -278,13 +331,20 @@ if (nativeInput) {
 
 // ── Hint ──────────────────────────────────────────────────────
 toggleHintBtn.addEventListener("click", () => {
-  if (gameOver || !targetHint) return;
+  if (!targetHint) {
+    hintText.textContent = "No hint available for this word.";
+    hintText.style.display = "block";
+    return;
+  }
   hintText.textContent = `Hint: "${targetHint}"`;
   hintText.style.display = "block";
 });
 
 // ── Start / reset ─────────────────────────────────────────────
 function startGame() {
+  if (!quranWords.length) return;
+  clearTimeout(nextWordTimer);
+  nextWordTimer  = null;
   gameOver       = false;
   curAttempt     = 0;
   curGuess       = [];
@@ -295,11 +355,16 @@ function startGame() {
   guessGrid.innerHTML             = "";
   keyboard.innerHTML              = "";
   nativeInput.value               = "";
+  guessAnnouncer.textContent      = "";
 
-  const chosen  = chooseRandomWord();
+  // Avoid repeating the word just played when there's a choice
+  let chosen = chooseRandomWord();
+  if (quranWords.length > 1) {
+    while (chosen.word === targetWord) chosen = chooseRandomWord();
+  }
   targetWord    = chosen.word;
   targetHint    = chosen.meaning;
-  wordLen       = targetWord.length;
+  wordLen       = [...targetWord].length;
 
   drawRow(0);
   createKeyboard();
@@ -318,11 +383,28 @@ resetBtn.addEventListener("click", startGame);
 async function loadQuranWords() {
   try {
     const res  = await fetch("quran_words.json");
-    quranWords = await res.json();
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error("word list is not an array");
+
+    // Keep only words the on-screen keyboard can actually spell
+    quranWords = data
+      .filter(w => w && typeof w.word === "string")
+      .map(w => ({
+        word: normalizeWord(w.word),
+        meaning: typeof w.meaning === "string" ? w.meaning.trim() : "",
+      }))
+      .filter(w => {
+        const letters = [...w.word];
+        return letters.length >= 2 && letters.length <= 7 &&
+               letters.every(ch => arabicLetters.includes(ch));
+      });
+    if (!quranWords.length) throw new Error("word list is empty");
+
     startGame();
   } catch (err) {
     console.error("Failed to load quran_words.json:", err);
-    resultMessage.textContent = "⚠ Could not load word list.";
+    resultMessage.textContent = "⚠ Could not load the word list — refresh to try again.";
   }
 }
 

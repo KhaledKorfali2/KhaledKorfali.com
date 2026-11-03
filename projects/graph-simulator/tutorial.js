@@ -1,5 +1,5 @@
 /* tutorial.js — shared spotlight tutorial engine
-   Used by both Sortvis and Graphvis.
+   Used by Sortvis, Graphvis and GateVis (identical copy in each project).
 
    Usage:
      Tutorial.init(steps, storageKey)   — call once after DOM ready
@@ -34,13 +34,16 @@
     /* Arrow */
     arrow = el('div', '', { id: 'tut-arrow' });
     /* Card */
-    card = el('div', 'tut-card tut-hidden', { id: 'tut-card' });
-    stepBadge = el('div', '', { id: 'tut-step-badge' });
-    titleEl   = el('div', '', { id: 'tut-title' });
+    card = el('div', 'tut-card tut-hidden', {
+      id: 'tut-card', role: 'dialog', 'aria-modal': 'true',
+      'aria-labelledby': 'tut-title', 'aria-describedby': 'tut-body', tabindex: '-1'
+    });
+    stepBadge = el('div', '', { id: 'tut-step-badge', 'aria-live': 'polite' });
+    titleEl   = el('h2', '', { id: 'tut-title' });
     bodyEl    = el('div', '', { id: 'tut-body' });
-    dotsEl    = el('div', '', { id: 'tut-dots' });
+    dotsEl    = el('div', '', { id: 'tut-dots', 'aria-hidden': 'true' });
     var ctrlRow = el('div', '', { id: 'tut-controls' });
-    skipBtn = el('button', '', { id: 'tut-skip' });
+    skipBtn = el('button', '', { id: 'tut-skip', type: 'button' });
     skipBtn.textContent = 'Skip tutorial';
     navEl = el('div', '', { id: 'tut-nav' });
     ctrlRow.appendChild(skipBtn);
@@ -57,7 +60,7 @@
     document.body.appendChild(card);
 
     /* Re-open button — injected into header */
-    reopenBtn = el('button', '', { id: 'tut-reopen-btn', title: 'Show tutorial' });
+    reopenBtn = el('button', '', { id: 'tut-reopen-btn', title: 'Show tutorial', type: 'button' });
     reopenBtn.textContent = '?';
     reopenBtn.setAttribute('aria-label', 'Reopen tutorial');
     var hdrLeft = document.getElementById('hdr-left');
@@ -68,8 +71,8 @@
     skipBtn.addEventListener('click', finish);
     reopenBtn.addEventListener('click', function () { start(); });
 
-    /* Keyboard */
-    document.addEventListener('keydown', onKey);
+    /* Keyboard — capture phase so app shortcuts don't fire while the tour is open */
+    window.addEventListener('keydown', onKey, true);
   }
 
   function el(tag, cls, attrs) {
@@ -84,6 +87,12 @@
   var current    = 0;
   var active     = false;
   var storageKey = 'tut_done';
+  var lastFocus  = null;
+  var posTimer   = null;
+
+  /* localStorage can throw (privacy mode, sandboxed iframes) */
+  function storeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function storeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
 
   /* ── Public API ── */
   function init(stepsArr, key) {
@@ -91,13 +100,15 @@
     storageKey = key || 'tut_done';
     buildDOM();
     // Auto-start if user hasn't seen it
-    if (!localStorage.getItem(storageKey)) {
+    if (!storeGet(storageKey)) {
       // Small delay so the app fully renders before we overlay it
       setTimeout(start, 600);
     }
   }
 
   function start() {
+    if (active) return;
+    lastFocus = document.activeElement;
     active  = true;
     current = 0;
     backdrop.classList.remove('tut-hidden');
@@ -106,81 +117,23 @@
   }
 
   function finish() {
+    if (!active) return;
     active = false;
+    clearTimeout(posTimer);
     backdrop.classList.add('tut-hidden');
     card.classList.add('tut-hidden');
     ring.classList.remove('visible');
     arrow.classList.remove('visible');
     clearSpotlight();
-    localStorage.setItem(storageKey, '1');
+    storeSet(storageKey, '1');
     // Run onLeave for current step
     var s = steps[current];
     if (s && s.onLeave) s.onLeave();
+    if (lastFocus && lastFocus.focus && document.contains(lastFocus)) lastFocus.focus();
+    else if (reopenBtn) reopenBtn.focus();
   }
 
   /* ── Step rendering ── */
-  function showStep(idx) {
-    var s = steps[idx];
-    if (!s) { finish(); return; }
-
-    // onLeave previous
-    if (idx > 0 && steps[idx - 1] && steps[idx - 1].onLeave) steps[idx - 1].onLeave();
-    // onEnter
-    if (s.onEnter) s.onEnter();
-
-    stepBadge.textContent = 'Step ' + (idx + 1) + ' of ' + steps.length;
-    titleEl.textContent   = s.title;
-    bodyEl.innerHTML      = s.body;
-
-    // Dots
-    dotsEl.innerHTML = '';
-    for (var i = 0; i < steps.length; i++) {
-      var d = el('div', 'tut-dot' + (i < idx ? ' done' : i === idx ? ' active' : ''));
-      dotsEl.appendChild(d);
-    }
-
-    // Nav buttons
-    navEl.innerHTML = '';
-    if (idx > 0) {
-      var prev = el('button', 'tut-nav-btn tut-prev');
-      prev.textContent = '← Back';
-      prev.addEventListener('click', function () { showStep(current - 1); current--; });
-      // Fix: capture correct idx
-      (function (i) {
-        prev.addEventListener('click', function () { current = i - 1; showStep(current); });
-      })(idx);
-      prev.addEventListener('click', function () {}); // placeholder removed below
-      navEl.appendChild(prev);
-    }
-    var next = el('button', idx === steps.length - 1 ? 'tut-nav-btn tut-finish' : 'tut-nav-btn tut-next');
-    next.textContent = idx === steps.length - 1 ? '✓ Done' : 'Next →';
-    next.addEventListener('click', function () {
-      if (current < steps.length - 1) { current++; showStep(current); }
-      else finish();
-    });
-    navEl.appendChild(next);
-
-    // Welcome vs spotlight
-    if (!s.target) {
-      card.classList.add('tut-welcome');
-      clearSpotlight();
-      ring.classList.remove('visible');
-      arrow.classList.remove('visible');
-      positionCardCentered();
-    } else {
-      card.classList.remove('tut-welcome');
-      var targetEl = document.querySelector(s.target);
-      if (targetEl) {
-        spotlightElement(targetEl, s.padding || 8);
-        positionCard(targetEl, s.placement || 'auto');
-      } else {
-        clearSpotlight();
-        positionCardCentered();
-      }
-    }
-  }
-
-  /* Re-wire prev button properly */
   function showStep(idx) {
     var s = steps[idx];
     if (!s) { finish(); return; }
@@ -203,6 +156,7 @@
     navEl.innerHTML = '';
     if (idx > 0) {
       var prev = document.createElement('button');
+      prev.type        = 'button';
       prev.className   = 'tut-nav-btn tut-prev';
       prev.textContent = '← Back';
       prev.addEventListener('click', function () { showStep(idx - 1); });
@@ -210,6 +164,7 @@
     }
     var isLast = idx === steps.length - 1;
     var next = document.createElement('button');
+    next.type        = 'button';
     next.className   = 'tut-nav-btn ' + (isLast ? 'tut-finish' : 'tut-next');
     next.textContent = isLast ? '✓ Done' : 'Next →';
     next.addEventListener('click', function () {
@@ -217,6 +172,12 @@
       else finish();
     });
     navEl.appendChild(next);
+    try { next.focus({ preventScroll: true }); } catch (e) { next.focus(); }
+
+    clearTimeout(posTimer);
+    var targetEl = s.target ? document.querySelector(s.target) : null;
+    // Hidden targets (e.g. palette on mobile) have no box — fall back to a centred card
+    if (targetEl && !isVisible(targetEl)) targetEl = null;
 
     if (!s.target) {
       card.classList.add('tut-welcome');
@@ -226,19 +187,29 @@
       positionCardCentered();
     } else {
       card.classList.remove('tut-welcome');
-      var targetEl = document.querySelector(s.target);
       if (targetEl) {
         // Scroll element into view if needed (especially algo-nav buttons)
-        targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-        setTimeout(function () {
+        targetEl.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
+        posTimer = setTimeout(function () {
+          if (!active || current !== idx) return;
           spotlightElement(targetEl, s.padding !== undefined ? s.padding : 8);
           positionCard(targetEl, s.placement || 'auto');
         }, 80);
       } else {
         clearSpotlight();
+        ring.classList.remove('visible');
         positionCardCentered();
       }
     }
+  }
+
+  function isVisible(node) {
+    var r = node.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+
+  function prefersReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
 
   /* ── Spotlight ── */
@@ -268,12 +239,13 @@
     ring.style.top    = y1 + 'px';
     ring.style.width  = (x2 - x1) + 'px';
     ring.style.height = (y2 - y1) + 'px';
+    ring.style.opacity = '';
     ring.classList.add('visible');
   }
 
   function clearSpotlight() {
     backdrop.style.clipPath = 'none';
-    ring.style.opacity = '0';
+    ring.classList.remove('visible');
   }
 
   /* ── Card positioning ── */
@@ -356,6 +328,12 @@
 
   function onKey(e) {
     if (!active) return;
+    // Let Tab move focus between card buttons; swallow everything else so the
+    // underlying app's shortcuts don't run behind the overlay.
+    if (e.key === 'Tab') { trapFocus(e); return; }
+    e.stopPropagation();
+    // Enter/Space on a focused button activates that button (e.g. Back, Skip)
+    if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.tagName === 'BUTTON' && card.contains(e.target)) return;
     if (e.key === 'ArrowRight' || e.key === 'Enter') {
       e.preventDefault();
       if (current < steps.length - 1) showStep(current + 1);
@@ -364,8 +342,18 @@
       e.preventDefault();
       if (current > 0) showStep(current - 1);
     } else if (e.key === 'Escape') {
+      e.preventDefault();
       finish();
     }
+  }
+
+  function trapFocus(e) {
+    var btns = card.querySelectorAll('button');
+    if (!btns.length) return;
+    var first = btns[0], last = btns[btns.length - 1];
+    if (!card.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }
 
   /* ── Reposition on resize ── */
@@ -375,9 +363,12 @@
     if (!s) return;
     if (!s.target) { positionCardCentered(); return; }
     var targetEl = document.querySelector(s.target);
-    if (targetEl) {
+    if (targetEl && isVisible(targetEl)) {
       spotlightElement(targetEl, s.padding !== undefined ? s.padding : 8);
       positionCard(targetEl, s.placement || 'auto');
+    } else {
+      clearSpotlight();
+      positionCardCentered();
     }
   }, { passive: true });
 

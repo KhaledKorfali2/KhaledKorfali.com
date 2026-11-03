@@ -34,7 +34,7 @@
     {
       target: '#palette',
       title: 'Component Palette',
-      body: 'Drag any component from here onto the canvas to place it.<br><br>' +
+      body: 'Drag any component from here onto the canvas to place it — or click it (or focus it and press <code>Enter</code>) to drop it in the middle of the view.<br><br>' +
             '• <strong>Inputs</strong> — manual toggle switch or auto-oscillating clock<br>' +
             '• <strong>Gates</strong> — AND, OR, NOT, NAND, NOR, XOR, XNOR, Buffer<br>' +
             '• <strong>Outputs</strong> — pin probe or glowing LED<br>' +
@@ -53,7 +53,8 @@
             '• <strong>Drag</strong> a gate to move it — wires reroute automatically<br>' +
             '• <strong>Click an Input</strong> to toggle it between 0 and 1 — ' +
             'watch the signal ripple through the whole circuit instantly<br>' +
-            '• <strong>Right-click / long-press</strong> empty space to pan',
+            '• <strong>Drag empty space</strong> (or middle-drag) to pan<br>' +
+            '• <strong>Arrow keys</strong> nudge the selected gate; <code>Space</code> toggles a selected Input',
       placement: 'left',
       padding: 8
     },
@@ -94,8 +95,8 @@
       body: 'Every action — placing a gate, drawing a wire, toggling an input, ' +
             'deleting anything — is fully undoable.<br><br>' +
             '• <strong>↩ Undo</strong> — <code>Ctrl+Z</code><br>' +
-            '• <strong>↪ Redo</strong> — <code>Ctrl+Y</code><br><br>' +
-            'Up to 40 steps of history are kept.',
+            '• <strong>↪ Redo</strong> — <code>Ctrl+Y</code> / <code>Ctrl+Shift+Z</code><br><br>' +
+            'Up to 40 steps of history are kept, and your circuit is saved in this browser automatically.',
       placement: 'left',
       padding: 8
     },

@@ -29,7 +29,7 @@ window.ScrollPreserve = (function () {
   function focus(selector) {
     if (!selector) return;
     const el = document.querySelector(selector);
-    if (el) el.focus();
+    if (el) { try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
   }
 
   return { snapshot, restore, scrollToBottom, focus };

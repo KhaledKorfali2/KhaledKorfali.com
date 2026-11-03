@@ -20,7 +20,8 @@ def translate_word(word):
                 "source": "ar",
                 "target": "en",
                 "format": "text"
-            }
+            },
+            timeout=15,  # don't hang forever on a stalled request
         )
         if response.status_code == 200:
             return response.json().get("translatedText", "")

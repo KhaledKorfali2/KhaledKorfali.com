@@ -81,7 +81,7 @@
   font-weight: 700;
   color: #38bdf8;
   letter-spacing: 0.04em;
-  margin-bottom: 8px;
+  margin: 0 0 8px;
   line-height: 1.3;
 }
 
@@ -244,4 +244,21 @@
   #tut-title { font-size: 0.82rem; }
   #tut-body  { font-size: 0.76rem; }
   .tut-nav-btn { padding: 7px 12px; font-size: 0.68rem; }
+}
+/* ── Keyboard focus ── */
+#tut-card:focus { outline: none; }
+#tut-skip:focus-visible,
+.tut-nav-btn:focus-visible,
+#tut-reopen-btn:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+#tut-skip { color: #5a7090; } /* was #3a5070 — too low contrast on #0d1525 */
+#tut-skip:hover { color: #8ab0d0; }
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  #tut-backdrop, #tut-ring, #tut-card, #tut-arrow, .tut-dot, .tut-nav-btn {
+    transition: none !important;
+  }
 }

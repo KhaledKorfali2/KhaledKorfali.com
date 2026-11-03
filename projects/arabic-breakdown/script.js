@@ -13,7 +13,7 @@ const LETTER_NAMES = {
   "\u0629": "Ta Marbuta", "\u0621": "Hamza",
   "\u0623": "Alif Hamza", "\u0625": "Alif Hamza Below",
   "\u0626": "Ya Hamza",   "\u0624": "Waw Hamza",
-  "\u0622": "Alif Madda", "\u0644\u0627": "Lam-Alif",
+  "\u0622": "Alif Madda", "\u0671": "Alif Wasla",
 };
 
 // Unicode ranges for Arabic diacritics (harakat) and tatweel
@@ -37,6 +37,7 @@ function graphemeClusters(word) {
 
 // ── TTS ───────────────────────────────────────────────────────
 const ttsStatus = document.getElementById("ttsStatus");
+const hasTTS    = typeof speechSynthesis !== "undefined";
 
 function getArabicVoice() {
   const voices = speechSynthesis.getVoices();
@@ -49,6 +50,10 @@ function getArabicVoice() {
 
 function speak(text) {
   if (!text || !text.trim()) return;
+  if (!hasTTS) {
+    ttsStatus.textContent = "Audio isn't supported in this browser.";
+    return;
+  }
   speechSynthesis.cancel();
   const utter  = new SpeechSynthesisUtterance(text);
   const voice  = getArabicVoice();
@@ -56,7 +61,9 @@ function speak(text) {
   if (voice) utter.voice = voice;
   utter.rate   = 0.85;
 
-  utter.onstart = () => { ttsStatus.textContent = "Playing…"; };
+  utter.onstart = () => {
+    ttsStatus.textContent = voice ? "Playing…" : "Playing… (no Arabic voice installed — pronunciation may be off)";
+  };
   utter.onend   = () => { ttsStatus.textContent = ""; };
   utter.onerror = () => { ttsStatus.textContent = ""; };
 
@@ -64,7 +71,7 @@ function speak(text) {
 }
 
 // Voices load async on Chrome — prime them early
-if (typeof speechSynthesis !== "undefined") {
+if (hasTTS) {
   speechSynthesis.getVoices();
   speechSynthesis.addEventListener("voiceschanged", () => speechSynthesis.getVoices());
 }
@@ -98,9 +105,11 @@ function buildWordCard(word, index) {
   wordSpan.textContent = word;
 
   const playBtn = document.createElement("button");
+  playBtn.type      = "button";
   playBtn.className = "word-play-btn";
   playBtn.title     = "Speak word";
-  playBtn.innerHTML = `<svg width="10" height="11" viewBox="0 0 10 11" fill="none"><path d="M1.5 1.5l7 4-7 4V1.5z" fill="currentColor"/></svg>`;
+  playBtn.setAttribute("aria-label", `Speak ${word}`);
+  playBtn.innerHTML = `<svg width="10" height="11" viewBox="0 0 10 11" fill="none" aria-hidden="true"><path d="M1.5 1.5l7 4-7 4V1.5z" fill="currentColor"/></svg>`;
   playBtn.addEventListener("click", () => speak(word));
 
   header.appendChild(playBtn);   // play btn on left (RTL so visually right)
@@ -142,9 +151,17 @@ const analyzeBtn = document.getElementById("analyzeBtn");
 const outputDiv  = document.getElementById("output");
 const audioControls = document.getElementById("audioControls");
 
-analyzeBtn.addEventListener("click", () => {
+// Text that was last analyzed — "Play all" speaks this, not whatever has
+// since been typed into the box
+let analyzedText = "";
+
+function analyze() {
   const raw = inputText.value.trim();
-  if (!raw) return;
+  if (!raw) {
+    setStatus("Enter some Arabic text first.", "error");
+    inputText.focus();
+    return;
+  }
 
   outputDiv.innerHTML = "";
   setStatus("");
@@ -164,12 +181,26 @@ analyzeBtn.addEventListener("click", () => {
     if (card) fragment.appendChild(card);
   });
   outputDiv.appendChild(fragment);
+  analyzedText = raw;
   audioControls.style.display = "flex";
+}
+
+analyzeBtn.addEventListener("click", analyze);
+
+// Ctrl/Cmd + Enter analyzes without leaving the textarea
+inputText.addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    analyze();
+  }
 });
 
 // ── Clear ─────────────────────────────────────────────────────
 document.getElementById("clearBtn").addEventListener("click", () => {
+  if (hasTTS) speechSynthesis.cancel();
   inputText.value     = "";
+  analyzedText        = "";
+  ttsStatus.textContent = "";
   outputDiv.innerHTML = "";
   audioControls.style.display = "none";
   setStatus("");
@@ -178,10 +209,10 @@ document.getElementById("clearBtn").addEventListener("click", () => {
 
 // ── Play all / Stop ───────────────────────────────────────────
 document.getElementById("playAllBtn").addEventListener("click", () => {
-  speak(inputText.value.trim());
+  speak(analyzedText);
 });
 document.getElementById("stopBtn").addEventListener("click", () => {
-  speechSynthesis.cancel();
+  if (hasTTS) speechSynthesis.cancel();
   ttsStatus.textContent = "";
 });
 
@@ -197,30 +228,55 @@ const ocrStatus     = document.getElementById("ocrStatus");
 let mediaStream = null;
 
 async function openCamera() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setStatus("Camera isn't available in this browser (it needs HTTPS).", "error");
+    return;
+  }
+  if (mediaStream || scanBtn.disabled) return; // already open / opening
+  scanBtn.disabled = true;
   try {
     mediaStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" } },
     });
     const track    = mediaStream.getVideoTracks()[0];
     const settings = track.getSettings();
-    cameraEl.srcObject = stream;
+    // (previously assigned an undefined `stream` here, which threw a
+    // ReferenceError and made every camera open fail)
     cameraEl.style.transform = settings.facingMode === "user" ? "scaleX(-1)" : "scaleX(1)";
     cameraEl.srcObject = mediaStream;
     cameraModal.classList.add("open");
     ocrStatus.style.display = "none";
+    setStatus("");
+    captureBtn.focus();
   } catch (err) {
+    mediaStream = null;
     setStatus("Camera access denied or unavailable. Check browser permissions.", "error");
+  } finally {
+    scanBtn.disabled = false;
   }
 }
 
 function closeCamera() {
+  const wasOpen = cameraModal.classList.contains("open");
   mediaStream?.getTracks().forEach(t => t.stop());
   mediaStream    = null;
   cameraEl.srcObject = null;
   cameraModal.classList.remove("open");
+  if (wasOpen) scanBtn.focus();
 }
 
 async function captureAndOCR() {
+  if (typeof Tesseract === "undefined") {
+    ocrStatus.style.display = "block";
+    ocrStatus.textContent = "Text recognition is still loading (or was blocked). Try again in a moment.";
+    return;
+  }
+  if (!cameraEl.videoWidth || !cameraEl.videoHeight) {
+    ocrStatus.style.display = "block";
+    ocrStatus.textContent = "Camera is still starting — try again in a second.";
+    return;
+  }
+
   const ctx = snapshotCanvas.getContext("2d");
   snapshotCanvas.width  = cameraEl.videoWidth;
   snapshotCanvas.height = cameraEl.videoHeight;
@@ -248,13 +304,14 @@ async function captureAndOCR() {
 
     if (arabicOnly) {
       inputText.value = arabicOnly;
-      setStatus("Text recognised — click Analyze to break it down.", "success");
+      setStatus("Text recognised — check it, then click Analyze to break it down.", "success");
+      inputText.focus();
     } else {
       setStatus("No Arabic text detected in the image. Try again with better lighting.", "error");
     }
   } catch (err) {
     closeCamera();
-    setStatus("OCR failed: " + err.message, "error");
+    setStatus("OCR failed: " + (err?.message || err), "error");
   } finally {
     captureBtn.disabled = false;
   }
@@ -267,4 +324,19 @@ closeCameraBtn.addEventListener("click", closeCamera);
 // Close modal on backdrop click
 cameraModal.addEventListener("click", e => {
   if (e.target === cameraModal) closeCamera();
+});
+
+// Escape closes the modal; Tab stays inside it while open
+document.addEventListener("keydown", e => {
+  if (!cameraModal.classList.contains("open")) return;
+  if (e.key === "Escape") {
+    closeCamera();
+  } else if (e.key === "Tab") {
+    const focusable = [closeCameraBtn, captureBtn].filter(el => !el.disabled);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last  = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
 });

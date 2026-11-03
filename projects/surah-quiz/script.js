@@ -30,7 +30,21 @@ const state = {
   // ordering
   orderingSurahs: [],
   userOrder: [],
+
+  // pending auto-advance timer — cleared on restart/exit so a stale
+  // callback can't advance (or evaluate) a freshly started quiz
+  timer: null,
 };
+
+function schedule(fn, ms) {
+  clearTimeout(state.timer);
+  state.timer = setTimeout(() => { state.timer = null; fn(); }, ms);
+}
+
+function cancelScheduled() {
+  clearTimeout(state.timer);
+  state.timer = null;
+}
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
@@ -38,13 +52,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadSurahs();
   bindSettingsUI();
   bindActionButtons();
+  bindKeyboard();
 });
 
 async function loadSurahs() {
   try {
     const res = await fetch("./surahs.json");
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    surahs = await res.json();
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length < 4) throw new Error("unexpected surahs.json format");
+    surahs = data;
   } catch (err) {
     console.error("Failed to load surahs.json:", err);
     const btn = document.getElementById("startBtn");
@@ -112,10 +129,13 @@ function updateSettingsVisibility() {
   document.getElementById("recallOptions").classList.toggle("hidden", isOrdering);
   document.getElementById("orderingOptions").classList.toggle("hidden", !isOrdering);
 
-  const endlessWrap = document.getElementById("endlessModeToggleWrap");
+  const endlessWrap  = document.getElementById("endlessModeToggleWrap");
+  const endlessInput = document.getElementById("endlessMode");
   endlessWrap.classList.toggle("faded", isOrdering);
+  // .faded only blocks the mouse — disable so it's skipped by Tab too
+  endlessInput.disabled = isOrdering;
   if (isOrdering) {
-    document.getElementById("endlessMode").checked = false;
+    endlessInput.checked = false;
     state.endless = false;
   }
 }
@@ -125,13 +145,40 @@ function bindActionButtons() {
   document.getElementById("restartBtn").addEventListener("click", startQuiz);
   document.getElementById("tryAgainBtn").addEventListener("click", startQuiz);
   document.getElementById("changeSettingsBtn").addEventListener("click", showSettings);
-  document.getElementById("exitBtn").addEventListener("click", showSettings);
+  document.getElementById("exitBtn").addEventListener("click", () => {
+    // Endless mode has no natural end — show the summary instead of
+    // silently discarding the session
+    if (state.endless && state.totalAnswered > 0) endQuiz();
+    else showSettings();
+  });
+}
+
+// Number keys choose an answer; Enter confirms the selected one
+function bindKeyboard() {
+  document.addEventListener("keydown", e => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (document.getElementById("quiz").classList.contains("hidden")) return;
+    if (e.target.closest("input, textarea, select")) return;
+
+    if (/^[1-9]$/.test(e.key)) {
+      const btn = document.querySelectorAll("#answers .answer-btn")[Number(e.key) - 1];
+      if (btn && !btn.disabled) { btn.click(); btn.focus({ preventScroll: true }); }
+      return;
+    }
+
+    if (e.key === "Enter" && state.recallPhase === "selecting" &&
+        e.target.id !== "confirmBtn") {
+      e.preventDefault(); // don't also "click" (deselect) the focused answer
+      document.getElementById("confirmBtn").click();
+    }
+  });
 }
 
 // ── Quiz lifecycle ────────────────────────────────────────────────────────────
 
 function startQuiz() {
   if (!surahs.length) return;
+  cancelScheduled();
 
   state.score         = 0;
   state.streak        = 0;
@@ -160,10 +207,13 @@ function startQuiz() {
   document.getElementById("progressContainer").classList.toggle("hidden", !showProgress);
 
   updateScoreUI();
+  announce("");
   nextQuestion();
+  focusQuestion();
 }
 
 function showSettings() {
+  cancelScheduled();
   hide("endScreen");
   hide("statsBar");
   hide("quiz");
@@ -173,9 +223,11 @@ function showSettings() {
   show("settingsCard");
   state.recallPhase = "idle";
   state.selectedBtn = null;
+  document.getElementById("startBtn").focus({ preventScroll: true });
 }
 
 function endQuiz() {
+  cancelScheduled();
   hide("quiz");
   hide("progressContainer");
   hide("confirmBar");
@@ -193,6 +245,7 @@ function endQuiz() {
   document.getElementById("finalScore").textContent    = `${state.totalCorrect} / ${state.totalAnswered}`;
   document.getElementById("finalAccuracy").textContent = `${accuracy}%`;
   document.getElementById("finalBest").textContent     = state.bestStreak;
+  document.getElementById("endTitle").focus({ preventScroll: true });
 }
 
 // ── Pool builders ─────────────────────────────────────────────────────────────
@@ -265,6 +318,25 @@ function nextQuestion() {
   renderRecallQuestion(q);
 }
 
+// Move keyboard/screen-reader focus to the new question, but only if focus
+// was already in the quiz (don't yank it from elsewhere on the page)
+function focusQuestion() {
+  const active = document.activeElement;
+  const quiz   = document.getElementById("quiz");
+  if (!active || active === document.body || quiz.contains(active) ||
+      active.closest?.("#confirmBar, #statsBar, #endScreen, #settingsCard")) {
+    document.getElementById("question").focus({ preventScroll: true });
+  }
+}
+
+function announce(msg) {
+  document.getElementById("liveRegion").textContent = msg;
+}
+
+function setKbdHint(text) {
+  document.getElementById("kbdHint").textContent = text;
+}
+
 // ── Recall ────────────────────────────────────────────────────────────────────
 
 function renderRecallQuestion(q) {
@@ -276,6 +348,7 @@ function renderRecallQuestion(q) {
 
   // Set progress before rendering so bar is correct on Q1
   updateRecallProgress();
+  setKbdHint("Keys 1–4 select · Enter confirms");
 
   if (direction === "revelation") {
     // Pick a sub-direction once per question and cache it on the question
@@ -312,6 +385,7 @@ function renderRevelationQuestion(q) {
     const correctType = surah.revelation; // "Meccan" | "Medinan"
     ["Meccan", "Medinan"].forEach((type, i) => {
       const btn = document.createElement("button");
+      btn.type = "button";
       btn.className = "answer-btn";
       btn.style.animationDelay = `${i * 0.05}s`;
       btn.textContent = type;
@@ -339,6 +413,7 @@ function renderRevelationQuestion(q) {
 
     options.forEach((s, i) => {
       const btn = document.createElement("button");
+      btn.type = "button";
       btn.className = "answer-btn";
       btn.style.animationDelay = `${i * 0.05}s`;
       btn.textContent = formatSurahName(s);
@@ -371,6 +446,7 @@ function renderRecallAnswers(correctAnswer, direction, correctSurah) {
 
   options.forEach((option, i) => {
     const btn       = document.createElement("button");
+    btn.type        = "button";
     btn.className   = "answer-btn";
     btn.style.animationDelay = `${i * 0.05}s`;
     btn.textContent = option;
@@ -386,6 +462,7 @@ function handleRecallSelect(clickedBtn, isCorrect) {
   // Clicking the already-selected button deselects it
   if (state.selectedBtn === clickedBtn) {
     clickedBtn.classList.remove("selected");
+    clickedBtn.setAttribute("aria-pressed", "false");
     state.selectedBtn = null;
     state.recallPhase = "idle";
     hide("confirmBar");
@@ -393,8 +470,12 @@ function handleRecallSelect(clickedBtn, isCorrect) {
   }
 
   // Swap selection
-  if (state.selectedBtn) state.selectedBtn.classList.remove("selected");
+  if (state.selectedBtn) {
+    state.selectedBtn.classList.remove("selected");
+    state.selectedBtn.setAttribute("aria-pressed", "false");
+  }
   clickedBtn.classList.add("selected");
+  clickedBtn.setAttribute("aria-pressed", "true");
   state.selectedBtn = clickedBtn;
   state.recallPhase = "selecting";
 
@@ -419,6 +500,7 @@ function commitRecallAnswer(isCorrect) {
     state.totalCorrect++;
     state.streak++;
     state.bestStreak = Math.max(state.bestStreak, state.streak);
+    announce("Correct!");
   } else {
     confirmedBtn.classList.remove("selected");
     confirmedBtn.classList.add("wrong");
@@ -442,6 +524,7 @@ function commitRecallAnswer(isCorrect) {
     document.querySelectorAll(".answer-btn").forEach(b => {
       if (b.textContent === correctText) b.classList.add("correct");
     });
+    announce(`Incorrect. The answer was ${correctText}.`);
   }
 
   updateScoreUI();
@@ -454,20 +537,40 @@ function commitRecallAnswer(isCorrect) {
     showDisputedNote(state.currentQuestion.surah);
   }
 
-  setTimeout(nextQuestion, 1300);
+  // Disputed notes need more reading time
+  schedule(() => { nextQuestion(); focusQuestion(); },
+    document.getElementById("disputedNote") ? 3500 : 1300);
 }
 
 function showDisputedNote(surah) {
   // Remove any existing note first
   document.getElementById("disputedNote")?.remove();
 
+  // Built with DOM nodes rather than innerHTML so data from the JSON file
+  // is never parsed as markup
   const note = document.createElement("div");
   note.id = "disputedNote";
   note.className = "disputed-note";
-  note.innerHTML = `
-    <span class="disputed-icon">⚠</span>
-    <span>Scholars disagree on whether <strong>${surah.name.english}</strong> is Meccan or Medinan. The majority view (Wikipedia, Tanzil) classifies it as <strong>${surah.revelation}</strong>, but a minority scholarly opinion differs.</span>
-  `;
+  note.setAttribute("role", "note");
+
+  const icon = document.createElement("span");
+  icon.className = "disputed-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "⚠";
+
+  const name = document.createElement("strong");
+  name.textContent = surah.name.english;
+  const type = document.createElement("strong");
+  type.textContent = surah.revelation;
+
+  const text = document.createElement("span");
+  text.append(
+    "Scholars disagree on whether ", name,
+    " is Meccan or Medinan. The majority view (Wikipedia, Tanzil) classifies it as ", type,
+    ", but a minority scholarly opinion differs."
+  );
+
+  note.append(icon, text);
 
   // Insert after the quiz card
   const quiz = document.getElementById("quiz");
@@ -503,12 +606,16 @@ function renderOrderingQuestion(q) {
 
   show("progressContainer");
   updateOrderingProgress();
+  setKbdHint(state.orderingSurahs.length <= 9
+    ? `Keys 1–${state.orderingSurahs.length} pick · tap the last pick again to undo`
+    : "Tap the last pick again to undo");
 
   const shuffled = [...state.orderingSurahs];
   shuffleArray(shuffled);
 
   shuffled.forEach((surah, i) => {
     const btn = document.createElement("button");
+    btn.type = "button";
     btn.className = "answer-btn";
     btn.style.animationDelay = `${i * 0.05}s`;
     btn.dataset.number = surah.number;
@@ -527,6 +634,7 @@ function handleOrderingClick(btn, surah) {
     if (alreadyIdx === state.userOrder.length - 1) {
       state.userOrder.pop();
       btn.classList.remove("selected");
+      btn.removeAttribute("aria-label");
       btn.textContent = btn.dataset.label;   // restore clean label
       updateOrderingProgress();
     }
@@ -549,13 +657,14 @@ function handleOrderingClick(btn, surah) {
   label.textContent = btn.dataset.label;
   btn.appendChild(badge);
   btn.appendChild(label);
+  btn.setAttribute("aria-label", `${btn.dataset.label}, picked ${pos}`);
 
   updateOrderingProgress();
 
   if (state.userOrder.length === state.orderingSurahs.length) {
     // Brief pause so user sees the final selection before evaluation
     document.querySelectorAll(".answer-btn").forEach(b => b.disabled = true);
-    setTimeout(evaluateOrderingAnswer, 500);
+    schedule(evaluateOrderingAnswer, 500);
   }
 }
 
@@ -587,7 +696,12 @@ function evaluateOrderingAnswer() {
       hint.textContent = `→ position ${correctIdx + 1}`;
       btn.appendChild(hint);
     }
+    btn.removeAttribute("aria-label");
   });
+
+  announce(perfectRound
+    ? "Perfect order!"
+    : `${correctCount} of ${state.orderingSurahs.length} in the right position. Correct order: ${correct.map(s => s.name.english).join(", ")}.`);
 
   state.totalAnswered += state.orderingSurahs.length;
   state.totalCorrect  += correctCount;
@@ -602,7 +716,7 @@ function evaluateOrderingAnswer() {
 
   updateScoreUI();
   state.questionIndex++;
-  setTimeout(nextQuestion, 2200);
+  schedule(() => { nextQuestion(); focusQuestion(); }, perfectRound ? 1600 : 3000);
 }
 
 // ── Progress ──────────────────────────────────────────────────────────────────
@@ -619,6 +733,7 @@ function updateRecallProgress() {
 function setProgress(current, total) {
   const pct = total > 0 ? (current / total) * 100 : 0;
   document.getElementById("progressBar").style.width   = `${pct}%`;
+  document.getElementById("progressTrack").setAttribute("aria-valuenow", Math.round(pct));
   document.getElementById("progressLabel").textContent = `${current} / ${total}`;
 }
 

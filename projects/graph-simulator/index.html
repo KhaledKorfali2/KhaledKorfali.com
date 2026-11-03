@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Graphvis: step through BFS, DFS, Dijkstra, A*, Bellman-Ford, Prim, Kruskal, topological sort and Floyd-Warshall on graphs you build or generate.">
+  <meta name="theme-color" content="#080c14">
   <title>Graphvis — Graph Algorithm Visualizer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
@@ -13,10 +15,11 @@
 
   <header id="hdr">
     <div id="hdr-left">
+      <a id="back-link" href="/projects.html" aria-label="Back to projects" title="Back to projects">&larr;</a>
       <span id="logo">GRAPHVIS</span>
       <span id="tagline">graph algorithm visualizer</span>
     </div>
-    <div id="hdr-stats">
+    <div id="hdr-stats" aria-live="polite">
       <div class="stat"><span class="stat-val" id="st-visited">0</span><span class="stat-lbl">visited</span></div>
       <div class="stat"><span class="stat-val" id="st-queued">0</span><span class="stat-lbl">queued</span></div>
       <div class="stat"><span class="stat-val" id="st-edges">0</span><span class="stat-lbl">relaxed</span></div>
@@ -24,55 +27,55 @@
     </div>
   </header>
 
-  <nav id="algo-nav">
-    <button class="algo-btn active" data-algo="bfs">BFS</button>
-    <button class="algo-btn" data-algo="dfs">DFS</button>
-    <button class="algo-btn" data-algo="dijkstra">Dijkstra's</button>
-    <button class="algo-btn" data-algo="astar">A*</button>
-    <button class="algo-btn" data-algo="bellman">Bellman-Ford</button>
-    <button class="algo-btn" data-algo="bidir">Bi-BFS</button>
-    <button class="algo-btn" data-algo="prim">Prim's MST</button>
-    <button class="algo-btn" data-algo="kruskal">Kruskal's MST</button>
-    <button class="algo-btn" data-algo="topo">Topo Sort</button>
-    <button class="algo-btn" data-algo="floyd">Floyd-Warshall</button>
+  <nav id="algo-nav" aria-label="Algorithm">
+    <button type="button" class="algo-btn active" aria-pressed="true" data-algo="bfs">BFS</button>
+    <button type="button" class="algo-btn" aria-pressed="false" data-algo="dfs">DFS</button>
+    <button type="button" class="algo-btn" aria-pressed="false" data-algo="dijkstra">Dijkstra's</button>
+    <button type="button" class="algo-btn" aria-pressed="false" data-algo="astar">A*</button>
+    <button type="button" class="algo-btn" aria-pressed="false" data-algo="bellman">Bellman-Ford</button>
+    <button type="button" class="algo-btn" aria-pressed="false" data-algo="bidir">Bi-BFS</button>
+    <button type="button" class="algo-btn" aria-pressed="false" data-algo="prim">Prim's MST</button>
+    <button type="button" class="algo-btn" aria-pressed="false" data-algo="kruskal">Kruskal's MST</button>
+    <button type="button" class="algo-btn" aria-pressed="false" data-algo="topo">Topo Sort</button>
+    <button type="button" class="algo-btn" aria-pressed="false" data-algo="floyd">Floyd-Warshall</button>
   </nav>
 
   <main id="main">
 
     <section id="vis-wrap">
-      <canvas id="vis"></canvas>
+      <canvas id="vis" role="img" aria-label="Graph canvas. Click a node to make it the start, right-click for the end; use the step controls or Space / arrow keys to run the algorithm."></canvas>
 
       <!-- Inline weight picker (replaces prompt()) -->
-      <div id="weight-picker">
-        <label>EDGE WEIGHT</label>
+      <div id="weight-picker" role="dialog" aria-labelledby="weight-picker-label">
+        <label id="weight-picker-label" for="weight-input">EDGE WEIGHT</label>
         <div id="weight-picker-row">
-          <input type="range" id="weight-input" min="1" max="20" value="5">
-          <span id="weight-val-display">5</span>
+          <input type="range" id="weight-input" min="-9" max="20" value="5" aria-describedby="weight-val-display">
+          <span id="weight-val-display" aria-live="polite">5</span>
         </div>
         <div id="weight-picker-btns">
-          <button class="wp-btn" id="wp-cancel">Cancel</button>
-          <button class="wp-btn confirm" id="wp-confirm">Add Edge</button>
+          <button type="button" class="wp-btn" id="wp-cancel">Cancel</button>
+          <button type="button" class="wp-btn confirm" id="wp-confirm">Add Edge</button>
         </div>
       </div>
 
       <!-- Graph toolbar -->
-      <div id="graph-toolbar">
-        <button class="tool-btn active" id="tool-select" title="Select / move (tap=set start, long-press=set end)">&#9654;</button>
-        <button class="tool-btn" id="tool-node"   title="Add node">&#11044;</button>
-        <button class="tool-btn" id="tool-edge"   title="Add edge">&#9135;</button>
-        <button class="tool-btn" id="tool-delete" title="Delete">&#10005;</button>
+      <div id="graph-toolbar" role="toolbar" aria-label="Graph editor">
+        <button type="button" class="tool-btn active" id="tool-select" aria-pressed="true" aria-label="Select and move (S). Click sets start, right-click or long-press sets end" title="Select / move (S) — click = set start, right-click / long-press = set end">&#9654;</button>
+        <button type="button" class="tool-btn" id="tool-node" aria-pressed="false" aria-label="Add node (N)" title="Add node (N)">&#11044;</button>
+        <button type="button" class="tool-btn" id="tool-edge" aria-pressed="false" aria-label="Add edge (E)" title="Add edge (E)">&#9135;</button>
+        <button type="button" class="tool-btn" id="tool-delete" aria-pressed="false" aria-label="Delete node or edge (D)" title="Delete (D)">&#10005;</button>
         <div class="tool-sep"></div>
-        <button class="tool-btn" id="tool-gen-random" title="Random graph">&#9760;</button>
-        <button class="tool-btn" id="tool-gen-grid"   title="Grid graph">&#9638;</button>
-        <button class="tool-btn" id="tool-clear"      title="Clear">&#9723;</button>
+        <button type="button" class="tool-btn" id="tool-gen-random" aria-label="Generate random graph" title="Random graph">&#9760;</button>
+        <button type="button" class="tool-btn" id="tool-gen-grid" aria-label="Generate grid graph" title="Grid graph">&#9638;</button>
+        <button type="button" class="tool-btn" id="tool-clear" aria-label="Clear graph" title="Clear">&#9723;</button>
         <div class="tool-sep"></div>
         <label class="tool-check" title="Directed graph"><input type="checkbox" id="chk-directed"> DIR</label>
         <label class="tool-check" title="Show weights"><input type="checkbox" id="chk-weighted" checked> WGT</label>
         <div class="tool-sep"></div>
-        <button class="tool-btn" id="btn-info-tool" title="Algorithm info">&#9432;</button>
+        <button type="button" class="tool-btn" id="btn-info-tool" aria-label="Algorithm info" title="Algorithm info">&#9432;</button>
       </div>
 
-      <div id="role-hint">
+      <div id="role-hint" aria-hidden="true">
         <span class="role-dot start"></span>S
         <span class="role-dot end"></span>E
         <span class="role-dot" style="background:var(--visited)"></span>Visited
@@ -82,7 +85,7 @@
     </section>
 
     <aside id="info-panel">
-      <div id="panel-handle"><div id="panel-handle-bar"></div></div>
+      <div id="panel-handle" aria-hidden="true"><div id="panel-handle-bar"></div></div>
       <div id="algo-name-wrap">
         <h2 id="algo-title">BFS</h2>
         <div id="complexity-row">
@@ -94,7 +97,7 @@
       <p id="algo-desc"></p>
       <div id="step-log-wrap">
         <div id="step-log-label">CURRENT STEP</div>
-        <div id="step-log"></div>
+        <div id="step-log" role="log" aria-live="polite"></div>
       </div>
     </aside>
 
@@ -103,20 +106,20 @@
   <footer id="controls">
     <div id="ctrl-left">
       <div class="ctrl-group">
-        <label class="ctrl-label">SPEED</label>
+        <label class="ctrl-label" for="sl-speed">SPEED</label>
         <input type="range" id="sl-speed" min="1" max="10" value="5">
         <span class="ctrl-val" id="v-speed">5</span>
       </div>
     </div>
     <div id="ctrl-center">
-      <button class="ctrl-btn" id="btn-reset"     title="Reset traversal">&#8635;</button>
-      <button class="ctrl-btn" id="btn-step-back" title="Step back">&#9664;&#9664;</button>
-      <button class="ctrl-btn primary" id="btn-play" title="Play/Pause">&#9654;</button>
-      <button class="ctrl-btn" id="btn-step-fwd"  title="Step forward">&#9654;&#9654;</button>
-      <button class="ctrl-btn" id="btn-end"        title="Jump to end">&#9654;|</button>
+      <button type="button" class="ctrl-btn" id="btn-reset" aria-label="Reset (R)" title="Reset (R)">&#8635;</button>
+      <button type="button" class="ctrl-btn" id="btn-step-back" aria-label="Step back (Left arrow)" title="Step back (←)">&#9664;&#9664;</button>
+      <button type="button" class="ctrl-btn primary" id="btn-play" aria-label="Play" title="Play / pause (Space)">&#9654;</button>
+      <button type="button" class="ctrl-btn" id="btn-step-fwd" aria-label="Step forward (Right arrow)" title="Step forward (→)">&#9654;&#9654;</button>
+      <button type="button" class="ctrl-btn" id="btn-end" aria-label="Jump to end (End)" title="Jump to end (End)">&#9654;|</button>
     </div>
     <div id="ctrl-right">
-      <span id="status-label"></span>
+      <span id="status-label" aria-live="polite"></span>
       <div id="progress-wrap">
         <div id="progress-bar"><div id="progress-fill"></div></div>
         <span id="progress-text">0 / 0</span>
@@ -124,7 +127,7 @@
     </div>
     <div id="ctrl-mobile-extra">
       <div class="ctrl-group">
-        <label class="ctrl-label">SPEED</label>
+        <label class="ctrl-label" for="sl-speed-m">SPEED</label>
         <input type="range" id="sl-speed-m" min="1" max="10" value="5">
         <span class="ctrl-val" id="v-speed-m">5</span>
       </div>

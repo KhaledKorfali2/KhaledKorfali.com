@@ -68,7 +68,7 @@ window.GitCourse = (function () {
 
     { id: "m3", title: "Merging", checkpoint: { questions: [
         { text: "How many parents does a typical merge commit have?", options: ["1", "2", "0", "3"], correct: 1 },
-        { text: "What triggers a fast-forward instead of a merge commit?", options: ["The target branch has commits you don't have yet", "Your current branch already contains everything the target has, plus nothing new of its own", "You pass --no-ff", "You're on main"], correct: 1 },
+        { text: "What triggers a fast-forward instead of a merge commit?", options: ["The target branch has commits you don't have yet", "Your current branch has no commits of its own that the target lacks — it's simply behind the target", "You pass --no-ff", "You're on main"], correct: 1 },
         { text: "True or false: merging rewrites the commits that already existed.", options: ["True — existing commits get rewritten", "False — merging only adds a new commit; existing commits are untouched"], correct: 1 }
       ]}, lessons: [
       { id: "l1", title: "Bringing branches together", view: "console", subsections: [

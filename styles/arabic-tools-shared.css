@@ -1,10 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&family=Amiri:ital@0;1&display=swap');
-
 /* ── Design tokens ── */
 :root {
   --ink: #1a1a1a;
   --ink-muted: #6b6b6b;
-  --ink-faint: #b0b0b0;
+  --ink-faint: #767676; /* was #b0b0b0 — failed WCAG contrast on white */
   --surface: #faf9f6;
   --surface-card: #ffffff;
   --surface-hover: #f2f0eb;
@@ -25,6 +23,25 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
+
+/* ── Keyboard focus ── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Visually hidden but still read by screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 body {
   font-family: 'DM Sans', sans-serif;
@@ -73,7 +90,8 @@ nav a {
   font-size: 0.875rem;
   color: var(--ink-muted);
   text-decoration: none;
-  padding: 6px 14px;
+  display: inline-block;
+  padding: 10px 14px;
   border-radius: 100px;
   transition: all 0.2s var(--ease);
 }
@@ -126,8 +144,10 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
 }
 
 .hero-rule {
-  max-width: 860px;
-  margin: 0 auto 0 48px;
+  /* Align with the hero's content column (860px minus 48px gutters) */
+  width: calc(100% - 96px);
+  max-width: 764px;
+  margin: 0 auto;
   height: 1px;
   background: linear-gradient(90deg, var(--border-strong) 0%, transparent 100%);
   position: relative;
@@ -174,7 +194,9 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
 
 /* Custom checkbox */
 .check-label {
+  position: relative;
   display: flex;
+  min-height: 28px;
   align-items: center;
   gap: 10px;
   cursor: pointer;
@@ -183,7 +205,20 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   transition: color 0.2s;
 }
 .check-label:hover { color: var(--ink); }
-.check-label input[type="checkbox"] { display: none; }
+/* Visually hidden, but still focusable/toggleable from the keyboard
+   (display:none removed it from the tab order) */
+.check-label input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  pointer-events: none;
+}
+.check-label input:focus-visible + .check-box {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 .check-box {
   width: 16px;
@@ -245,7 +280,8 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   transition: all 0.25s var(--ease);
   letter-spacing: 0.01em;
 }
-.btn-primary:hover { background: var(--accent); }
+.btn-primary:hover:not(:disabled) { background: var(--accent); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-icon {
   width: 40px;
@@ -271,11 +307,13 @@ nav a:hover { color: var(--ink); background: var(--surface-hover); }
   background: none;
   border: 1px solid var(--border-strong);
   border-radius: 100px;
-  padding: 7px 16px;
+  padding: 9px 16px;
+  min-height: 36px;
   cursor: pointer;
   transition: all 0.2s;
 }
-.btn-ghost:hover { color: var(--ink); border-color: var(--ink); }
+.btn-ghost:hover:not(:disabled) { color: var(--ink); border-color: var(--ink); }
+.btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ── Footer ── */
 footer {
@@ -291,6 +329,7 @@ footer {
 }
 footer p { font-size: 0.8rem; color: var(--ink-faint); }
 footer a { color: var(--ink-muted); text-decoration: none; font-size: 0.8rem; }
+footer a:hover { color: var(--ink); }
 
 /* ── Animations ── */
 @keyframes fadeUp {
@@ -306,7 +345,7 @@ footer a { color: var(--ink-muted); text-decoration: none; font-size: 0.8rem; }
 @media (max-width: 680px) {
   header { padding: 0 20px; }
   .hero { padding: 44px 20px 36px; }
-  .hero-rule { margin-left: 20px; }
+  .hero-rule { width: calc(100% - 40px); }
   .tool-layout {
     grid-template-columns: 1fr;
     padding: 24px 20px 80px;
@@ -315,4 +354,16 @@ footer a { color: var(--ink-muted); text-decoration: none; font-size: 0.8rem; }
   .controls-panel { position: static; }
   .form-group { flex-direction: row; flex-wrap: wrap; }
   footer { padding: 24px 20px; }
+  .form-group { gap: 6px 16px; }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

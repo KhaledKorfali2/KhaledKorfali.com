@@ -18,6 +18,14 @@
      Touch / pointer detection
   ═══════════════════════════════════════════════ */
   var isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  var coarsePointer = window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+
+  // Instructions should match the input device actually in use.
+  if (!coarsePointer) {
+    hintEl.querySelector('p').textContent = 'Move to begin';
+    var hintLabel = document.getElementById('hint-label');
+    if (hintLabel) hintLabel.textContent = 'Move to repel \u00b7 Hold click to attract';
+  }
 
   /* ═══════════════════════════════════════════════
      Canvas
@@ -28,9 +36,15 @@
     H = canvas.height = window.innerHeight;
     gridDirty = true;
   }
+  // Debounced: re-sampling the word reads back a full-screen bitmap,
+  // which is far too expensive to do on every resize event while dragging.
+  var resizeTimer = null;
   window.addEventListener('resize', function () {
     resize();
-    if (textForming) doForm(lastWord);
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      if (textForming) doForm(lastWord);
+    }, 150);
   }, { passive: true });
   resize();
 
@@ -39,7 +53,13 @@
   ═══════════════════════════════════════════════ */
   var mouse = { x: -9999, y: -9999, down: false };
 
+  var cursorShown = false;
   document.addEventListener('mousemove', function (e) {
+    if (!cursorShown) {
+      cursorShown = true;
+      curEl.classList.add('visible');
+      ringEl.classList.add('visible');
+    }
     mouse.x = e.clientX;
     mouse.y = e.clientY;
     curEl.style.left  = e.clientX + 'px';
@@ -54,6 +74,20 @@
     ringEl.classList.add('attract');
   });
   window.addEventListener('mouseup', function () {
+    mouse.down = false;
+    curEl.classList.remove('attract');
+    ringEl.classList.remove('attract');
+  });
+  // Pointer left the window: stop repelling/attracting from its last position.
+  document.documentElement.addEventListener('mouseleave', function () {
+    mouse.x = -9999;
+    mouse.y = -9999;
+    mouse.down = false;
+    curEl.classList.remove('attract', 'visible');
+    ringEl.classList.remove('attract', 'visible');
+    cursorShown = false;
+  });
+  window.addEventListener('blur', function () {
     mouse.down = false;
     curEl.classList.remove('attract');
     ringEl.classList.remove('attract');
@@ -103,6 +137,9 @@
   }
 
   function onTouchEnd(e) {
+    // Suppress the emulated mousemove/mousedown the browser fires after a tap;
+    // otherwise the "mouse" stays parked at the tap point and keeps repelling.
+    if (e.type === 'touchend' && e.cancelable) e.preventDefault();
     clearTimeout(holdTimer);
     holdActive = false;
     if (e.touches.length === 0) {
@@ -127,7 +164,7 @@
   // passive: false on touchmove lets us call preventDefault to block scroll.
   canvas.addEventListener('touchstart',  onTouchStart, { passive: true });
   canvas.addEventListener('touchmove',   onTouchMove,  { passive: false });
-  canvas.addEventListener('touchend',    onTouchEnd,   { passive: true });
+  canvas.addEventListener('touchend',    onTouchEnd,   { passive: false });
   canvas.addEventListener('touchcancel', onTouchEnd,   { passive: true });
 
   /* ═══════════════════════════════════════════════
@@ -212,7 +249,14 @@
     sCount.textContent = P.count;
   }
   initParticles();
-  requestAnimationFrame(function () { doForm('Hello World'); });
+  // Wait for Space Mono so the first word is sampled with the real glyphs
+  // rather than the fallback monospace font.
+  function formInitial() { doForm(document.getElementById('word-input').value || 'Hello World'); }
+  if (document.fonts && document.fonts.load) {
+    document.fonts.load('700 100px "Space Mono"').then(formInitial, formInitial);
+  } else {
+    requestAnimationFrame(formInitial);
+  }
 
   /* ═══════════════════════════════════════════════
      Spatial grid
@@ -518,12 +562,18 @@
     MODE        = m;
     textForming = false;
     for (var i = 0; i < particles.length; i++) particles[i].hasTgt = false;
-    modeBtns.forEach(function (b) { b.classList.remove('active'); });
-    document.querySelector('[data-mode=' + m + ']').classList.add('active');
+    modeBtns.forEach(function (b) {
+      var on = b.getAttribute('data-mode') === m;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
     sMode.textContent = m;
+    sCount.textContent = particles.length;
     document.getElementById('sec-sandbox').classList.remove('visible');
     document.getElementById('sec-text').classList.remove('visible');
     document.getElementById('sec-' + m).classList.add('visible');
+    // Returning to Text mode re-forms the current word instead of leaving a static cloud.
+    if (m === 'text') doForm(document.getElementById('word-input').value.trim());
   }
 
   modeBtns.forEach(function (btn) {
@@ -600,12 +650,18 @@
   /* ═══════════════════════════════════════════════
      Colour swatches
   ═══════════════════════════════════════════════ */
-  document.querySelectorAll('.swatch').forEach(function (sw) {
+  // Both panels have a swatch row; keep them in sync so the selection
+  // shown always matches the colour actually in use.
+  var swatches = document.querySelectorAll('.swatch');
+  swatches.forEach(function (sw) {
     sw.addEventListener('click', function () {
-      sw.closest('.swatch-row').querySelectorAll('.swatch')
-        .forEach(function (s) { s.classList.remove('active'); });
-      sw.classList.add('active');
-      setColor(sw.getAttribute('data-color'));
+      var name = sw.getAttribute('data-color');
+      swatches.forEach(function (s) {
+        var on = s.getAttribute('data-color') === name;
+        s.classList.toggle('active', on);
+        s.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      setColor(name);
     });
   });
 

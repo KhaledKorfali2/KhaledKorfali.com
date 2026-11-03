@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CSS Playground</title>
+  <title>CSS Playground — Khaled Korfali</title>
+  <meta name="description" content="An interactive CSS playground: tweak live sliders and edit real CSS to learn the box model, flexbox, grid, animation, and more.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;600&family=JetBrains+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -14,21 +17,24 @@
     <div id="sidebar-header">
       <span class="logo-mark">{}</span>
       <span class="logo-text">CSS Playground</span>
+      <a href="/projects.html" class="back-link" data-tip="Back to projects" aria-label="Back to projects">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7H2M6 3L2 7l4 4"/></svg>
+      </a>
       <button id="sidebarCollapseBtn" class="pane-collapse-btn" data-tip="Collapse sidebar" aria-label="Collapse sidebar">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 2L4 7l5 5"/></svg>
       </button>
     </div>
-    <div id="chapter-list"></div>
+    <nav id="chapter-list" aria-label="Lessons"></nav>
     <div id="sidebar-footer">
-      <span id="progress-label">0 / 0 complete</span>
-      <div id="progress-bar-track"><div id="progress-bar-fill"></div></div>
+      <span id="progress-label" aria-live="polite">0 / 0 complete</span>
+      <div id="progress-bar-track" role="progressbar" aria-label="Lessons completed" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-bar-fill"></div></div>
     </div>
     <!-- Sidebar resize handle -->
     <div id="sidebar-resize-handle" aria-hidden="true"></div>
   </aside>
 
   <!-- Sidebar collapsed: floating re-open tab -->
-  <button id="sidebarExpandTab" aria-label="Open sidebar">
+  <button id="sidebarExpandTab" aria-label="Open lesson list" aria-controls="sidebar">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 2l5 5-5 5"/></svg>
     <span>Lessons</span>
   </button>
@@ -46,8 +52,8 @@
         <h1 id="lesson-title">Box Model</h1>
       </div>
       <div id="nav-btns">
-        <button id="prevBtn" class="nav-btn" disabled>← Prev</button>
-        <button id="nextBtn" class="nav-btn">Next →</button>
+        <button id="prevBtn" class="nav-btn" disabled aria-label="Previous lesson">← Prev</button>
+        <button id="nextBtn" class="nav-btn" aria-label="Next lesson">Next →</button>
       </div>
     </div>
 
@@ -88,11 +94,13 @@
           </div>
         </div>
         <div id="preview-frame-wrap">
+          <!-- sandbox="" (no tokens): opaque origin AND no script execution.
+               Lessons are pure HTML/CSS, so nothing in the preview needs JS. -->
           <iframe
             id="preview-frame"
-            sandbox="allow-scripts"
+            sandbox=""
             title="Live preview"
-            scrolling="auto"
+            referrerpolicy="no-referrer"
           ></iframe>
         </div>
       </div>
@@ -105,9 +113,9 @@
         <div id="code-label">
           <span class="pane-tag">CODE</span>
           <div id="code-pane-right">
-            <div id="code-tabs">
-              <button class="code-tab active" data-tab="css">CSS</button>
-              <button class="code-tab" data-tab="html">HTML</button>
+            <div id="code-tabs" role="group" aria-label="Code language">
+              <button class="code-tab active" data-tab="css" aria-pressed="true">CSS</button>
+              <button class="code-tab" data-tab="html" aria-pressed="false">HTML</button>
             </div>
             <button class="pane-collapse-btn" id="codeCollapseBtn" data-tip="Collapse code panel" aria-label="Collapse code panel">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 1l5 5-5 5"/></svg>
@@ -123,16 +131,17 @@
 
         <!-- Editable mode (editor lessons) — hidden by default -->
         <div id="editor-area" style="display:none">
-          <div id="editor-tabs">
-            <button class="editor-tab active" data-etab="css">CSS</button>
-            <button class="editor-tab" data-etab="html">HTML</button>
+          <div id="editor-tabs" role="group" aria-label="Editor language">
+            <button class="editor-tab active" data-etab="css" aria-pressed="true">CSS</button>
+            <button class="editor-tab" data-etab="html" aria-pressed="false">HTML</button>
           </div>
           <div id="editor-wrap">
-            <textarea id="editor-css"  class="code-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
-            <textarea id="editor-html" class="code-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" style="display:none"></textarea>
+            <textarea id="editor-css"  class="code-editor" aria-label="CSS editor" aria-describedby="editor-keys" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+            <textarea id="editor-html" class="code-editor" aria-label="HTML editor" aria-describedby="editor-keys" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" style="display:none"></textarea>
           </div>
           <div id="editor-footer">
-            <span id="editor-error" class="editor-error"></span>
+            <span id="editor-keys" class="editor-keys"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> apply · <kbd>Esc</kbd> then <kbd>Tab</kbd> to leave editor</span>
+            <span id="editor-error" class="editor-error" role="status"></span>
             <button id="applyBtn" class="apply-btn">▶ Apply</button>
           </div>
           <div id="editor-hint" class="editor-hint"></div>
@@ -149,12 +158,13 @@
   </main>
 
   <!-- Mobile sheet -->
-  <div id="mobile-knobs-sheet">
-    <div id="mobile-sheet-handle"></div>
+  <div id="mobile-knobs-sheet" role="dialog" aria-label="Lesson controls" aria-hidden="true">
+    <div id="mobile-sheet-handle" aria-hidden="true"></div>
+    <p id="mobile-lesson-desc"></p>
     <div id="mobile-knobs-inner"></div>
   </div>
-  <div id="mobile-sheet-backdrop"></div>
-  <button id="mobile-knobs-btn">⚙ Controls</button>
+  <div id="mobile-sheet-backdrop" aria-hidden="true"></div>
+  <button id="mobile-knobs-btn" aria-controls="mobile-knobs-sheet" aria-expanded="false">⚙ Controls</button>
 
   <!-- Tooltip -->
   <div id="tooltip" role="tooltip"></div>

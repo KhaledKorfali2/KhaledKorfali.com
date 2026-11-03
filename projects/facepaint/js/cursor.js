@@ -33,6 +33,7 @@ export function updateCursorFromLandmark(landmarks) {
     smoothX += (rawX - smoothX) * _alpha;
     smoothY += (rawY - smoothY) * _alpha;
 
+    cursorEl.classList.remove("lost");
     cursorEl.style.left = smoothX + "px";
     cursorEl.style.top = smoothY + "px";
     cursorEl.style.borderColor = currentColor().hex;
@@ -47,4 +48,5 @@ export function setCursorDrawing(active) {
 export function resetCursor() {
     smoothX = null;
     smoothY = null;
+    cursorEl.classList.add("lost");
 }

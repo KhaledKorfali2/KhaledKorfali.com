@@ -135,7 +135,7 @@ window.VimWidgets = (function () {
       const cursorlineCls = settings && settings.cursorline && li === cursor.line ? " ved-cursorline" : "";
       return `<div class="ved-line${cursorlineCls}">${gutter}${cells.join("")}</div>`;
     }).join("");
-    return `<div class="ved-lines">${rows}</div>`;
+    return `<div class="ved-lines${settings && settings.wrap ? " ved-softwrap" : ""}">${rows}</div>`;
   }
 
   // number+relativenumber together = "hybrid": the cursor's own line shows
@@ -164,12 +164,12 @@ window.VimWidgets = (function () {
     const hlRanges = window.VimGrammar.getSearchHighlightRanges({ state: { editor: ed } });
     const grid = renderCharGrid(ed.lines, ed.cursor, selRange, null, ed.mode === "insert" ? "ved-cursor-ibeam" : ed.mode === "replace" ? "ved-cursor-underline" : "ved-cursor-block", null, { settings: ed.settings, hlRanges });
     const regsUsed = Object.entries(ed.registers).filter(([, v]) => v.text).slice(0, 5);
-    const marksUsed = Object.keys(ed.marks);
+    const marksUsed = Object.keys(ed.marks).filter((k) => /^[a-z]$/.test(k));
     return `<div class="panel">
       <div class="panel-header"><span class="title mono">${icon("keyboard", 15)} vim editor</span><span class="pill accent ved-mode-${ed.mode}">${ed.mode.toUpperCase()}</span></div>
       <div class="panel-body">
-        <div class="ved-wrap" tabindex="0" data-vedinput="main">${grid}</div>
-        <div class="ved-status mono">
+        <div class="ved-wrap" tabindex="0" data-vedinput="main" role="textbox" aria-multiline="true" aria-label="Vim editor, ${esc(ed.mode)} mode. Focus and type Vim keys; in Normal mode Tab moves focus out." aria-describedby="ved-status-main">${grid}</div>
+        <div class="ved-status mono" id="ved-status-main">
           Ln ${ed.cursor.line + 1}, Col ${ed.cursor.col + 1}
           ${ed.mode === "command" ? ` &middot; :${esc(ed.commandLine)}` : ""}
           ${ed.mode === "search" ? ` &middot; ${ed.searchDirection === "forward" ? "/" : "?"}${esc(ed.searchLine)}` : ""}
@@ -177,10 +177,10 @@ window.VimWidgets = (function () {
           ${ed.message ? ` &middot; ${esc(ed.message)}` : ""}
         </div>
         <div class="ved-meta mono">
-          ${regsUsed.length ? `registers: ${regsUsed.map(([k, v]) => `"${k}=${esc(v.text.length > 10 ? v.text.slice(0, 10) + "…" : v.text)}`).join("  ")}` : "registers: (empty)"}
-          ${marksUsed.length ? ` &middot; marks: ${marksUsed.join(", ")}` : ""}
+          ${regsUsed.length ? `registers: ${regsUsed.map(([k, v]) => `"${esc(k === "unnamed" ? '"' : k)}=${esc(v.text.length > 10 ? v.text.slice(0, 10) + "…" : v.text)}`).join("  ")}` : "registers: (empty)"}
+          ${marksUsed.length ? ` &middot; marks: ${esc(marksUsed.join(", "))}` : ""}
         </div>
-        <div class="ved-hint mono">click the editor, then type — Escape returns to Normal mode</div>
+        <div class="ved-hint mono">click the editor (or Tab to it), then type — Escape returns to Normal mode; Tab in Normal mode moves focus out. Needs a physical keyboard.</div>
       </div>
     </div>`;
   }
@@ -483,7 +483,7 @@ window.VimWidgets = (function () {
     return `${renderVimEditor()}<div class="panel tobj-panel">
       <div class="panel-header"><span class="title mono">${icon("keyboard", 15)} text-object explorer</span><span class="pill">${preview.around ? "a" : "i"}${esc(preview.kind)}</span></div>
       <div class="panel-body">
-        <div class="ved-wrap tobj-preview-wrap">${grid}</div>
+        <div class="ved-wrap tobj-preview-wrap" aria-hidden="true">${grid}</div>
         ${scopeRow}
         ${kindRow}
         ${desc}
@@ -502,7 +502,8 @@ window.VimWidgets = (function () {
     "6": "6th most recent delete/change", "7": "7th most recent delete/change",
     "8": "8th most recent delete/change", "9": "9th most recent delete/change"
   };
-  const CORE_REG_ORDER = ["unnamed", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+  const CORE_REG_ORDER = ["unnamed", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "-"];
+  NUMBERED_REG_DESC["-"] = "small delete (within one line)";
   let prevRegistersSnapshot = null;
 
   function regPreview(entry) {
@@ -551,11 +552,12 @@ window.VimWidgets = (function () {
     return `${renderVimEditor()}<div class="panel reg-panel">
       <div class="panel-header"><span class="title mono">${icon("keyboard", 15)} register explorer</span><span class="pill">live &mdash; updates every keystroke</span></div>
       <div class="panel-body">
-        <div class="reg-section-title mono">unnamed &amp; numbered</div>
+        <div class="reg-section-title mono">unnamed, numbered &amp; small-delete</div>
         <div class="reg-table">${coreRows}</div>
         <div class="reg-section-title mono" style="margin-top:16px">named (a&ndash;z, +, *)</div>
         <div class="reg-table">${namedRows}</div>
         <div class="reg-note mono">
+          Deletes of a whole line or more push onto <code>"1</code>&ndash;<code>"9</code>; smaller deletes inside one line (<code>dw</code>, <code>x</code>, <code>diw</code>) go to <code>"-</code> instead and leave the ring alone.<br>
           <code>"_</code> is the black hole register &mdash; anything sent there (e.g. <code>"_dd</code>) is discarded, not stored, so it never appears above.<br>
           In real Vim, <code>"+</code> and <code>"*</code> read/write your OS clipboard. This simulator can't reach outside the browser, so here they behave like an ordinary named register &mdash; useful for practicing the keystrokes, just not for round-tripping with other apps.
         </div>
@@ -635,11 +637,11 @@ window.VimWidgets = (function () {
           ? `<div class="search-matchcount mono">${preview.count} match${preview.count === 1 ? "" : "es"} in the buffer</div>`
           : `<div class="search-matchcount mono search-invalid">invalid pattern</div>`;
       body = `<div class="search-live-row mono"><span class="search-dir">${dirSymbol}</span><span class="search-pattern">${esc(ed.searchLine)}</span><span class="search-caret">&#9608;</span></div>${matchLine}`;
-    } else if (ed.mode === "command" && /^%?s\//.test(ed.commandLine)) {
+    } else if (ed.mode === "command" && G.isSubstituteCommand(ENGINE, ed.commandLine)) {
       const preview = G.previewSubstitute(ENGINE, ed.commandLine);
       const liveRow = `<div class="search-live-row mono"><span class="search-dir">:</span><span class="search-pattern">${esc(ed.commandLine)}</span><span class="search-caret">&#9608;</span></div>`;
       if (!preview.valid) {
-        body = `${liveRow}<div class="search-hint mono">keep typing &mdash; needs a closing <code>/</code> after the replacement to parse, e.g. <code>%s/pattern/replacement/g</code></div>`;
+        body = `${liveRow}<div class="search-hint mono">${preview.error ? `<span class="search-invalid">${esc(preview.error)}</span> &mdash; ` : ""}keep typing &mdash; the form is <code>[range]s/pattern/replacement/[flags]</code>, e.g. <code>%s/pattern/replacement/g</code></div>`;
       } else {
         const patternDisplay = preview.pattern.length ? esc(preview.pattern) : '<span class="sub-flag-note">(empty)</span>';
         const replDisplay = preview.replacement.length ? esc(preview.replacement) : '<span class="sub-flag-note">(empty &mdash; deletes the match)</span>';
@@ -652,7 +654,7 @@ window.VimWidgets = (function () {
         </div>
         <div class="search-matchcount mono">${preview.matchCount} substitution${preview.matchCount === 1 ? "" : "s"} would be made across ${preview.lineCount} line${preview.lineCount === 1 ? "" : "s"}</div>`;
       }
-    } else if (ed.mode === "command" && /^(g!?|v)\//.test(ed.commandLine)) {
+    } else if (ed.mode === "command" && G.isGlobalCommand(ENGINE, ed.commandLine)) {
       const preview = G.previewGlobal(ENGINE, ed.commandLine);
       const liveRow = `<div class="search-live-row mono"><span class="search-dir">:</span><span class="search-pattern">${esc(ed.commandLine)}</span><span class="search-caret">&#9608;</span></div>`;
       if (!preview.valid) {
@@ -693,6 +695,8 @@ window.VimWidgets = (function () {
         <div class="search-ref-row mono"><span>:s/pat/rep/</span><span>replace first match, current line</span></div>
         <div class="search-ref-row mono"><span>:s/pat/rep/g</span><span>replace every match, current line</span></div>
         <div class="search-ref-row mono"><span>:%s/pat/rep/g</span><span>replace every match, whole buffer</span></div>
+        <div class="search-ref-row mono"><span>:'&lt;,'&gt;s/a/b/</span><span>only the last visual selection (press : in Visual mode)</span></div>
+        <div class="search-ref-row mono"><span>:s/\\(\\w\\+\\)/[\\1]/</span><span>Vim regex: \\( \\) groups, \\+ one-or-more, \\&lt; \\&gt; word edges, &amp; = whole match</span></div>
         <div class="search-section-title mono" style="margin-top:16px">global command</div>
         <div class="search-ref-row mono"><span>:g/pat/d</span><span>delete every line matching pat</span></div>
         <div class="search-ref-row mono"><span>:g/pat/s/from/to/</span><span>substitute, scoped to matching lines</span></div>
@@ -942,7 +946,7 @@ window.VimWidgets = (function () {
       <div class="panel-header"><span class="title mono">${icon("keyboard", 15)} ${esc(def.title)}</span><span class="pill accent mono">${esc(def.keys)}</span></div>
       <div class="panel-body">
         <p class="perm-note" style="margin-top:0">${esc(def.instructions)}</p>
-        <div class="ved-wrap game-wrap" tabindex="0" data-vedinput="game">${grid}</div>
+        <div class="ved-wrap game-wrap" tabindex="0" data-vedinput="game" role="application" aria-label="${esc(def.title)} game board — use ${esc(def.keys)}">${grid}</div>
         <div class="ved-status mono">
           keystrokes: ${g.keystrokes} &middot; time: ${(elapsed / 1000).toFixed(1)}s
           ${best ? ` &middot; best: ${best.keystrokes} keys / ${(best.timeMs / 1000).toFixed(1)}s` : ""}
@@ -1025,7 +1029,7 @@ window.VimWidgets = (function () {
       <div class="panel-body">
         <div class="golf-layout">
           <div class="golf-editor-col">
-            <div class="ved-wrap game-wrap" tabindex="0" data-vedinput="golf">${grid}</div>
+            <div class="ved-wrap game-wrap" tabindex="0" data-vedinput="golf" role="textbox" aria-multiline="true" aria-label="Vim golf editor, ${esc(g.editor.mode)} mode">${grid}</div>
             <div class="ved-status mono">${esc(g.editor.mode.toUpperCase())} &middot; keystrokes: ${g.keystrokes} &middot; time: ${(elapsed / 1000).toFixed(1)}s</div>
           </div>
           <div class="golf-target-col">
@@ -1075,10 +1079,21 @@ window.VimWidgets = (function () {
 
   /* --------------------------------- action wiring --------------------------------- */
   function translateKey(e) {
-    if (e.ctrlKey && e.key.length === 1) return "ctrl-" + e.key.toLowerCase();
+    if (e.isComposing || e.metaKey) return null; // IME composition / Cmd-shortcuts belong to the OS
+    // AltGr on many European layouts reports ctrlKey+altKey: that's a typed
+    // character (e.g. "@", "{"), not a Ctrl chord.
+    if (e.ctrlKey && !e.altKey && e.key.length === 1) return "ctrl-" + e.key.toLowerCase();
+    if (e.ctrlKey && e.key === "[") return "Escape";
+    if (e.altKey && !e.ctrlKey) return null;
     if (["Escape", "Enter", "Backspace", "Tab"].indexOf(e.key) !== -1) return e.key;
     if (e.key.length === 1) return e.key;
     return null;
+  }
+
+  function editorModeFor(target) {
+    if (target === "main") return ENGINE.state.editor.mode;
+    if (target === "golf") return ENGINE.state.golfGame ? ENGINE.state.golfGame.editor.mode : "normal";
+    return "normal";
   }
 
   function registerActions(engine) {
@@ -1088,8 +1103,13 @@ window.VimWidgets = (function () {
     Actions.register("keydown", "[data-vedinput]", (el, e) => {
       const token = translateKey(e);
       if (token === null) return;
-      e.preventDefault();
       const target = el.getAttribute("data-vedinput");
+      // Don't trap keyboard users: Tab only means "insert a tab" while
+      // inserting/replacing; anywhere else it moves focus like a normal page.
+      if (token === "Tab" && ["insert", "replace", "command", "search"].indexOf(editorModeFor(target)) === -1) return;
+      // Browser shortcuts we deliberately leave alone even while focused.
+      if (token === "ctrl-c" || token === "ctrl-l" || token === "ctrl-t" || token === "ctrl-n" || token === "ctrl-tab") return;
+      e.preventDefault();
       if (target === "main") window.VimGrammar.feedKey(ENGINE, token);
       else if (target === "game") window.VimGames.feedGameKey(ENGINE, token);
       else if (target === "golf") window.VimGolf.feedGolfKey(ENGINE, token);

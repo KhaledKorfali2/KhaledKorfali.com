@@ -132,7 +132,7 @@ window.VimGames = (function () {
         if (key === "e") g.cursor = B.wordEndBackward(g.lines, g.cursor);
         else { g.keystrokes = before; return; }
       } else if (key === "g") { g.pendingG = true; return; }
-      else if (key === "w") g.cursor = B.wordForward(g.lines, g.cursor);
+      else if (key === "w") g.cursor = B.clampPos(g.lines, B.wordForward(g.lines, g.cursor)); // w past the last word stays on the last char
       else if (key === "b") g.cursor = B.wordBackward(g.lines, g.cursor);
       else if (key === "e") g.cursor = B.wordEnd(g.lines, g.cursor);
       else { g.keystrokes = before; return; }

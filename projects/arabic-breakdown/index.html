@@ -4,11 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Arabic Text Breakdown</title>
+  <meta name="description" content="Break Arabic text down letter by letter, with letter names, diacritics and text-to-speech. Scan printed text with your camera.">
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&family=Amiri:ital@0;1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../styles/arabic-tools-shared.css">
   <link rel="stylesheet" href="styles.css">
   <!-- Tesseract deferred so it doesn't block render -->
-  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js"
+          integrity="sha384-sZlPHqJ8Pk1GMyFXfg9vOgDjyUZZe7wE2c0NoPg2z1vs2fmI4wOC0O1ONVyr73qa"
+          crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -35,6 +38,8 @@
         dir="rtl"
         lang="ar"
         placeholder="أدخل النص العربي هنا…"
+        aria-label="Arabic text to break down"
+        aria-describedby="inputHint"
         rows="3"
         spellcheck="false"
         autocomplete="off"
@@ -42,16 +47,17 @@
 
       <div class="input-actions">
         <div class="input-actions-left">
-          <button id="scanBtn" class="btn-ghost" title="Scan text with camera">
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="1" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.3"/><rect x="10" y="1" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.3"/><rect x="1" y="10" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.3"/><path d="M10 10h1.5M13.5 10H15M10 13.5V15M10 11.5V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <button type="button" id="scanBtn" class="btn-ghost" title="Scan text with camera">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true"><rect x="1" y="1" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.3"/><rect x="10" y="1" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.3"/><rect x="1" y="10" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.3"/><path d="M10 10h1.5M13.5 10H15M10 13.5V15M10 11.5V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
             Scan
           </button>
+          <span id="inputHint" class="input-hint">Ctrl + Enter to analyze</span>
         </div>
         <div class="input-actions-right">
-          <button id="clearBtn" class="btn-ghost">Clear</button>
-          <button id="analyzeBtn" class="btn-primary">
+          <button type="button" id="clearBtn" class="btn-ghost">Clear</button>
+          <button type="button" id="analyzeBtn" class="btn-primary">
             Analyze
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
       </div>
@@ -59,37 +65,37 @@
 
     <!-- Audio controls — hidden until analysis runs -->
     <div id="audioControls" class="audio-controls" style="display:none;">
-      <button id="playAllBtn" class="btn-ghost audio-btn">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 2l9 5-9 5V2z" fill="currentColor"/></svg>
+      <button type="button" id="playAllBtn" class="btn-ghost audio-btn">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 2l9 5-9 5V2z" fill="currentColor"/></svg>
         Play all
       </button>
-      <button id="stopBtn" class="btn-ghost audio-btn">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="2" width="10" height="10" rx="1.5" fill="currentColor"/></svg>
+      <button type="button" id="stopBtn" class="btn-ghost audio-btn">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="2" y="2" width="10" height="10" rx="1.5" fill="currentColor"/></svg>
         Stop
       </button>
-      <span id="ttsStatus" class="tts-status"></span>
+      <span id="ttsStatus" class="tts-status" aria-live="polite"></span>
     </div>
 
     <!-- Status / OCR message -->
-    <div id="statusMsg" class="status-msg" style="display:none;"></div>
+    <div id="statusMsg" class="status-msg" role="status" aria-live="polite" style="display:none;"></div>
 
     <!-- Output -->
-    <div id="output" class="output"></div>
+    <div id="output" class="output" lang="ar"></div>
 
   </main>
 
   <!-- Camera modal -->
-  <div id="cameraModal" class="modal" role="dialog" aria-modal="true" aria-label="Scan Arabic text">
+  <div id="cameraModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="cameraTitle">
     <div class="modal-content">
       <div class="modal-header">
-        <h2 class="modal-title">Scan Text</h2>
-        <button id="closeCameraBtn" class="modal-close" aria-label="Close">✕</button>
+        <h2 class="modal-title" id="cameraTitle">Scan Text</h2>
+        <button type="button" id="closeCameraBtn" class="modal-close" aria-label="Close camera">✕</button>
       </div>
-      <video id="camera" autoplay playsinline></video>
-      <div id="ocrStatus" class="ocr-status" style="display:none;"></div>
+      <video id="camera" autoplay playsinline muted aria-label="Camera preview"></video>
+      <div id="ocrStatus" class="ocr-status" role="status" aria-live="polite" style="display:none;"></div>
       <div class="modal-actions">
-        <button id="captureBtn" class="btn-primary" style="width:100%;">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7" r="2.5" fill="currentColor"/></svg>
+        <button type="button" id="captureBtn" class="btn-primary" style="width:100%;">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7" r="2.5" fill="currentColor"/></svg>
           Capture &amp; Recognize
         </button>
       </div>

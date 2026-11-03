@@ -3,7 +3,9 @@
 
   /* ── Feature detection ── */
   var IS_TOUCH  = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  var IS_MOBILE = window.matchMedia('(max-width: 700px)').matches;
+  var MOBILE_MQ = window.matchMedia('(max-width: 700px)');
+  function isMobile() { return MOBILE_MQ.matches; }   // re-evaluated so rotation/resizes work
+  var STORAGE_KEY = 'gatevis_circuit';
 
   /* ── DOM refs ── */
   var canvas     = document.getElementById('cv');
@@ -99,19 +101,39 @@
   function undo() {
     if (!undoStack.length) return;
     redoStack.push(circuit.serialize());
-    circuit.stopAllClocks();
-    circuit.load(undoStack.pop());
-    restartClocks();
-    updateStats(); requestDraw();
+    restoreSnapshot(undoStack.pop());
   }
 
   function redo() {
     if (!redoStack.length) return;
     undoStack.push(circuit.serialize());
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    restoreSnapshot(redoStack.pop());
+  }
+
+  function restoreSnapshot(snap) {
+    dragGate = null; wireDrag = null;
     circuit.stopAllClocks();
-    circuit.load(redoStack.pop());
+    circuit.load(snap);
     restartClocks();
+    // Selection may point at a gate that no longer exists in this snapshot
+    if (selectedGateId && !circuit.gateById(selectedGateId)) selectGate(null);
     updateStats(); requestDraw();
+  }
+
+  /* ── Persistence (best-effort; storage may be unavailable) ── */
+  var persistTimer = null;
+  function schedulePersist() {
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(function () {
+      try { localStorage.setItem(STORAGE_KEY, circuit.serialize()); } catch (e) { /* quota / privacy mode */ }
+    }, 300);
+  }
+  function loadPersisted() {
+    var raw = null;
+    try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return false; }
+    if (!raw) return false;
+    return circuit.load(raw);
   }
 
   /* ── Gate layout constants ── */
@@ -180,8 +202,10 @@
     for (var i = 0; i < circuit.gates.length; i++) {
       var g = circuit.gates[i];
       // Output pin
-      var op = getOutputPin(g);
-      if (dist(w.x, w.y, op.x, op.y) <= rad) return { gateId: g.id, pin: 0, isOutput: true };
+      if (g.type !== 'OUTPUT' && g.type !== 'LED') {   // sinks have no output pin
+        var op = getOutputPin(g);
+        if (dist(w.x, w.y, op.x, op.y) <= rad) return { gateId: g.id, pin: 0, isOutput: true };
+      }
       // Input pins
       var ips = getInputPins(g);
       for (var j = 0; j < ips.length; j++) {
@@ -310,6 +334,14 @@
     });
 
     ctx.restore();
+
+    /* Feedback loop that never settles (e.g. a NOT gate wired to itself) */
+    if (circuit.unstable) {
+      ctx.font = '11px Share Tech Mono, monospace';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillStyle = '#e8c547';
+      ctx.fillText('⚠ UNSTABLE: feedback loop oscillates — outputs shown are not settled', 12, 12);
+    }
   }
 
   /* ── Grid ── */
@@ -491,6 +523,7 @@
     stWires.textContent   = circuit.wires.length;
     stInputs.textContent  = inputs.length;
     stOutputs.textContent = outputs.length;
+    schedulePersist();
   }
 
   /* ── Select gate ── */
@@ -536,7 +569,7 @@
         gdTable.appendChild(tr);
       });
     }
-    if (IS_MOBILE) openInfoPanel();
+    if (isMobile()) openInfoPanel();
     requestDraw();
   }
 
@@ -544,9 +577,11 @@
   function setTool(tool) {
     activeTool = tool;
     wireDrag   = null;
-    [ctSelect, ctWire, ctDelete].forEach(function (b) { b && b.classList.remove('active'); });
+    [ctSelect, ctWire, ctDelete].forEach(function (b) {
+      if (b) { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); }
+    });
     var map = { select: ctSelect, wire: ctWire, delete: ctDelete };
-    if (map[tool]) map[tool].classList.add('active');
+    if (map[tool]) { map[tool].classList.add('active'); map[tool].setAttribute('aria-pressed', 'true'); }
     modeLabel.textContent = tool.toUpperCase();
     canvas.style.cursor = tool === 'delete' ? 'crosshair' : tool === 'wire' ? 'crosshair' : 'default';
   }
@@ -597,13 +632,14 @@
         /* Toggle on long press as well */
         saveSnapshot();
         circuit.toggleInput(gateHit);
-        circuit.propagate();
-        requestDraw(); return;
+        dragGate = null;   // the initial tap already armed a drag; cancel it so touchend doesn't toggle back
+        updateStats(); requestDraw(); return;
       }
       selectGate(gateHit);
       var g = circuit.gateById(gateHit);
       var w = screenToWorld(pos.x, pos.y);
-      dragGate = { gateId: gateHit, offX: w.x - g.x, offY: w.y - g.y, moved: false };
+      // Snapshot the PRE-move state now; it's only pushed if the gate actually moves
+      dragGate = { gateId: gateHit, offX: w.x - g.x, offY: w.y - g.y, moved: false, before: circuit.serialize() };
     } else if (wireHit) {
       hoveredWireId = wireHit;
       requestDraw();
@@ -655,49 +691,67 @@
   function pointerUp(pos) {
     if (wireDrag) {
       var endPin = pinAtScreen(pos.x, pos.y);
-      if (endPin && endPin.gateId !== wireDrag.fromGate) {
-        var from = wireDrag.isOutput ? wireDrag : endPin;
-        var to   = wireDrag.isOutput ? endPin   : wireDrag;
-        if (from.isOutput && !to.isOutput) {
-          saveSnapshot();
-          circuit.addWire(from.fromGate || from.gateId, from.fromPin || from.pin,
-                          to.gateId,    to.pin);
-          updateStats();
-        } else if (!from.isOutput && to.isOutput) {
-          saveSnapshot();
-          circuit.addWire(to.gateId, to.pin, from.fromGate || from.gateId, from.fromPin || from.pin);
+      if (endPin && endPin.gateId !== wireDrag.fromGate && endPin.isOutput !== wireDrag.isOutput) {
+        /* Normalise so the wire always runs output pin → input pin, whichever end the drag started from */
+        var start = { gateId: wireDrag.fromGate, pin: wireDrag.fromPin, isOutput: wireDrag.isOutput };
+        var src = start.isOutput ? start : endPin;
+        var dst = start.isOutput ? endPin : start;
+        var before = circuit.serialize();
+        if (circuit.addWire(src.gateId, 0, dst.gateId, dst.pin)) {
+          pushSnapshot(before);
           updateStats();
         }
       }
       wireDrag = null; requestDraw(); return;
     }
 
-    if (dragGate) {
-      if (!dragGate.moved) {
-        /* Tap on gate without moving = toggle INPUT or select */
-        var g = circuit.gateById(dragGate.gateId);
-        if (g && g.type === 'INPUT') {
-          saveSnapshot();
-          circuit.toggleInput(dragGate.gateId);
-          circuit.propagate(); requestDraw();
-        }
-      } else {
-        saveSnapshot();
-      }
-      dragGate = null; return;
-    }
+    if (dragGate) { finishGateDrag(); return; }
 
     panDrag = null;
+  }
+
+  function finishGateDrag() {
+    if (!dragGate) return;
+    if (!dragGate.moved) {
+      /* Tap on gate without moving = toggle INPUT (selection already happened on down) */
+      var g = circuit.gateById(dragGate.gateId);
+      if (g && g.type === 'INPUT') {
+        saveSnapshot();
+        circuit.toggleInput(dragGate.gateId);
+        updateStats(); requestDraw();
+      }
+    } else {
+      pushSnapshot(dragGate.before);
+      updateStats();
+    }
+    dragGate = null;
+  }
+
+  function pushSnapshot(snap) {
+    undoStack.push(snap);
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = [];
   }
 
   /* ── Mouse events ── */
   canvas.addEventListener('mousemove', function (e) { pointerMove(evPos(e)); });
   canvas.addEventListener('mousedown', function (e) {
-    if (e.button === 1) { e.preventDefault(); return; } // middle click = pan already handled
+    if (e.button === 1) {              // middle button always pans
+      e.preventDefault();
+      var p = evPos(e);
+      panDrag = { startSX: p.x, startSY: p.y, startVX: vp.x, startVY: vp.y };
+      return;
+    }
+    if (e.button !== 0) return;        // ignore right-click
     pointerDown(evPos(e), false);
   });
   canvas.addEventListener('mouseup',   function (e) { pointerUp(evPosEnd(e)); });
-  canvas.addEventListener('mouseleave',function ()  { hoveredGateId = null; hoveredWireId = null; dragGate = null; panDrag = null; requestDraw(); });
+  canvas.addEventListener('mouseleave',function ()  {
+    hoveredGateId = null; hoveredWireId = null;
+    if (dragGate && dragGate.moved) finishGateDrag();   // keep the move and make it undoable
+    dragGate = null; panDrag = null; requestDraw();
+  });
+  canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
   /* Scroll to zoom */
   canvas.addEventListener('wheel', function (e) {
@@ -707,15 +761,8 @@
     zoomAt(pos.x, pos.y, factor);
   }, { passive: false });
 
-  /* Double-click to toggle input quickly */
-  canvas.addEventListener('dblclick', function (e) {
-    var hit = gateAtScreen(evPos(e).x, evPos(e).y);
-    if (hit && circuit.gateById(hit).type === 'INPUT') {
-      saveSnapshot();
-      circuit.toggleInput(hit);
-      circuit.propagate(); requestDraw();
-    }
-  });
+  /* (A single click already toggles an Input; the old dblclick handler toggled a
+     third time, leaving the input flipped and three undo entries.) */
 
   /* ── Touch events ── */
   var touchStartPos = null, touchMoved = false, touchStartTime = 0;
@@ -724,6 +771,7 @@
     e.preventDefault();
     if (e.touches.length === 2) {
       // Pinch-to-zoom
+      clearTimeout(longPressTimer);
       panDrag = null; dragGate = null; wireDrag = null;
       var d = touchDist(e.touches[0], e.touches[1]);
       pinchStart = { dist: d, scale: vp.scale,
@@ -793,11 +841,29 @@
     });
   });
 
+  /* Click / Enter on a palette item drops it near the centre of the view
+     (keyboard + non-drag alternative to drag-and-drop) */
+  function placeAtCenter(type) {
+    var w = screenToWorld(W / 2, H / 2);
+    var g = placeGate(type, w.x - GW/2 + (Math.random()-0.5)*60, w.y - GH/2 + (Math.random()-0.5)*60);
+    if (g && !isMobile()) selectGate(g.id);   // on mobile this would pop the info sheet over the canvas
+  }
+  document.querySelectorAll('.palette-item').forEach(function (item) {
+    var type = item.getAttribute('data-type');
+    item.setAttribute('tabindex', '0');
+    item.setAttribute('role', 'button');
+    item.setAttribute('aria-label', 'Add ' + item.textContent.trim().replace(/\s+/g, ' ') + ' to canvas');
+    item.addEventListener('click', function () { placeAtCenter(type); });
+    item.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); placeAtCenter(type); }
+    });
+  });
+
   canvas.addEventListener('dragover', function (e) { e.preventDefault(); });
   canvas.addEventListener('drop', function (e) {
     e.preventDefault();
     var type = e.dataTransfer.getData('gateType');
-    if (!type) return;
+    if (!type || !GateEngine.GATE_DEFS[type]) return;
     var pos  = evPos(e);
     var w    = screenToWorld(pos.x, pos.y);
     placeGate(type, w.x - GW/2, w.y - GH/2);
@@ -809,15 +875,18 @@
     var types = ['INPUT','CLOCK','AND','OR','NOT','NAND','NOR','XOR','XNOR','BUFFER','OUTPUT','LED'];
     types.forEach(function (type) {
       var def  = GateEngine.GATE_DEFS[type];
-      var item = document.createElement('div');
+      var item = document.createElement('button');
+      item.type = 'button';
       item.className = 'mps-item';
-      item.innerHTML = '<span class="mps-icon">' + (def ? def.label : type) + '</span>' +
-                       '<span class="mps-label">' + (def ? def.label : type) + '</span>';
+      var icon = document.createElement('span'); icon.className = 'mps-icon';
+      icon.textContent = def ? (def.label === 'BUFFER' ? 'BUF' : def.label) : type;
+      var lbl = document.createElement('span'); lbl.className = 'mps-label';
+      lbl.textContent = def ? def.label.charAt(0) + def.label.slice(1).toLowerCase() : type;
+      item.appendChild(icon); item.appendChild(lbl);
+      item.setAttribute('aria-label', 'Add ' + (def ? def.label : type));
       item.addEventListener('click', function () {
         closeMobilePalette();
-        var cx = W / 2, cy = H / 2;
-        var w  = screenToWorld(cx, cy);
-        placeGate(type, w.x - GW/2 + (Math.random()-0.5)*60, w.y - GH/2 + (Math.random()-0.5)*60);
+        placeAtCenter(type);
       });
       mpsGrid.appendChild(item);
     });
@@ -826,9 +895,13 @@
   function openMobilePalette() {
     mobilePalette.classList.remove('hidden');
     mobileBackdrop.classList.remove('hidden');
-    requestAnimationFrame(function () { mobilePalette.classList.add('open'); });
+    requestAnimationFrame(function () {
+      mobilePalette.classList.add('open');
+      var first = mpsGrid.querySelector('button'); if (first) first.focus();
+    });
   }
   function closeMobilePalette() {
+    if (mobilePalette.classList.contains('hidden')) return;
     mobilePalette.classList.remove('open');
     setTimeout(function () {
       mobilePalette.classList.add('hidden');
@@ -846,11 +919,13 @@
       var preset = GateEngine.PRESETS[key];
       if (!preset) return;
       saveSnapshot();
+      dragGate = null; wireDrag = null;
       circuit.stopAllClocks();
       circuit.load(JSON.parse(JSON.stringify(preset)));
       restartClocks();
       selectGate(null);
       updateStats();
+      ttPanel.classList.add('hidden');
       setTimeout(fitToScreen, 50);
     });
   });
@@ -869,8 +944,17 @@
     var tt = circuit.buildTruthTable();
     ttContent.innerHTML = '';
     if (!tt) {
-      ttContent.innerHTML = '<p style="color:#5a8a5a;font-family:var(--mono);font-size:0.72rem;padding:8px">Add at least one <strong style="color:#4ee04e">Input</strong> and one <strong style="color:#e04040">Output</strong> to generate a truth table.</p>';
+      ttContent.innerHTML = '<p class="tt-msg">Add at least one <strong style="color:#4ee04e">Input</strong> and one <strong style="color:#e04040">Output</strong> to generate a truth table.</p>';
+    } else if (tt.tooMany) {
+      var msg = document.createElement('p'); msg.className = 'tt-msg';
+      msg.textContent = 'This circuit has ' + tt.count + ' inputs (' + Math.pow(2, tt.count).toLocaleString() +
+        ' rows). Truth tables are limited to ' + tt.max + ' inputs.';
+      ttContent.appendChild(msg);
     } else {
+      var note = document.createElement('p'); note.className = 'tt-msg';
+      note.textContent = 'Inputs A, B, C… and outputs Q0, Q1… are numbered top-to-bottom on the canvas.' +
+        (tt.unstable ? ' ⚠ Some rows oscillate and never settle.' : '');
+      ttContent.appendChild(note);
       var table = document.createElement('table');
       var hdRow = document.createElement('tr');
       tt.inputLabels.forEach(function (l) { var th = document.createElement('th'); th.textContent = l; hdRow.appendChild(th); });
@@ -885,14 +969,23 @@
       ttContent.appendChild(table);
     }
     ttPanel.classList.remove('hidden');
+    if (ttClose) ttClose.focus();
   });
 
-  ttClose && ttClose.addEventListener('click', function () { ttPanel.classList.add('hidden'); });
+  function closeTruthTable() {
+    if (ttPanel.classList.contains('hidden')) return false;
+    ttPanel.classList.add('hidden');
+    if (btnTT) btnTT.focus();
+    return true;
+  }
+  ttClose && ttClose.addEventListener('click', closeTruthTable);
   btnClear && btnClear.addEventListener('click', function () {
-    if (confirm('Clear the entire circuit?')) {
+    if (confirm('Clear the entire circuit? (You can undo this.)')) {
       saveSnapshot();
+      dragGate = null; wireDrag = null;
       circuit.stopAllClocks();
       circuit.gates = []; circuit.wires = [];
+      circuit.unstable = false;
       selectGate(null); updateStats(); requestDraw();
     }
   });
@@ -915,15 +1008,48 @@
     }, { passive: true });
     panelHandle.addEventListener('touchend', function () { sheetDY = null; }, { passive: true });
     panelHandle.addEventListener('click', function () { if (panelOpen) closeInfoPanel(); else openInfoPanel(); });
+    panelHandle.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (panelOpen) closeInfoPanel(); else openInfoPanel(); }
+    });
   }
 
   /* ── Keyboard shortcuts ── */
   document.addEventListener('keydown', function (e) {
     var tag = e.target.tagName;
-    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
     if (e.ctrlKey || e.metaKey) {
-      if (e.key === 'z') { e.preventDefault(); undo(); return; }
-      if (e.key === 'y') { e.preventDefault(); redo(); return; }
+      var k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+      if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return; }
+      return;   // leave other browser shortcuts (Ctrl+D, Ctrl+F…) alone
+    }
+    if (e.altKey) return;
+    if (e.key === 'Escape') {
+      if (closeTruthTable()) return;
+      if (!mobilePalette.classList.contains('hidden')) { closeMobilePalette(); if (btnAddMobile) btnAddMobile.focus(); return; }
+      if (wireDrag || dragGate) { wireDrag = null; dragGate = null; requestDraw(); return; }
+      if (selectedGateId) { selectGate(null); requestDraw(); }
+      return;
+    }
+    var onButton = tag === 'BUTTON' || e.target.getAttribute('role') === 'button';
+    /* Arrow keys nudge the selected gate; Space toggles a selected Input */
+    var NUDGE = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] };
+    if (NUDGE[e.key] && selectedGateId && !onButton) {
+      var sg = circuit.gateById(selectedGateId);
+      if (sg) {
+        e.preventDefault();
+        if (!e.repeat) saveSnapshot();
+        sg.x += NUDGE[e.key][0]; sg.y += NUDGE[e.key][1];
+        updateStats(); requestDraw();
+      }
+      return;
+    }
+    if ((e.key === ' ' || e.key === 'Enter') && selectedGateId && !onButton) {
+      var tg = circuit.gateById(selectedGateId);
+      if (tg && tg.type === 'INPUT') {
+        e.preventDefault(); saveSnapshot(); circuit.toggleInput(tg.id); updateStats(); requestDraw();
+      }
+      return;
     }
     switch (e.key) {
       case 'v': case 'V': setTool('select'); break;
@@ -931,6 +1057,7 @@
       case 'd': case 'D': setTool('delete'); break;
       case 'Delete': case 'Backspace':
         if (selectedGateId) {
+          e.preventDefault();
           saveSnapshot();
           circuit.removeGate(selectedGateId);
           selectGate(null); updateStats(); requestDraw();
@@ -939,7 +1066,6 @@
       case '+': case '=': zoomAt(W/2, H/2, 1.2); break;
       case '-': zoomAt(W/2, H/2, 0.83); break;
       case 'f': case 'F': fitToScreen(); break;
-      case 'Escape': wireDrag = null; dragGate = null; requestDraw(); break;
     }
   });
 
@@ -949,13 +1075,21 @@
   setTool('select');
   updateStats();
 
-  /* Load the half-adder preset on first open as a demo */
-  if (!localStorage.getItem('gatevis_circuit')) {
-    circuit.stopAllClocks();
+  /* Restore the last circuit (autosaved), or load the half-adder as a demo.
+     Previously the key was checked but never written, so work was always lost. */
+  circuit.stopAllClocks();
+  if (!loadPersisted() || !circuit.gates.length) {
     circuit.load(JSON.parse(JSON.stringify(GateEngine.PRESETS['half-adder'])));
-    restartClocks();
-    updateStats();
-    setTimeout(function () { fitToScreen(); requestDraw(); }, 100);
   }
+  restartClocks();
+  updateStats();
+  setTimeout(function () { fitToScreen(); requestDraw(); }, 100);
+
+  /* Stop clock timers when the page is hidden/unloaded */
+  window.addEventListener('pagehide', function () { circuit.stopAllClocks(); });
+  window.addEventListener('pageshow', function (e) { if (e.persisted) restartClocks(); });
+  MOBILE_MQ.addEventListener && MOBILE_MQ.addEventListener('change', function () {
+    if (!isMobile()) closeInfoPanel();
+  });
 
 })();

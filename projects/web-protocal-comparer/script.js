@@ -32,6 +32,25 @@ const clearCaptureBtn = document.getElementById('clearCaptureBtn');
 const client = { x: 110, y: 160 };
 const server = { x: 790, y: 160 };
 
+// The flow diagram uses a compact viewBox on narrow screens so its labels stay
+// legible instead of shrinking to ~4px when a 900-unit-wide drawing is squeezed
+// onto a phone.
+const SCENE_WIDE = { viewBox: '0 0 900 320', cx: 110, sx: 790, y: 160 };
+const SCENE_NARROW = { viewBox: '0 0 460 250', cx: 75, sx: 385, y: 125 };
+let sceneNarrow = null;
+function layoutScene() {
+  const w = svg.getBoundingClientRect().width || window.innerWidth;
+  const narrow = w < 520;
+  if (narrow === sceneNarrow) return false;
+  sceneNarrow = narrow;
+  const L = narrow ? SCENE_NARROW : SCENE_WIDE;
+  svg.setAttribute('viewBox', L.viewBox);
+  client.x = L.cx; server.x = L.sx; client.y = server.y = L.y;
+  return true;
+}
+
+const reducedMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+
 // ---------------------------------------------------------------------------
 // Byte / hex / checksum helpers — real algorithms, run entirely client-side.
 // ---------------------------------------------------------------------------
@@ -61,7 +80,7 @@ function ipToBytes(ipStr) {
   while (parts.length < 4) parts.push(0);
   return parts.slice(0, 4);
 }
-function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 // RFC 1071 one's-complement Internet checksum — the same algorithm real
 // TCP/UDP/IP headers use.
@@ -214,10 +233,10 @@ const protocols = {
 };
 
 const compareRows = [
-  ['Connection', 'Established (handshake)', 'None — connectionless', 'Established, then persistent', 'Established + encrypted, 1-RTT'],
+  ['Connection', 'Established (3-way handshake, 1 RTT)', 'None — connectionless', 'TCP handshake + HTTP Upgrade, then persistent', 'Transport + TLS 1.3 together: 1 RTT (0-RTT on resumption)'],
   ['Delivery guarantee', 'Guaranteed, retransmits on loss', 'Best-effort, no retries', 'Guaranteed (runs over TCP)', 'Guaranteed, per-stream retransmit'],
   ['Ordering', 'Strictly in order', 'No ordering guarantee', 'In order (inherits TCP)', 'In order per stream only'],
-  ['Direction', 'Request driven, bidirectional once open', 'One-way fire-and-forget', 'Truly bidirectional, either side pushes anytime', 'Bidirectional, many streams at once'],
+  ['Direction', 'Full-duplex byte stream; the app protocol (e.g. HTTP) decides who speaks', 'Either side can send datagrams anytime; no session, no replies implied', 'Full-duplex messages, either side pushes anytime', 'Full-duplex, many independent streams at once'],
   ['Overhead', 'Higher — headers, acks, handshake', 'Minimal — just the datagram', 'Handshake once, then low per-message overhead', 'Handshake + encryption combined, then low'],
   ['Typical use', 'Web pages, file transfer, APIs', 'Video/voice calls, DNS, gaming', 'Chat, live dashboards, multiplayer state, notifications', 'HTTP/3 web traffic, modern APIs']
 ];
@@ -226,7 +245,7 @@ function renderCompareTable() {
   compareBody.innerHTML = '';
   compareRows.forEach(row => {
     const tr = document.createElement('tr');
-    tr.innerHTML = row.map(cell => `<td>${cell}</td>`).join('');
+    tr.innerHTML = row.map((cell, i) => i === 0 ? `<th scope="row">${cell}</th>` : `<td>${cell}</td>`).join('');
     compareBody.appendChild(tr);
   });
 }
@@ -258,9 +277,9 @@ const checksumNotes = {
   ip: "RFC 791 Internet checksum, computed over exactly this packet's 20-byte header with the checksum field zeroed — no simplifications here, it's exactly what a real router computes."
 };
 const extraLabels = {
-  tcp: { checksum: 'Checksum' },
-  udp: { checksum: 'Checksum' },
-  ws: { maskKey: 'Mask key', payload: 'Payload (on the wire)' },
+  tcp: { checksum: 'Checksum', dataOffset: 'Data offset', urgPtr: 'Urgent pointer' },
+  udp: { checksum: 'Checksum', length: 'Length' },
+  ws: { maskKey: 'Mask key', payload: 'Payload (on the wire)', extLen: 'Extended payload length' },
   quic: { payload: 'Ciphertext', tag: 'Auth tag' },
   ip: { verIhl: 'Version / IHL', totalLength: 'Total length', flagsFrag: 'Flags / Fragment offset', checksum: 'Checksum' }
 };
@@ -353,7 +372,11 @@ async function animatePacket(label, fromX, fromY, toX, toY, color, willDrop, opt
   group.appendChild(text);
   svg.appendChild(group);
 
-  const steps = 30;
+  // Fewer, longer steps under prefers-reduced-motion: the packet still visibly
+  // travels (it carries meaning), just without the smooth slide.
+  const steps = reducedMotion.matches ? 4 : 30;
+  const delay = reducedMotion.matches ? 90 : 11;
+  const gen = opGen;
   const dropAt = opts.dropPoint !== undefined ? opts.dropPoint : (willDrop ? 0.6 : 1);
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
@@ -364,7 +387,8 @@ async function animatePacket(label, fromX, fromY, toX, toY, color, willDrop, opt
     const x = fromX + (toX - fromX) * t - 28;
     const y = fromY + (toY - fromY) * t - 11;
     group.setAttribute('transform', `translate(${x},${y})`);
-    await sleep(11);
+    await sleep(delay);
+    if (gen !== opGen) { group.remove(); throw new OpAborted(); }
   }
   group.remove();
   return true;
@@ -382,6 +406,13 @@ function flagsToByte(activeFlags, order) {
   return byte;
 }
 
+// TCP: 20-byte header (no options) — data offset 5 words = 0x50.
+// UDP: 8-byte header — length covers header + payload.
+const TCP_DATA_OFFSET = 0x50;
+function udpLength(s) { return 8 + strToBytes(s.payload).length; }
+
+// Bytes the checksum is computed over: the header with the checksum field
+// zeroed, followed by the payload (pseudo-header omitted, see checksumNotes).
 function tcpUdpHeaderBytes(key) {
   const s = packetState[key];
   let bytes = [...numToBytes(s.srcPort, 2), ...numToBytes(s.dstPort, 2)];
@@ -389,9 +420,13 @@ function tcpUdpHeaderBytes(key) {
     bytes = bytes.concat(
       numToBytes(s.seq, 4),
       numToBytes(s.ack, 4),
-      [flagsToByte(s.flags, protocols.tcp.fields.find(f => f.id === 'flags').optionsAdvanced)],
-      numToBytes(s.window, 2)
+      [TCP_DATA_OFFSET, flagsToByte(s.flags, protocols.tcp.fields.find(f => f.id === 'flags').optionsAdvanced)],
+      numToBytes(s.window, 2),
+      [0, 0],      // checksum (zeroed while computing)
+      [0, 0]       // urgent pointer
     );
+  } else {
+    bytes = bytes.concat(numToBytes(udpLength(s), 2), [0, 0]);
   }
   return bytes.concat(strToBytes(s.payload));
 }
@@ -433,29 +468,33 @@ function computeQuicCipherAndTag(state) {
 // "Effective" values honor a Bit-mode manual override; otherwise they're
 // always the freshly, correctly computed value — General mode never lies
 // about what's really on the wire, it just doesn't let you edit it yet.
-function effectiveChecksumHex(key) {
+function effectiveChecksumHex(key, clean = false) {
   const computed = checksumComputers[key]();
   const state = packetState[key];
-  return (currentMode === 'advanced' && state.manualChecksum) ? (state.checksumValue || '0000').toLowerCase().padStart(4, '0').slice(-4) : computed;
+  return (!clean && currentMode === 'advanced' && state.manualChecksum) ? (state.checksumValue || '0000').toLowerCase().padStart(4, '0').slice(-4) : computed;
 }
-function effectiveWsWireHex() {
+function effectiveWsWireHex(clean = false) {
   const state = packetState.ws;
   const expected = computeWsWireBytes(state);
-  return (currentMode === 'advanced' && state.wireOverride) ? (state.wireBytesHex || expected) : expected;
+  return (!clean && currentMode === 'advanced' && state.wireOverride) ? (state.wireBytesHex || expected) : expected;
 }
-function effectiveQuicHex() {
+function effectiveQuicHex(clean = false) {
   const state = packetState.quic;
   const { cipherHex, tagHex } = computeQuicCipherAndTag(state);
+  const adv = !clean && currentMode === 'advanced';
   return {
-    cipher: (currentMode === 'advanced' && state.cipherOverride) ? (state.cipherHexVal || cipherHex) : cipherHex,
-    tag: (currentMode === 'advanced' && state.tagOverride) ? (state.tagValue || tagHex) : tagHex
+    cipher: (adv && state.cipherOverride) ? (state.cipherHexVal || cipherHex) : cipherHex,
+    tag: (adv && state.tagOverride) ? (state.tagValue || tagHex) : tagHex
   };
 }
 
-function buildPacketBytes(key) {
+// opts.clean: ignore Bit-mode manual overrides (what a correct retransmit sends).
+// opts.fromServer: WebSocket server -> client frame, which is never masked.
+function buildPacketBytes(key, opts = {}) {
   const s = packetState[key];
+  const clean = !!opts.clean;
   if (key === 'tcp' || key === 'udp') {
-    const checksumHex = effectiveChecksumHex(key);
+    const checksumHex = effectiveChecksumHex(key, clean);
     const segs = [
       { fieldId: 'srcPort', bytes: numToBytes(s.srcPort, 2) },
       { fieldId: 'dstPort', bytes: numToBytes(s.dstPort, 2) }
@@ -464,31 +503,39 @@ function buildPacketBytes(key) {
       segs.push(
         { fieldId: 'seq', bytes: numToBytes(s.seq, 4) },
         { fieldId: 'ack', bytes: numToBytes(s.ack, 4) },
+        { fieldId: 'dataOffset', bytes: [TCP_DATA_OFFSET] },
         { fieldId: 'flags', bytes: [flagsToByte(s.flags, protocols.tcp.fields.find(f => f.id === 'flags').optionsAdvanced)] },
         { fieldId: 'window', bytes: numToBytes(s.window, 2) }
       );
+    } else {
+      segs.push({ fieldId: 'length', bytes: numToBytes(udpLength(s), 2) });
     }
-    segs.push(
-      { fieldId: 'checksum', bytes: numToBytes(parseInt(checksumHex, 16) || 0, 2), cls: 'computed' },
-      { fieldId: 'payload', bytes: strToBytes(s.payload), cls: 'payload' }
-    );
+    segs.push({ fieldId: 'checksum', bytes: numToBytes(parseInt(checksumHex, 16) || 0, 2), cls: 'computed' });
+    if (key === 'tcp') segs.push({ fieldId: 'urgPtr', bytes: [0, 0] });
+    segs.push({ fieldId: 'payload', bytes: strToBytes(s.payload), cls: 'payload' });
     return segs;
   }
   if (key === 'ws') {
     const opcodeMap = { text: 1, binary: 2, ping: 9, pong: 10, close: 8 };
     const opcodeByte = (s.fin ? 0x80 : 0) | (opcodeMap[s.opcode] || 1);
-    const payloadLen = strToBytes(s.payload).length;
-    const lenByte = (s.mask ? 0x80 : 0) | Math.min(125, payloadLen);
+    const masked = s.mask && !opts.fromServer;
+    const wireBytes = opts.fromServer ? strToBytes(s.payload) : hexToBytes(effectiveWsWireHex(clean));
+    const payloadLen = wireBytes.length;
+    // RFC 6455 §5.2: 0–125 fits in 7 bits; 126 => 16-bit length follows; 127 => 64-bit length follows.
+    const len7 = payloadLen <= 125 ? payloadLen : (payloadLen <= 0xFFFF ? 126 : 127);
+    const lenByte = (masked ? 0x80 : 0) | len7;
     const segs = [
       { fieldId: 'opcode', bytes: [opcodeByte] },
       { fieldId: 'mask', bytes: [lenByte] }
     ];
-    if (s.mask) segs.push({ fieldId: 'maskKey', bytes: safeMaskKeyBytes(s), cls: 'computed' });
-    segs.push({ fieldId: 'payload', bytes: hexToBytes(effectiveWsWireHex()), cls: 'payload' });
+    if (len7 === 126) segs.push({ fieldId: 'extLen', bytes: numToBytes(payloadLen, 2) });
+    else if (len7 === 127) segs.push({ fieldId: 'extLen', bytes: [0, 0, 0, 0, ...numToBytes(payloadLen, 4)] });
+    if (masked) segs.push({ fieldId: 'maskKey', bytes: safeMaskKeyBytes(s), cls: 'computed' });
+    segs.push({ fieldId: 'payload', bytes: wireBytes, cls: 'payload' });
     return segs;
   }
   if (key === 'quic') {
-    const { cipher, tag } = effectiveQuicHex();
+    const { cipher, tag } = effectiveQuicHex(clean);
     return [
       { fieldId: 'connId', bytes: hexToBytes(s.connId) },
       { fieldId: 'packetNumber', bytes: numToBytes(s.packetNumber, 4) },
@@ -501,7 +548,7 @@ function buildPacketBytes(key) {
     const protoMap = { UDP: 17, TCP: 6, ICMP: 1 };
     const payloadBytes = strToBytes(s.payload);
     const totalLen = 20 + payloadBytes.length;
-    const checksumHex = effectiveChecksumHex('ip');
+    const checksumHex = effectiveChecksumHex('ip', clean);
     return [
       { fieldId: 'verIhl', bytes: [0x45] },
       { fieldId: 'tos', bytes: [clampByte(s.tos)] },
@@ -602,7 +649,7 @@ function renderPayloadField(f, key) {
   row.dataset.fieldRow = f.id;
 
   if (currentMode !== 'advanced') {
-    row.innerHTML = `<label>${f.label}</label><textarea data-field="${f.id}" rows="2">${state.payload}</textarea>`;
+    row.innerHTML = `<label for="pf-${f.id}">${f.label}</label><textarea id="pf-${f.id}" data-field="${f.id}" rows="2">${escapeHtml(state.payload)}</textarea>`;
     return row;
   }
 
@@ -612,11 +659,11 @@ function renderPayloadField(f, key) {
     <div class="payload-toolbar">
       <span class="field-row-label-inline">${f.label}</span>
       <div class="view-switch">
-        <button type="button" data-payload-view="text" class="${!hexMode ? 'active' : ''}">Text</button>
-        <button type="button" data-payload-view="hex" class="${hexMode ? 'active' : ''}">Hex</button>
+        <button type="button" data-payload-view="text" class="${!hexMode ? 'active' : ''}" aria-pressed="${!hexMode}">Text</button>
+        <button type="button" data-payload-view="hex" class="${hexMode ? 'active' : ''}" aria-pressed="${hexMode}">Hex</button>
       </div>
     </div>
-    <textarea data-field="payload" data-payload-hex="${hexMode}" rows="2">${displayValue}</textarea>
+    <textarea data-field="payload" data-payload-hex="${hexMode}" rows="2" aria-label="${escapeHtml(f.label)} (${hexMode ? 'hex' : 'text'})">${escapeHtml(displayValue)}</textarea>
   `;
   return row;
 }
@@ -641,19 +688,22 @@ function renderPacketForm(key) {
     if (f.type === 'computed') {
       row.className = 'field-row';
       const hex = checksumComputers[key] ? checksumComputers[key]() : '';
-      row.innerHTML = `<label>${f.label}</label><input type="text" value="0x${hex}" disabled>`;
+      row.innerHTML = `<label for="pf-${f.id}">${f.label}</label><input type="text" id="pf-${f.id}" value="0x${hex}" disabled>`;
     } else if (f.type === 'checkbox') {
       row.className = 'field-row field-row-inline';
-      row.innerHTML = `<input type="checkbox" data-field="${f.id}" ${state[f.id] ? 'checked' : ''}><label>${f.label}</label>`;
+      row.innerHTML = `<input type="checkbox" id="pf-${f.id}" data-field="${f.id}" ${state[f.id] ? 'checked' : ''}><label for="pf-${f.id}">${f.label}</label>`;
     } else if (f.type === 'select') {
       row.className = 'field-row';
       const opts = f.options.map(o => `<option value="${o}" ${state[f.id] === o ? 'selected' : ''}>${o}</option>`).join('');
-      row.innerHTML = `<label>${f.label}</label><select data-field="${f.id}">${opts}</select>`;
+      row.innerHTML = `<label for="pf-${f.id}">${f.label}</label><select id="pf-${f.id}" data-field="${f.id}">${opts}</select>`;
     } else if (f.type === 'flags') {
       row.className = 'field-row';
       const opts = (currentMode === 'advanced' && f.optionsAdvanced) ? f.optionsAdvanced : f.options;
-      const chips = opts.map(o => `<span class="flag-chip ${state[f.id].includes(o) ? 'on' : ''}" data-flag-group="${f.id}" data-flag-value="${o}">${o}</span>`).join('');
-      row.innerHTML = `<label>${f.label}</label><div class="flags-group">${chips}</div>`;
+      const chips = opts.map(o => {
+        const on = state[f.id].includes(o);
+        return `<button type="button" class="flag-chip ${on ? 'on' : ''}" aria-pressed="${on}" data-flag-group="${f.id}" data-flag-value="${o}">${o}</button>`;
+      }).join('');
+      row.innerHTML = `<span class="field-row-label" id="pf-${f.id}-label">${f.label}</span><div class="flags-group" role="group" aria-labelledby="pf-${f.id}-label">${chips}</div>`;
       if (currentMode === 'advanced' && f.optionsAdvanced) {
         const byteVal = flagsToByte(state[f.id], f.optionsAdvanced);
         const bitReadout = document.createElement('div');
@@ -663,11 +713,14 @@ function renderPacketForm(key) {
       }
     } else {
       row.className = 'field-row';
-      row.innerHTML = `<label>${f.label}</label><input type="${f.type}" data-field="${f.id}" value="${state[f.id]}">`;
+      // Number fields get min/max from their byte width so the browser can flag out-of-range values.
+      const range = (f.type === 'number' && typeof f.bytes === 'number' && f.bytes > 0)
+        ? ` min="0" max="${2 ** (8 * f.bytes) - 1}" inputmode="numeric"` : '';
+      row.innerHTML = `<label for="pf-${f.id}">${f.label}</label><input type="${f.type}" id="pf-${f.id}" data-field="${f.id}" value="${escapeHtml(state[f.id])}"${range} spellcheck="false" autocomplete="off">`;
       if (currentMode === 'advanced' && f.type === 'number' && f.bytes) {
         const hexRow = document.createElement('div');
         hexRow.className = 'field-row-hex';
-        hexRow.innerHTML = `<span class="hex-tag">hex</span><input type="text" data-hex-mirror="${f.id}" data-hex-bytes="${f.bytes}" value="${toHexPadded(state[f.id], f.bytes)}">`;
+        hexRow.innerHTML = `<span class="hex-tag" aria-hidden="true">hex</span><input type="text" aria-label="${escapeHtml(f.label)} in hex" data-hex-mirror="${f.id}" data-hex-bytes="${f.bytes}" value="${toHexPadded(state[f.id], f.bytes)}" spellcheck="false" autocomplete="off">`;
         row.appendChild(hexRow);
       }
     }
@@ -680,6 +733,8 @@ function renderPacketForm(key) {
 
   refreshComputedViews(key);
 }
+
+packetForm.addEventListener('submit', e => e.preventDefault());
 
 packetForm.addEventListener('input', e => {
   const target = e.target;
@@ -723,12 +778,17 @@ packetForm.addEventListener('click', e => {
     const idx = arr.indexOf(value);
     if (idx === -1) arr.push(value); else arr.splice(idx, 1);
     renderPacketForm(currentProto);
+    const again = packetForm.querySelector(`.flag-chip[data-flag-group="${group}"][data-flag-value="${value}"]`);
+    if (again) again.focus();
     return;
   }
   const viewBtn = e.target.closest('[data-payload-view]');
   if (viewBtn) {
-    packetState[currentProto].payloadHexMode = viewBtn.dataset.payloadView === 'hex';
+    const view = viewBtn.dataset.payloadView;
+    packetState[currentProto].payloadHexMode = view === 'hex';
     renderPacketForm(currentProto);
+    const again = packetForm.querySelector(`[data-payload-view="${view}"]`);
+    if (again) again.focus();
   }
 });
 
@@ -740,8 +800,7 @@ resetPacketBtn.addEventListener('click', () => {
 
 asideTabs.forEach(tab => {
   tab.addEventListener('click', () => {
-    asideTabs.forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
+    asideTabs.forEach(t => { t.classList.toggle('active', t === tab); t.setAttribute('aria-pressed', t === tab); });
     const showPacket = tab.dataset.aside === 'packet';
     whyPane.classList.toggle('hidden', showPacket);
     packetPane.classList.toggle('hidden', !showPacket);
@@ -768,6 +827,15 @@ packetPane.addEventListener('mouseout', e => {
   const fid = hexEl ? hexEl.dataset.field : (rowEl ? rowEl.dataset.fieldRow : null);
   if (fid) setHighlight(fid, false);
 });
+// Same linking for keyboard users: focusing a field highlights its bytes.
+packetPane.addEventListener('focusin', e => {
+  const rowEl = e.target.closest('[data-field-row]');
+  if (rowEl) setHighlight(rowEl.dataset.fieldRow, true);
+});
+packetPane.addEventListener('focusout', e => {
+  const rowEl = e.target.closest('[data-field-row]');
+  if (rowEl) setHighlight(rowEl.dataset.fieldRow, false);
+});
 
 // ---------------------------------------------------------------------------
 // Mode toggle: Field mode (guided, named fields) vs Bit mode (raw bytes,
@@ -782,7 +850,7 @@ modeToggle.addEventListener('click', e => {
   const btn = e.target.closest('.mode-btn');
   if (!btn) return;
   currentMode = btn.dataset.mode;
-  modeToggle.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+  modeToggle.querySelectorAll('.mode-btn').forEach(b => { b.classList.toggle('active', b === btn); b.setAttribute('aria-pressed', b === btn); });
   packetHint.textContent = modeHints[currentMode];
   renderPacketForm(currentProto);
 });
@@ -817,7 +885,7 @@ function renderWireBlock(key) {
         <div class="wire-computed">0x${computed}</div>
       </div>
       <label class="override-toggle"><input type="checkbox" id="csOverride" ${state.manualChecksum ? 'checked' : ''}> Manually set the checksum field instead</label>
-      ${state.manualChecksum ? `<div class="wire-row" data-field-row="checksum"><input type="text" id="csValue" maxlength="4" value="${state.checksumValue}" placeholder="hex, e.g. 1a2b"></div>` : ''}
+      ${state.manualChecksum ? `<div class="wire-row" data-field-row="checksum"><input type="text" id="csValue" maxlength="4" value="${escapeHtml(state.checksumValue)}" placeholder="hex, e.g. 1a2b" aria-label="Checksum field (hex)" spellcheck="false" autocomplete="off"></div>` : ''}
       ${badge(valid, wireBadgeText[key].valid, wireBadgeText[key].invalid)}
       <div class="wire-actions"><button type="button" class="btn-ghost btn-tiny" id="flipBitBtn">Flip a random bit</button></div>
     `;
@@ -849,11 +917,11 @@ function renderWireBlock(key) {
       <div class="wire-block-title">On the wire — masking</div>
       <p class="wire-note">Real RFC 6455 masking: masked byte = payload byte XOR mask-key byte (repeating). Only client → server frames are masked.</p>
       <div class="wire-row" data-field-row="maskKey">
-        <div class="wire-row-head"><label>Mask key (4 bytes, hex)</label></div>
-        <input type="text" id="maskKeyInput" maxlength="8" value="${state.maskKey}">
+        <div class="wire-row-head"><label for="maskKeyInput">Mask key (4 bytes, hex)</label></div>
+        <input type="text" id="maskKeyInput" maxlength="8" value="${escapeHtml(state.maskKey)}" spellcheck="false" autocomplete="off">
       </div>
       <label class="override-toggle"><input type="checkbox" id="wireOverride" ${state.wireOverride ? 'checked' : ''}> Manually edit the on-the-wire bytes</label>
-      ${state.wireOverride ? `<div class="wire-row" data-field-row="payload"><input type="text" id="wireBytesInput" value="${state.wireBytesHex}" placeholder="hex bytes"></div>` : `<div class="wire-row" data-field-row="payload"><div class="wire-computed">0x${expected || '(empty)'}</div></div>`}
+      ${state.wireOverride ? `<div class="wire-row" data-field-row="payload"><input type="text" id="wireBytesInput" value="${escapeHtml(state.wireBytesHex)}" placeholder="hex bytes" aria-label="On-the-wire payload bytes (hex)" spellcheck="false" autocomplete="off"></div>` : `<div class="wire-row" data-field-row="payload"><div class="wire-computed">0x${expected || '(empty)'}</div></div>`}
       <div class="wire-row">
         <div class="wire-row-head"><label>What the server decodes</label></div>
         <div class="wire-computed">"${escapeHtml(decoded)}"</div>
@@ -897,13 +965,13 @@ function renderWireBlock(key) {
         <div class="wire-computed">0x${eff.cipher || '(empty)'}</div>
       </div>
       <label class="override-toggle"><input type="checkbox" id="cipherOverride" ${state.cipherOverride ? 'checked' : ''}> Manually edit the ciphertext</label>
-      ${state.cipherOverride ? `<div class="wire-row" data-field-row="payload"><input type="text" id="cipherInput" value="${state.cipherHexVal}"></div>` : ''}
+      ${state.cipherOverride ? `<div class="wire-row" data-field-row="payload"><input type="text" id="cipherInput" value="${escapeHtml(state.cipherHexVal)}" aria-label="Ciphertext (hex)" spellcheck="false" autocomplete="off"></div>` : ''}
       <div class="wire-row" data-field-row="tag">
         <div class="wire-row-head"><label>Auth tag</label></div>
         <div class="wire-computed">0x${eff.tag}</div>
       </div>
       <label class="override-toggle"><input type="checkbox" id="tagOverride" ${state.tagOverride ? 'checked' : ''}> Manually set the auth tag</label>
-      ${state.tagOverride ? `<div class="wire-row" data-field-row="tag"><input type="text" id="tagInput" maxlength="8" value="${state.tagValue}"></div>` : ''}
+      ${state.tagOverride ? `<div class="wire-row" data-field-row="tag"><input type="text" id="tagInput" maxlength="8" value="${escapeHtml(state.tagValue)}" aria-label="Auth tag (hex)" spellcheck="false" autocomplete="off"></div>` : ''}
       ${badge(valid, wireBadgeText.quic.valid, wireBadgeText.quic.invalid)}
       <div class="wire-actions"><button type="button" class="btn-ghost btn-tiny" id="flipBitBtn">Flip a random bit</button></div>
     `;
@@ -957,12 +1025,14 @@ let captureSeq = 0;
 const expandedCaptureIds = new Set();
 const selectedCaptureIds = new Set();
 
-function addCapture({ proto, dir, label, summary, outcome }) {
+function snapshotSegments(segments) { return JSON.parse(JSON.stringify(segments)); }
+
+function addCapture({ proto, dir, label, summary, outcome, segments }) {
   const entry = {
     id: 'cap_' + (captureSeq++),
     time: new Date(),
     proto, dir, label, summary, outcome,
-    segments: JSON.parse(JSON.stringify(buildPacketBytes(proto)))
+    segments: snapshotSegments(segments || buildPacketBytes(proto))
   };
   captures.unshift(entry);
   if (captures.length > 30) {
@@ -980,13 +1050,13 @@ function captureRowHTML(c) {
   return `
     <div class="capture-row ${expanded ? 'expanded' : ''}" data-capture-id="${c.id}">
       <div class="capture-row-head" data-capture-toggle="${c.id}">
-        <input type="checkbox" class="capture-check" data-capture-select="${c.id}" ${checked ? 'checked' : ''} ${disableCheck ? 'disabled' : ''}>
+        <input type="checkbox" class="capture-check" data-capture-select="${c.id}" ${checked ? 'checked' : ''} ${disableCheck ? 'disabled' : ''} aria-label="Select ${escapeHtml(c.label)} at ${timeStr} for comparison">
         <span class="capture-proto">${c.proto.toUpperCase()}</span>
         <span class="capture-dir">${c.dir}</span>
         <span class="capture-status ${c.outcome}">${c.outcome}</span>
-        <span class="capture-summary">${c.label} — ${escapeHtml(c.summary)}</span>
+        <span class="capture-summary">${escapeHtml(c.label)} — ${escapeHtml(c.summary)}</span>
         <span class="capture-time">${timeStr}</span>
-        <span class="capture-expand-icon">▶</span>
+        <button type="button" class="capture-expand-btn" data-capture-expand="${c.id}" aria-expanded="${expanded}" aria-label="${expanded ? 'Hide' : 'Show'} bytes for ${escapeHtml(c.label)} at ${timeStr}"><span class="capture-expand-icon" aria-hidden="true">▶</span></button>
       </div>
       <div class="capture-row-body">${hexDumpHTML(c.segments)}</div>
     </div>
@@ -1008,13 +1078,20 @@ captureList.addEventListener('click', e => {
     const id = checkbox.dataset.captureSelect;
     if (checkbox.checked) selectedCaptureIds.add(id); else selectedCaptureIds.delete(id);
     renderCaptureList();
+    const again = captureList.querySelector(`[data-capture-select="${id}"]`);
+    if (again) again.focus();
     return;
   }
   const head = e.target.closest('[data-capture-toggle]');
   if (head) {
     const id = head.dataset.captureToggle;
+    const viaButton = !!e.target.closest('[data-capture-expand]');
     if (expandedCaptureIds.has(id)) expandedCaptureIds.delete(id); else expandedCaptureIds.add(id);
     renderCaptureList();
+    if (viaButton) {
+      const again = captureList.querySelector(`[data-capture-expand="${id}"]`);
+      if (again) again.focus();
+    }
   }
 });
 
@@ -1038,6 +1115,7 @@ compareCaptureBtn.addEventListener('click', () => {
   const diffIdx = new Set();
   for (let i = 0; i < len; i++) if ((flatA[i] && flatA[i].value) !== (flatB[i] && flatB[i].value)) diffIdx.add(i);
   captureCompare.classList.remove('hidden');
+  captureCompare.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'nearest' });
   captureCompare.innerHTML = `
     <div class="compare-diff-grid">
       <div class="compare-diff-col"><h4>${a.proto.toUpperCase()} — ${escapeHtml(a.label)} (${a.outcome})</h4>${hexDumpHTML(a.segments, { diffIdx })}</div>
@@ -1065,9 +1143,64 @@ function updateFlowSteps() {
 }
 
 // ---------------------------------------------------------------------------
+// Operation guard. Connect / send / disconnect are multi-step async
+// animations. Only one may run at a time, and switching protocol mid-flight
+// aborts the old one — otherwise a TCP handshake finishing after you switched
+// to UDP would mark UDP "connected" and log into the wrong protocol.
+// ---------------------------------------------------------------------------
+class OpAborted extends Error {}
+let opGen = 0;
+let busy = false;
+let nextDrops = false;
+let layoutPending = false;
+
+async function pause(ms) {
+  const gen = opGen;
+  await sleep(ms);
+  if (gen !== opGen) throw new OpAborted();
+}
+
+function syncControls() {
+  connectBtn.disabled = busy || connected;
+  sendBtn.disabled = busy || !connected;
+  dropBtn.disabled = !connected;
+  disconnectBtn.disabled = busy || !connected;
+  connectBtn.setAttribute('aria-busy', busy);
+  if (!busy && layoutPending) {
+    layoutPending = false;
+    if (layoutScene()) drawScene();
+  }
+}
+
+function setDropArmed(on) {
+  nextDrops = on;
+  dropBtn.classList.toggle('armed', on);
+  dropBtn.setAttribute('aria-pressed', on);
+  dropBtn.textContent = on ? 'Next packet will be lost ✕' : 'Simulate packet loss';
+}
+
+function runOp(fn) {
+  return async () => {
+    if (busy) return;
+    const gen = opGen;
+    busy = true;
+    syncControls();
+    try {
+      await fn();
+    } catch (err) {
+      if (!(err instanceof OpAborted)) throw err;
+    } finally {
+      if (gen === opGen) { busy = false; syncControls(); }
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Protocol switching
 // ---------------------------------------------------------------------------
 function setProtoUI(key) {
+  opGen++;              // abort any in-flight animation for the old protocol
+  busy = false;
   currentProto = key;
   const p = protocols[key];
   protoTitle.textContent = p.title;
@@ -1076,42 +1209,51 @@ function setProtoUI(key) {
   connectBtn.textContent = p.connectLabel;
   connected = false;
   sentSinceConnect = false;
-  sendBtn.disabled = true;
-  dropBtn.disabled = true;
-  disconnectBtn.disabled = true;
-  connectBtn.disabled = false;
+  wsSide = 'client';
+  setDropArmed(false);
   eventLog.innerHTML = '';
+  layoutScene();
   drawScene();
   updateFlowSteps();
+  syncControls();
   renderPacketForm(key);
   log(`Switched to ${key.toUpperCase()}. ${p.needsHandshake ? 'Click connect to begin.' : 'No connection needed — you can send immediately after marking ready.'}`, 'info');
 }
 
-document.querySelectorAll('.tab').forEach(tab => {
+const protoTabEls = document.querySelectorAll('.tab');
+protoTabEls.forEach(tab => {
   tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
+    protoTabEls.forEach(t => { t.classList.toggle('active', t === tab); t.setAttribute('aria-pressed', t === tab); });
     setProtoUI(tab.dataset.proto);
   });
+});
+
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (busy) { layoutPending = true; return; }
+    if (layoutScene()) drawScene();
+  }, 120);
 });
 
 // ---------------------------------------------------------------------------
 // Connect
 // ---------------------------------------------------------------------------
-connectBtn.addEventListener('click', async () => {
+connectBtn.addEventListener('click', runOp(async () => {
   const p = protocols[currentProto];
-  connectBtn.disabled = true;
   if (p.needsHandshake) {
     if (currentProto === 'tcp') {
       const isn = packetState.tcp.seq;
-      log(`→ SYN  isn=${isn}`, 'info');
+      log(`→ SYN  seq=${isn}`, 'info');
       await animatePacket('SYN', client.x, client.y, server.x, server.y, '#A78BFA', false);
-      log('← SYN-ACK', 'info');
+      log(`← SYN-ACK  ack=${(Number(isn) + 1) >>> 0}`, 'info');
       await animatePacket('SYN-ACK', server.x, server.y, client.x, client.y, '#67E8F9', false);
       log('→ ACK', 'info');
       await animatePacket('ACK', client.x, client.y, server.x, server.y, '#A78BFA', false);
-      log('Connection established.', 'ok');
+      log('Connection established after 1 round trip (the final ACK can carry data).', 'ok');
     } else if (currentProto === 'ws') {
+      log('(Assumes a TCP connection — and TLS for wss:// — is already open underneath.)', 'info');
       log('→ GET / HTTP/1.1  Upgrade: websocket', 'info');
       await animatePacket('UPGRADE', client.x, client.y, server.x, server.y, '#A78BFA', false);
       log('← 101 Switching Protocols', 'info');
@@ -1120,10 +1262,10 @@ connectBtn.addEventListener('click', async () => {
     } else if (currentProto === 'quic') {
       log('→ Initial (ClientHello + connection ID)', 'info');
       await animatePacket('INITIAL', client.x, client.y, server.x, server.y, '#A78BFA', false);
-      log('← Initial + Handshake (ServerHello, cert, keys)', 'info');
+      log('← Initial + Handshake (ServerHello, cert, Finished)', 'info');
       await animatePacket('HELLO', server.x, server.y, client.x, client.y, '#67E8F9', false);
-      log('→ Handshake (Finished)', 'info');
-      await animatePacket('FIN', client.x, client.y, server.x, server.y, '#A78BFA', false);
+      log('→ Handshake (client Finished) — application data may ride along', 'info');
+      await animatePacket('FINISH', client.x, client.y, server.x, server.y, '#A78BFA', false);
       log('1-RTT handshake complete — transport and TLS set up together.', 'ok');
     }
   } else {
@@ -1131,19 +1273,15 @@ connectBtn.addEventListener('click', async () => {
   }
   connected = true;
   drawScene();
-  sendBtn.disabled = false;
-  dropBtn.disabled = false;
-  disconnectBtn.disabled = false;
   updateFlowSteps();
-});
+}));
 
 // ---------------------------------------------------------------------------
-// Simulate physical packet loss (one-shot, available in both modes)
+// Simulate physical packet loss (one-shot toggle, available in both modes)
 // ---------------------------------------------------------------------------
-let nextDrops = false;
 dropBtn.addEventListener('click', () => {
-  nextDrops = true;
-  log('Next packet will be simulated as lost in transit.', 'info');
+  setDropArmed(!nextDrops);
+  log(nextDrops ? 'Next packet will be simulated as lost in transit.' : 'Packet loss disarmed.', 'info');
 });
 
 // ---------------------------------------------------------------------------
@@ -1153,150 +1291,172 @@ function buildDetail(key) {
   const fields = protocols[key].fields.filter(f => !(currentMode === 'advanced' && f.hideInAdvanced) && !(f.advancedOnly && currentMode !== 'advanced'));
   const state = packetState[key];
   return fields.map(f => {
-    if (f.type === 'computed') return `${f.id}=0x${checksumComputers[key] ? checksumComputers[key]() : ''}`;
+    if (f.type === 'computed') return `${f.id}=0x${checksumComputers[key] ? effectiveChecksumHex(key) : ''}`;
     return `${f.id}=${fieldValueDisplay(f, state[f.id])}`;
   }).join(' ');
 }
 
-sendBtn.addEventListener('click', async () => {
-  sendBtn.disabled = true;
+sendBtn.addEventListener('click', runOp(async () => {
+  const key = currentProto;
   const willDropPhysically = nextDrops;
-  nextDrops = false;
-  const isCorrupt = computeIsCorrupt(currentProto);
+  setDropArmed(false);
+  const isCorrupt = computeIsCorrupt(key);
   if (currentMode === 'general') corruptToggle.checked = false;
 
-  const state = packetState[currentProto];
-  const detail = buildDetail(currentProto);
+  const state = packetState[key];
+  const detail = buildDetail(key);
   const payloadPreview = (state.payload || '').slice(0, 24);
+  // Snapshot the bytes now, so edits made mid-animation don't leak into the capture.
+  const sentSegs = snapshotSegments(buildPacketBytes(key));
+  const cleanSegs = snapshotSegments(buildPacketBytes(key, { clean: true }));
 
   sentSinceConnect = true;
   updateFlowSteps();
 
-  if (currentProto === 'tcp') {
+  if (key === 'tcp') {
     log(`→ DATA  ${detail}`, '');
     if (willDropPhysically) {
       await animatePacket('DATA', client.x, client.y, server.x, server.y, '#A78BFA', true, { title: detail });
       log('✕ Packet lost in transit.', 'lost');
-      addCapture({ proto: 'tcp', dir: 'C→S', label: 'DATA', summary: detail, outcome: 'lost' });
-      await sleep(300);
+      addCapture({ proto: 'tcp', dir: 'C→S', label: 'DATA', summary: detail, outcome: 'lost', segments: sentSegs });
+      await pause(300);
       log('… no ACK received, retransmission timer fired', 'lost');
-      log('→ DATA (retransmit)', 'info');
+      log('→ DATA (retransmit, same sequence number)', 'info');
       await animatePacket('DATA', client.x, client.y, server.x, server.y, '#A78BFA', false, { title: detail });
       log('← ACK', 'ok');
       await animatePacket('ACK', server.x, server.y, client.x, client.y, '#67E8F9', false);
       log('Delivered after retransmission. Application layer never saw the failure.', 'ok');
-      addCapture({ proto: 'tcp', dir: 'C→S', label: 'DATA (retransmit)', summary: detail, outcome: 'delivered' });
+      addCapture({ proto: 'tcp', dir: 'C→S', label: 'DATA (retransmit)', summary: detail, outcome: 'delivered', segments: cleanSegs });
     } else if (isCorrupt) {
       await animatePacket('DATA', client.x, client.y, server.x, server.y, '#FB7185', false, { title: detail + ' (corrupted)' });
-      log('⚠ Segment arrived, but the checksum doesn\u2019t match — server silently discards it.', 'warn');
-      addCapture({ proto: 'tcp', dir: 'C→S', label: 'DATA', summary: detail, outcome: 'corrupted' });
-      await sleep(300);
+      log('⚠ Segment arrived, but the checksum doesn’t match — server silently discards it.', 'warn');
+      addCapture({ proto: 'tcp', dir: 'C→S', label: 'DATA', summary: detail, outcome: 'corrupted', segments: sentSegs });
+      await pause(300);
       log('… no ACK received, retransmission timer fired', 'lost');
       log('→ DATA (retransmit, checksum intact)', 'info');
       await animatePacket('DATA', client.x, client.y, server.x, server.y, '#A78BFA', false, { title: detail });
       log('← ACK', 'ok');
       await animatePacket('ACK', server.x, server.y, client.x, client.y, '#67E8F9', false);
       log('Delivered after retransmission.', 'ok');
-      addCapture({ proto: 'tcp', dir: 'C→S', label: 'DATA (retransmit)', summary: detail, outcome: 'delivered' });
+      addCapture({ proto: 'tcp', dir: 'C→S', label: 'DATA (retransmit)', summary: detail, outcome: 'delivered', segments: cleanSegs });
     } else {
       await animatePacket('DATA', client.x, client.y, server.x, server.y, '#A78BFA', false, { title: detail });
       log('← ACK', 'ok');
       await animatePacket('ACK', server.x, server.y, client.x, client.y, '#67E8F9', false);
       log(`Delivered and acknowledged. "${payloadPreview}"`, 'ok');
-      addCapture({ proto: 'tcp', dir: 'C→S', label: 'DATA', summary: detail, outcome: 'delivered' });
+      addCapture({ proto: 'tcp', dir: 'C→S', label: 'DATA', summary: detail, outcome: 'delivered', segments: sentSegs });
     }
-  } else if (currentProto === 'udp') {
+  } else if (key === 'udp') {
     log(`→ DATAGRAM  ${detail}`, '');
     if (willDropPhysically) {
       await animatePacket('DGRAM', client.x, client.y, server.x, server.y, '#A78BFA', true, { title: detail });
-      log('✕ Datagram lost. No retry, no notification. It\u2019s simply gone.', 'lost');
-      addCapture({ proto: 'udp', dir: 'C→S', label: 'DGRAM', summary: detail, outcome: 'lost' });
+      log('✕ Datagram lost. No retry, no notification. It’s simply gone.', 'lost');
+      addCapture({ proto: 'udp', dir: 'C→S', label: 'DGRAM', summary: detail, outcome: 'lost', segments: sentSegs });
     } else if (isCorrupt) {
       await animatePacket('DGRAM', client.x, client.y, server.x, server.y, '#FB7185', false, { title: detail + ' (corrupted)' });
       log('⚠ Checksum mismatch — the kernel drops it before your app ever sees it. No retry.', 'warn');
-      addCapture({ proto: 'udp', dir: 'C→S', label: 'DGRAM', summary: detail, outcome: 'corrupted' });
+      addCapture({ proto: 'udp', dir: 'C→S', label: 'DGRAM', summary: detail, outcome: 'corrupted', segments: sentSegs });
     } else {
       await animatePacket('DGRAM', client.x, client.y, server.x, server.y, '#A78BFA', false, { title: detail });
       log(`Delivered. No acknowledgment is ever sent back. "${payloadPreview}"`, 'ok');
-      addCapture({ proto: 'udp', dir: 'C→S', label: 'DGRAM', summary: detail, outcome: 'delivered' });
+      addCapture({ proto: 'udp', dir: 'C→S', label: 'DGRAM', summary: detail, outcome: 'delivered', segments: sentSegs });
     }
-  } else if (currentProto === 'ws') {
+  } else if (key === 'ws') {
     const fromClient = wsSide === 'client';
     wsSide = fromClient ? 'server' : 'client';
     const [fx, fy, tx, ty] = fromClient ? [client.x, client.y, server.x, server.y] : [server.x, server.y, client.x, client.y];
     const dir = fromClient ? 'C→S' : 'S→C';
-    log((fromClient ? '→ ' : '← ') + `${state.opcode.toUpperCase()} frame  ${detail}`, '');
-    if (isCorrupt) {
-      await animatePacket(state.opcode.slice(0, 6).toUpperCase(), fx, fy, tx, ty, '#FB7185', false, { title: detail + ' (corrupted)' });
-      log('⚠ Frame fails validation — a real client would close with code 1002 (protocol error). Demo continues.', 'warn');
-      addCapture({ proto: 'ws', dir, label: state.opcode.toUpperCase(), summary: detail, outcome: 'corrupted' });
+    // Server -> client frames are never masked (RFC 6455 §5.1), so capture those bytes unmasked.
+    const frameSegs = fromClient ? sentSegs : snapshotSegments(buildPacketBytes('ws', { fromServer: true }));
+    const frameLabel = state.opcode.slice(0, 6).toUpperCase();
+    log((fromClient ? '→ ' : '← ') + `${state.opcode.toUpperCase()} frame${fromClient ? '' : ' (unmasked — server frames never are)'}  ${detail}`, '');
+    if (willDropPhysically) {
+      await animatePacket(frameLabel, fx, fy, tx, ty, fromClient ? '#A78BFA' : '#67E8F9', true, { title: detail });
+      log('✕ The TCP segment carrying this frame was lost.', 'lost');
+      addCapture({ proto: 'ws', dir, label: state.opcode.toUpperCase(), summary: detail, outcome: 'lost', segments: frameSegs });
+      await pause(300);
+      log('… TCP underneath notices the missing ACK and retransmits — WebSocket itself does nothing.', 'info');
+      await animatePacket(frameLabel, fx, fy, tx, ty, fromClient ? '#A78BFA' : '#67E8F9', false, { title: detail });
+      log(`Delivered late but intact — the app just sees a delay. "${payloadPreview}"`, 'ok');
+      addCapture({ proto: 'ws', dir, label: state.opcode.toUpperCase() + ' (TCP retransmit)', summary: detail, outcome: 'delivered', segments: fromClient ? cleanSegs : frameSegs });
+    } else if (isCorrupt) {
+      await animatePacket(frameLabel, fx, fy, tx, ty, '#FB7185', false, { title: detail + ' (corrupted)' });
+      log('⚠ The payload was altered before it was sent, so TCP’s checksum still passes and delivers it faithfully — the receiver decodes garbage. (A text frame that isn’t valid UTF-8 gets closed with code 1007.)', 'warn');
+      addCapture({ proto: 'ws', dir, label: state.opcode.toUpperCase(), summary: detail, outcome: 'corrupted', segments: frameSegs });
     } else {
-      await animatePacket(state.opcode.slice(0, 6).toUpperCase(), fx, fy, tx, ty, fromClient ? '#A78BFA' : '#67E8F9', false, { title: detail });
+      await animatePacket(frameLabel, fx, fy, tx, ty, fromClient ? '#A78BFA' : '#67E8F9', false, { title: detail });
       log((fromClient ? 'Server received it instantly — no request needed.' : 'Client received an unsolicited push from the server.') + ` "${payloadPreview}"`, 'ok');
-      addCapture({ proto: 'ws', dir, label: state.opcode.toUpperCase(), summary: detail, outcome: 'delivered' });
+      addCapture({ proto: 'ws', dir, label: state.opcode.toUpperCase(), summary: detail, outcome: 'delivered', segments: frameSegs });
     }
-  } else if (currentProto === 'quic') {
+  } else if (key === 'quic') {
     log(`→ STREAM ${state.streamId}  ${detail}`, '');
     if (willDropPhysically || isCorrupt) {
       const color = isCorrupt ? '#FB7185' : '#A78BFA';
       await animatePacket('STREAM', client.x, client.y, server.x, server.y, color, willDropPhysically, { title: detail, dropPoint: 0.6 });
-      log(isCorrupt ? '⚠ Auth tag fails — the encrypted packet can\u2019t be decrypted, so it\u2019s dropped.' : '✕ Packet lost in transit.', isCorrupt ? 'warn' : 'lost');
-      addCapture({ proto: 'quic', dir: 'C→S', label: 'STREAM', summary: detail, outcome: isCorrupt ? 'corrupted' : 'lost' });
+      log(isCorrupt && !willDropPhysically ? '⚠ Auth tag fails — the encrypted packet can’t be decrypted, so it’s dropped.' : '✕ Packet lost in transit.', isCorrupt && !willDropPhysically ? 'warn' : 'lost');
+      addCapture({ proto: 'quic', dir: 'C→S', label: 'STREAM', summary: detail, outcome: isCorrupt && !willDropPhysically ? 'corrupted' : 'lost', segments: sentSegs });
       log(`… only stream ${state.streamId} stalls — other streams on this connection keep flowing.`, 'info');
-      log('→ STREAM (retransmit)', 'info');
-      await animatePacket('STREAM', client.x, client.y, server.x, server.y, '#A78BFA', false, { title: detail });
+      // QUIC never re-sends a packet: the lost STREAM data goes out again in a
+      // brand-new packet with the next packet number.
+      const oldPn = Number(state.packetNumber) || 0;
+      state.packetNumber = (oldPn + 1) >>> 0;
+      renderPacketForm(key);
+      const retxDetail = buildDetail(key);
+      const retxSegs = snapshotSegments(buildPacketBytes(key, { clean: true }));
+      log(`→ STREAM data re-sent in a new packet (packet number ${oldPn} → ${state.packetNumber})`, 'info');
+      await animatePacket('STREAM', client.x, client.y, server.x, server.y, '#A78BFA', false, { title: retxDetail });
       log('← ACK', 'ok');
       await animatePacket('ACK', server.x, server.y, client.x, client.y, '#67E8F9', false);
       log('Delivered after retransmission, with zero head-of-line blocking on other streams.', 'ok');
-      addCapture({ proto: 'quic', dir: 'C→S', label: 'STREAM (retransmit)', summary: detail, outcome: 'delivered' });
+      addCapture({ proto: 'quic', dir: 'C→S', label: 'STREAM (retransmit)', summary: retxDetail, outcome: 'delivered', segments: retxSegs });
     } else {
       await animatePacket('STREAM', client.x, client.y, server.x, server.y, '#A78BFA', false, { title: detail });
       log('← ACK', 'ok');
       await animatePacket('ACK', server.x, server.y, client.x, client.y, '#67E8F9', false);
       log(`Delivered and acknowledged. "${payloadPreview}"`, 'ok');
-      addCapture({ proto: 'quic', dir: 'C→S', label: 'STREAM', summary: detail, outcome: 'delivered' });
+      addCapture({ proto: 'quic', dir: 'C→S', label: 'STREAM', summary: detail, outcome: 'delivered', segments: sentSegs });
     }
-  } else if (currentProto === 'ip') {
+  } else if (key === 'ip') {
     log(`→ PACKET  ${detail}`, '');
     if (Number(state.ttl) <= 0) {
       await animatePacket('PACKET', client.x, client.y, server.x, server.y, '#A78BFA', true, { title: detail, dropPoint: 0.4 });
-      log('✕ TTL reached 0 mid-route — a router discards it and would normally send back an ICMP Time Exceeded.', 'lost');
-      addCapture({ proto: 'ip', dir: 'C→S', label: 'PACKET', summary: detail, outcome: 'lost' });
+      log('✕ TTL is 0 — the first router discards it and would normally send back an ICMP Time Exceeded.', 'lost');
+      addCapture({ proto: 'ip', dir: 'C→S', label: 'PACKET', summary: detail, outcome: 'lost', segments: sentSegs });
     } else if (willDropPhysically) {
       await animatePacket('PACKET', client.x, client.y, server.x, server.y, '#A78BFA', true, { title: detail });
       log('✕ Packet lost in transit — a router along the path dropped it. No notification, no retry at this layer.', 'lost');
-      addCapture({ proto: 'ip', dir: 'C→S', label: 'PACKET', summary: detail, outcome: 'lost' });
+      addCapture({ proto: 'ip', dir: 'C→S', label: 'PACKET', summary: detail, outcome: 'lost', segments: sentSegs });
     } else if (isCorrupt) {
       await animatePacket('PACKET', client.x, client.y, server.x, server.y, '#FB7185', false, { title: detail + ' (corrupted)' });
       log('⚠ Header checksum mismatch — the next router discards it immediately, before even looking at the payload.', 'warn');
-      addCapture({ proto: 'ip', dir: 'C→S', label: 'PACKET', summary: detail, outcome: 'corrupted' });
+      addCapture({ proto: 'ip', dir: 'C→S', label: 'PACKET', summary: detail, outcome: 'corrupted', segments: sentSegs });
     } else {
       await animatePacket('PACKET', client.x, client.y, server.x, server.y, '#A78BFA', false, { title: detail });
       log(`Delivered. IP itself never acknowledges — that's left to whatever protocol rides inside it. "${payloadPreview}"`, 'ok');
-      addCapture({ proto: 'ip', dir: 'C→S', label: 'PACKET', summary: detail, outcome: 'delivered' });
+      addCapture({ proto: 'ip', dir: 'C→S', label: 'PACKET', summary: detail, outcome: 'delivered', segments: sentSegs });
     }
   }
-  sendBtn.disabled = false;
-});
+}));
 
 // ---------------------------------------------------------------------------
 // Disconnect
 // ---------------------------------------------------------------------------
-disconnectBtn.addEventListener('click', async () => {
+disconnectBtn.addEventListener('click', runOp(async () => {
   const p = protocols[currentProto];
-  disconnectBtn.disabled = true;
-  sendBtn.disabled = true;
-  dropBtn.disabled = true;
   if (currentProto === 'tcp') {
     log('→ FIN', 'info');
     await animatePacket('FIN', client.x, client.y, server.x, server.y, '#FB7185', false);
-    log('← ACK / FIN', 'info');
+    log('← FIN-ACK (server ACKs and sends its own FIN)', 'info');
     await animatePacket('FIN-ACK', server.x, server.y, client.x, client.y, '#FB7185', false);
-    log('Connection closed cleanly.', 'ok');
+    log('→ ACK', 'info');
+    await animatePacket('ACK', client.x, client.y, server.x, server.y, '#FB7185', false);
+    log('Connection closed cleanly. The client lingers in TIME_WAIT briefly in case that last ACK was lost.', 'ok');
   } else if (currentProto === 'ws') {
     log('→ Close frame', 'info');
     await animatePacket('CLOSE', client.x, client.y, server.x, server.y, '#FB7185', false);
-    log('Socket closed. Underlying TCP connection torn down.', 'ok');
+    log('← Close frame (server echoes it)', 'info');
+    await animatePacket('CLOSE', server.x, server.y, client.x, client.y, '#FB7185', false);
+    log('Closing handshake done. The underlying TCP connection is then torn down with FIN/ACK.', 'ok');
   } else if (currentProto === 'quic') {
     log('→ CONNECTION_CLOSE frame', 'info');
     await animatePacket('CLOSE', client.x, client.y, server.x, server.y, '#FB7185', false);
@@ -1308,7 +1468,7 @@ disconnectBtn.addEventListener('click', async () => {
   sentSinceConnect = false;
   drawScene();
   updateFlowSteps();
-  connectBtn.disabled = false;
-});
+}));
 
+layoutScene();
 setProtoUI('tcp');

@@ -76,6 +76,12 @@ canvas {
   border-radius: 0 0 10px 10px;
 }
 
+#settingsContent:not(.open) {
+  /* keep collapsed controls out of the tab order */
+  visibility: hidden;
+  transition: max-height 0.35s ease, visibility 0s linear 0.35s;
+}
+
 #settingsContent.open {
   /* Expand to fill remaining viewport space below the button */
   max-height: calc(100vh - 64px - 32px); /* 64px ≈ button height + gap */
@@ -164,8 +170,21 @@ canvas {
   cursor: pointer;
   margin-bottom: 4px;
 }
-.pill-toggle { position: relative; }
-.pill-toggle input { display: none; }
+.pill-toggle { position: relative; display: block; }
+/* Visually hidden but still focusable / announced (display:none removed it
+   from the keyboard and accessibility tree) */
+.pill-toggle input {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.pill-toggle input:focus-visible + .pill-track {
+  outline: 2px solid rgba(100,180,255,0.9);
+  outline-offset: 2px;
+}
 .pill-track {
   display: block;
   width: 34px; height: 18px;
@@ -329,9 +348,69 @@ canvas {
 .color-pick::-webkit-color-swatch-wrapper { padding: 0; }
 .color-pick::-webkit-color-swatch { border: none; border-radius: 3px; }
 
+/* ── Back link ── */
+#backLink {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  background: rgba(20,20,28,0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: rgba(255,255,255,0.75);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+#backLink:hover { background: rgba(30,30,42,0.94); border-color: rgba(255,255,255,0.2); color: #fff; }
+
+/* ── Shortcuts list ── */
+.shortcuts { display: flex; flex-direction: column; gap: 5px; }
+.shortcuts div { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.shortcuts dt { font-size: 11px; color: rgba(255,255,255,0.45); }
+.shortcuts dd { font-size: 11px; color: rgba(255,255,255,0.6); text-align: right; }
+.shortcuts kbd {
+  font-family: inherit;
+  font-size: 10px;
+  padding: 1px 5px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  color: rgba(255,255,255,0.7);
+}
+
+/* ── Keyboard focus ── */
+button:focus-visible,
+a:focus-visible,
+input[type="range"]:focus-visible,
+input[type="color"]:focus-visible {
+  outline: 2px solid rgba(100,180,255,0.9);
+  outline-offset: 2px;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
 /* ── Mobile ── */
 @media (max-width: 480px) {
-  #settingsDropdown { width: calc(100vw - 32px); }
-  #settingsContent.open { max-height: calc(100vh - 80px); }
+  #settingsDropdown { width: calc(100vw - 32px - 56px); }
+  #backLink { padding: 10px 13px; }
+  .back-text { display: none; }
+  #settingsContent:not(.open) {
+  /* keep collapsed controls out of the tab order */
+  visibility: hidden;
+  transition: max-height 0.35s ease, visibility 0s linear 0.35s;
+}
+
+#settingsContent.open { max-height: calc(100vh - 80px); }
   .palette-grid { grid-template-columns: repeat(3, 1fr); }
 }

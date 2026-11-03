@@ -2,80 +2,86 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Noosphere</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Noosphere — Interactive Particle Field</title>
+  <meta name="description" content="Noosphere: an interactive particle field. Type a word and watch hundreds of linked particles assemble into it, or play with gravity, vortex and repulsion in sandbox mode.">
+  <meta name="theme-color" content="#080808">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-  <canvas id="c"></canvas>
-  <div id="cursor"></div>
-  <div id="cursor-ring"></div>
+  <canvas id="c" role="img" aria-label="Interactive particle field. Particles form the word typed in the Text panel; move the pointer to repel them, press and hold to attract."></canvas>
+  <div id="cursor" aria-hidden="true"></div>
+  <div id="cursor-ring" aria-hidden="true"></div>
 
-  <div id="hint"><p>Touch to begin</p></div>
+  <a id="back-link" href="/projects.html" aria-label="Back to projects"><span aria-hidden="true">&larr;</span><span class="back-text">Projects</span></a>
+
+  <div id="hint" aria-hidden="true"><p>Touch to begin</p></div>
   <div id="title"><h1>Noosphere</h1></div>
 
   <!-- Mode switcher -->
-  <div id="mode-bar">
-    <button class="mode-btn active" data-mode="text"><span class="dot"></span>Text</button>
-    <button class="mode-btn"        data-mode="sandbox"><span class="dot"></span>Sandbox</button>
+  <div id="mode-bar" role="group" aria-label="Mode">
+    <button type="button" class="mode-btn active" data-mode="text" aria-pressed="true"><span class="dot" aria-hidden="true"></span>Text</button>
+    <button type="button" class="mode-btn"        data-mode="sandbox" aria-pressed="false"><span class="dot" aria-hidden="true"></span>Sandbox</button>
   </div>
 
   <!-- Live stats -->
-  <div id="status">
+  <div id="status" aria-hidden="true">
     <div class="stat-line">particles <span id="s-count">0</span></div>
     <div class="stat-line">fps <span id="s-fps">0</span></div>
     <div class="stat-line">mode <span id="s-mode">text</span></div>
   </div>
 
   <!-- Control panel -->
-  <div id="panel">
+  <div id="panel" role="region" aria-label="Controls">
 
     <!-- SANDBOX -->
     <div class="panel-section" id="sec-sandbox">
       <div class="sliders-grid">
         <div class="slider-row">
-          <label>Particles</label>
+          <label for="sl-count">Particles</label>
           <input type="range" id="sl-count" min="50" max="800" value="400" step="10">
           <span class="val" id="v-count">400</span>
         </div>
         <div class="slider-row">
-          <label>Repel</label>
+          <label for="sl-repel">Repel</label>
           <input type="range" id="sl-repel" min="20" max="250" value="120">
           <span class="val" id="v-repel">120</span>
         </div>
         <div class="slider-row">
-          <label>Link dist</label>
+          <label for="sl-link">Link dist</label>
           <input type="range" id="sl-link" min="20" max="250" value="100">
           <span class="val" id="v-link">100</span>
         </div>
         <div class="slider-row">
-          <label>Speed</label>
+          <label for="sl-speed">Speed</label>
           <input type="range" id="sl-speed" min="1" max="30" value="8">
           <span class="val" id="v-speed">8</span>
         </div>
         <div class="slider-row">
-          <label>Gravity</label>
+          <label for="sl-grav">Gravity</label>
           <input type="range" id="sl-grav" min="-10" max="10" value="0">
           <span class="val" id="v-grav">0</span>
         </div>
         <div class="slider-row">
-          <label>Damping</label>
+          <label for="sl-damp">Damping</label>
           <input type="range" id="sl-damp" min="50" max="99" value="88">
           <span class="val" id="v-damp">88</span>
         </div>
       </div>
       <div class="btn-row">
-        <button class="panel-btn ghost" id="btn-explode">Explode</button>
-        <button class="panel-btn ghost" id="btn-vortex">Vortex</button>
-        <button class="panel-btn ghost" id="btn-reset">Reset</button>
-        <div class="swatch-row" id="swatches-sandbox">
-          <div class="swatch active" data-color="orange" style="background:#e8541a"></div>
-          <div class="swatch"        data-color="blue"   style="background:#3a8ff5"></div>
-          <div class="swatch"        data-color="teal"   style="background:#1db885"></div>
-          <div class="swatch"        data-color="violet" style="background:#9b6dff"></div>
-          <div class="swatch"        data-color="white"  style="background:#c8c4be"></div>
+        <button type="button" class="panel-btn ghost" id="btn-explode">Explode</button>
+        <button type="button" class="panel-btn ghost" id="btn-vortex">Vortex</button>
+        <button type="button" class="panel-btn ghost" id="btn-reset">Reset</button>
+        <div class="swatch-row" id="swatches-sandbox" role="group" aria-label="Particle colour">
+          <button type="button" class="swatch active" data-color="orange" style="background:#e8541a" aria-label="Orange particles" aria-pressed="true"></button>
+          <button type="button" class="swatch" data-color="blue" style="background:#3a8ff5" aria-label="Blue particles" aria-pressed="false"></button>
+          <button type="button" class="swatch" data-color="teal" style="background:#1db885" aria-label="Teal particles" aria-pressed="false"></button>
+          <button type="button" class="swatch" data-color="violet" style="background:#9b6dff" aria-label="Violet particles" aria-pressed="false"></button>
+          <button type="button" class="swatch" data-color="white" style="background:#c8c4be" aria-label="White particles" aria-pressed="false"></button>
         </div>
       </div>
     </div>
@@ -83,18 +89,18 @@
     <!-- TEXT -->
     <div class="panel-section visible" id="sec-text">
       <div class="word-row">
-        <input id="word-input" type="text" maxlength="11" value="Hello World" placeholder="Type a word…" autocomplete="off" spellcheck="false">
-        <button class="panel-btn" id="btn-form">Form →</button>
-        <button class="panel-btn ghost" id="btn-scatter">Scatter</button>
+        <input id="word-input" type="text" aria-label="Word to form" maxlength="11" value="Hello World" placeholder="Type a word…" autocomplete="off" spellcheck="false">
+        <button type="button" class="panel-btn" id="btn-form">Form <span aria-hidden="true">→</span></button>
+        <button type="button" class="panel-btn ghost" id="btn-scatter">Scatter</button>
       </div>
       <div class="btn-row">
-        <span class="hint-label">Touch to repel · Hold to attract</span>
-        <div class="swatch-row" id="swatches-text">
-          <div class="swatch active" data-color="orange" style="background:#e8541a"></div>
-          <div class="swatch"        data-color="blue"   style="background:#3a8ff5"></div>
-          <div class="swatch"        data-color="teal"   style="background:#1db885"></div>
-          <div class="swatch"        data-color="violet" style="background:#9b6dff"></div>
-          <div class="swatch"        data-color="white"  style="background:#c8c4be"></div>
+        <span class="hint-label" id="hint-label">Touch to repel · Hold to attract</span>
+        <div class="swatch-row" id="swatches-text" role="group" aria-label="Particle colour">
+          <button type="button" class="swatch active" data-color="orange" style="background:#e8541a" aria-label="Orange particles" aria-pressed="true"></button>
+          <button type="button" class="swatch" data-color="blue" style="background:#3a8ff5" aria-label="Blue particles" aria-pressed="false"></button>
+          <button type="button" class="swatch" data-color="teal" style="background:#1db885" aria-label="Teal particles" aria-pressed="false"></button>
+          <button type="button" class="swatch" data-color="violet" style="background:#9b6dff" aria-label="Violet particles" aria-pressed="false"></button>
+          <button type="button" class="swatch" data-color="white" style="background:#c8c4be" aria-label="White particles" aria-pressed="false"></button>
         </div>
       </div>
     </div>

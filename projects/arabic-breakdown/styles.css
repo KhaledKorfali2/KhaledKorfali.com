@@ -30,7 +30,7 @@ textarea {
   transition: border-color 0.2s;
   direction: rtl;
 }
-textarea:focus { border-color: var(--ink); }
+textarea:focus { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(26,26,26,0.06); }
 textarea::placeholder { color: var(--ink-faint); font-family: 'Amiri', serif; }
 
 .input-actions {
@@ -42,6 +42,12 @@ textarea::placeholder { color: var(--ink-faint); font-family: 'Amiri', serif; }
 }
 .input-actions-left,
 .input-actions-right { display: flex; align-items: center; gap: 8px; }
+.input-actions .btn-ghost { display: inline-flex; align-items: center; gap: 6px; }
+
+.input-hint {
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+}
 
 /* ── Audio controls ── */
 .audio-controls {
@@ -132,8 +138,8 @@ textarea::placeholder { color: var(--ink-faint); font-family: 'Amiri', serif; }
 }
 
 .word-play-btn {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: 1px solid var(--border-strong);
   background: var(--surface);
@@ -187,7 +193,7 @@ textarea::placeholder { color: var(--ink-faint); font-family: 'Amiri', serif; }
 }
 
 .letter-name {
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -203,7 +209,7 @@ textarea::placeholder { color: var(--ink-faint); font-family: 'Amiri', serif; }
   border-color: rgba(155,34,38,0.15);
 }
 .letter-chip.is-diacritic .letter-name {
-  color: rgba(155,34,38,0.5);
+  color: var(--accent);
 }
 
 /* ── Modal ── */
@@ -245,8 +251,8 @@ textarea::placeholder { color: var(--ink-faint); font-family: 'Amiri', serif; }
   letter-spacing: -0.02em;
 }
 .modal-close {
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: 1px solid var(--border-strong);
   background: var(--surface);
@@ -291,5 +297,8 @@ textarea::placeholder { color: var(--ink-faint); font-family: 'Amiri', serif; }
 @media (max-width: 680px) {
   .breakdown-layout { padding: 24px 20px 80px; }
   .input-actions { flex-wrap: wrap; }
+  .input-hint { display: none; } /* no hardware keyboard on most phones */
   textarea { font-size: 1.2rem; }
+  .word-card { max-width: 100%; }
+  .modal-content { padding: 18px; }
 }

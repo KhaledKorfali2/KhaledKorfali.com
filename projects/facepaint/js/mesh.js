@@ -47,9 +47,13 @@ export const LM = {
 
 // ── Resize ────────────────────────────────────────────────────────────────────
 export function resizeMeshCanvas() {
+    // Back the overlay with device pixels so the thin mesh lines stay crisp
+    // on high-DPI screens; drawing code keeps working in CSS pixels.
     const rect = meshCanvas.getBoundingClientRect();
-    meshCanvas.width = rect.width;
-    meshCanvas.height = rect.height;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    meshCanvas.width = Math.round(rect.width * dpr);
+    meshCanvas.height = Math.round(rect.height * dpr);
+    meshCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
@@ -83,7 +87,7 @@ export function drawMesh(landmarks) {
 
     const { scaleW, scaleH, offsetX, offsetY } = getCoverTransform(W, H);
 
-    meshCtx.clearRect(0, 0, meshCanvas.width, meshCanvas.height);
+    clearMesh();
 
     function px(l) {
         return [
@@ -144,5 +148,8 @@ export function drawMesh(landmarks) {
 }
 
 export function clearMesh() {
+    meshCtx.save();
+    meshCtx.setTransform(1, 0, 0, 1, 0, 0);
     meshCtx.clearRect(0, 0, meshCanvas.width, meshCanvas.height);
+    meshCtx.restore();
 }

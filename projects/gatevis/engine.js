@@ -45,6 +45,7 @@
     this.wires = [];    // { id, fromGate, fromPin, toGate, toPin, signal }
     this._nextId = 1;
     this._clockIntervals = {};
+    this.unstable = false;  // true when the last propagate() never settled (oscillating feedback loop)
   }
 
   Circuit.prototype.addGate = function (type, x, y) {
@@ -71,9 +72,17 @@
       clearInterval(this._clockIntervals[id]);
       delete this._clockIntervals[id];
     }
+    // Downstream gates must re-evaluate now that their driver is gone
+    this.propagate();
   };
 
   Circuit.prototype.addWire = function (fromGate, fromPin, toGate, toPin) {
+    var src = this.gateById(fromGate), dst = this.gateById(toGate);
+    var dstDef = dst && GATE_DEFS[dst.type];
+    if (!src || !dstDef || fromGate === toGate) return null;
+    if (src.type === 'OUTPUT' || src.type === 'LED') return null;   // sinks have no output pin
+    if (typeof toPin !== 'number' || toPin < 0 || toPin >= dstDef.inputs) return null;
+    fromPin = 0;
     // Remove any existing wire going into that input pin
     this.wires = this.wires.filter(function (w) {
       return !(w.toGate === toGate && w.toPin === toPin);
@@ -131,6 +140,7 @@
   Circuit.prototype.propagate = function () {
     var self    = this;
     var MAX_ITER = 100;  // guard against combinational loops
+    var settled  = false;
 
     // Build adjacency: for each gate, which wires feed its inputs?
     // We iterate in multiple passes (handles fan-out & cycles gracefully)
@@ -168,15 +178,20 @@
         });
       });
 
-      if (!changed) break;
+      if (!changed) { settled = true; break; }
     }
+    // A feedback loop with an odd number of inversions (e.g. NOT → itself) never
+    // settles; flag it so the UI can warn instead of showing an arbitrary state.
+    self.unstable = !settled;
   };
 
   /* ── Truth table generator for whole circuit ── */
   Circuit.prototype.buildTruthTable = function () {
-    var inputs  = this.gates.filter(function (g) { return g.type === 'INPUT'; });
-    var outputs = this.gates.filter(function (g) { return g.type === 'OUTPUT' || g.type === 'LED'; });
+    function byPos(a, b) { return (a.y - b.y) || (a.x - b.x); }
+    var inputs  = this.gates.filter(function (g) { return g.type === 'INPUT'; }).sort(byPos);
+    var outputs = this.gates.filter(function (g) { return g.type === 'OUTPUT' || g.type === 'LED'; }).sort(byPos);
     if (!inputs.length || !outputs.length) return null;
+    if (inputs.length > MAX_TT_INPUTS) return { tooMany: true, max: MAX_TT_INPUTS, count: inputs.length };
 
     var rows   = [];
     var n      = inputs.length;
@@ -184,14 +199,17 @@
 
     // Save current state
     var savedStates = inputs.map(function (g) { return g.state; });
+    var anyUnstable = false;
 
     for (var mask = 0; mask < combos; mask++) {
       for (var i = 0; i < n; i++) {
         inputs[i].state = (mask >> (n - 1 - i)) & 1;
       }
       this.propagate();
+      if (this.unstable) anyUnstable = true;
       var row = { inputs: inputs.map(function (g) { return g.state; }),
-                  outputs: outputs.map(function (g) { return g.state; }) };
+                  outputs: outputs.map(function (g) { return g.state; }),
+                  unstable: this.unstable };
       rows.push(row);
     }
 
@@ -200,9 +218,12 @@
     this.propagate();
 
     return {
-      inputLabels:  inputs.map(function (g, i)  { return g.label || ('I' + i); }),
-      outputLabels: outputs.map(function (g, i) { return g.label || ('Q' + i); }),
-      rows: rows
+      // Every gate's label is just its type ("INPUT"), so use A, B, C… / Q0, Q1…
+      // in the same top-to-bottom order the user sees on the canvas.
+      inputLabels:  inputs.map(function (g, i)  { return String.fromCharCode(65 + i); }),
+      outputLabels: outputs.map(function (g, i) { return 'Q' + i; }),
+      rows: rows,
+      unstable: anyUnstable
     };
   };
 
@@ -221,23 +242,60 @@
     });
   };
 
+  /* Validates everything before touching current state, so a corrupt snapshot
+     (e.g. hand-edited localStorage) can't leave the circuit half-loaded.
+     Returns true on success. */
   Circuit.prototype.load = function (json) {
-    try {
-      var data = typeof json === 'string' ? JSON.parse(json) : json;
-      this.gates      = data.gates.map(function (g) {
-        return { id: g.id, type: g.type, x: g.x, y: g.y,
-                 label: GATE_DEFS[g.type] ? GATE_DEFS[g.type].label : g.type,
-                 state: g.state || 0, inputPins: [], outputPins: [],
-                 extraData: g.extraData || { clockHz: 1 } };
-      });
-      this.wires      = data.wires.map(function (w) {
-        return { id: w.id, fromGate: w.fromGate, fromPin: w.fromPin,
-                 toGate: w.toGate, toPin: w.toPin, signal: 0 };
-      });
-      this._nextId    = data.nextId || (this.gates.length + this.wires.length + 1);
-      this.propagate();
-    } catch (e) { console.error('Circuit load error', e); }
+    var data;
+    try { data = typeof json === 'string' ? JSON.parse(json) : json; }
+    catch (e) { console.error('Circuit load error', e); return false; }
+    if (!data || !Array.isArray(data.gates) || !Array.isArray(data.wires)) return false;
+
+    var ID_RE = /^[gw](\d{1,9})$/;
+    var maxId = 0, seen = {};
+    function finite(n) { return typeof n === 'number' && isFinite(n); }
+    function trackId(id) {
+      var m = typeof id === 'string' && ID_RE.exec(id);
+      if (!m || seen[id]) return false;
+      seen[id] = true;
+      maxId = Math.max(maxId, +m[1]);
+      return true;
+    }
+
+    var gates = [];
+    data.gates.forEach(function (g) {
+      if (!g || !Object.prototype.hasOwnProperty.call(GATE_DEFS, g.type)) return;
+      if (!finite(g.x) || !finite(g.y) || !trackId(g.id)) return;
+      var hz = g.extraData && finite(g.extraData.clockHz) ? g.extraData.clockHz : 1;
+      gates.push({ id: g.id, type: g.type, x: g.x, y: g.y,
+                   label: GATE_DEFS[g.type].label,
+                   state: g.state === 1 ? 1 : 0, inputPins: [], outputPins: [],
+                   extraData: { clockHz: Math.max(0.1, Math.min(10, hz)), clockState: 0 } });
+    });
+    var byId = {};
+    gates.forEach(function (g) { byId[g.id] = g; });
+    var wires = [], taken = {};
+    data.wires.forEach(function (w) {
+      if (!w) return;
+      var src = byId[w.fromGate], dst = byId[w.toGate];
+      if (!src || !dst || src === dst) return;
+      if (src.type === 'OUTPUT' || src.type === 'LED') return;
+      if (!finite(w.toPin) || w.toPin < 0 || w.toPin >= GATE_DEFS[dst.type].inputs) return;
+      var key = w.toGate + ':' + w.toPin;
+      if (taken[key] || !trackId(w.id)) return;      // one driver per input pin
+      taken[key] = true;
+      wires.push({ id: w.id, fromGate: w.fromGate, fromPin: 0,
+                   toGate: w.toGate, toPin: w.toPin, signal: 0 });
+    });
+
+    this.gates   = gates;
+    this.wires   = wires;
+    this._nextId = Math.max(finite(data.nextId) ? data.nextId : 0, maxId + 1);
+    this.propagate();
+    return true;
   };
+
+  var MAX_TT_INPUTS = 10;  // 2^10 = 1024 rows; beyond this the table is unusable anyway
 
   /* ── Preset circuits ── */
   var PRESETS = {

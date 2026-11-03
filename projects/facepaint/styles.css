@@ -110,6 +110,7 @@ html, body {
     "canvas  sidebar"
     "toolbar toolbar";
   height: 100vh;
+  height: 100dvh; /* mobile browsers: exclude the URL bar */
 }
 
 /* ── Header ── */
@@ -122,6 +123,30 @@ html, body {
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   z-index: 20;
+}
+
+.header-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+
+.back-link {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.back-link:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+.startup-back { position: absolute; top: 16px; left: 16px; }
+
+#startup .privacy-note {
+  font-size: 11px;
+  max-width: 340px;
+  opacity: 0.8;
 }
 
 #logo {
@@ -214,6 +239,7 @@ html, body {
   z-index: 5;
   mix-blend-mode: difference;
 }
+#cursor.lost { opacity: 0; }
 #cursor.drawing {
   transform: translate(-50%, -50%) scale(1.5);
   border-width: 3px;
@@ -354,6 +380,12 @@ html, body {
   flex-shrink: 0;
 }
 .control-item .desc { color: var(--muted); }
+.kbd-title { margin-top: 16px; }
+kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: inherit;
+}
 
 /* Sensitivity */
 .thresh-row { display: flex; flex-direction: column; gap: 12px; }
@@ -419,6 +451,25 @@ html, body {
   border-color: rgba(71,184,232,0.35);
   color: var(--accent2);
 }
+.toolbar-spacer { flex: 1; }
+
+/* ── Keyboard focus ── */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.color-btn:focus-visible { outline-offset: 1px; }
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+  .spinner { animation-duration: 1.6s !important; }
+}
 
 /* ══════════════════════════════════════════════════════════
    MOBILE
@@ -444,6 +495,19 @@ html, body {
     border-right: 1px solid var(--border);
     border-bottom: none;
   }
+  #header { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+  #logo { font-size: 18px; }
+  .header-left { gap: 10px; }
   #hud { gap: 6px; }
   .hud-pill { padding: 4px 8px; font-size: 10px; }
+  #toolbar { padding: 8px 10px; gap: 6px; }
+  .tool-btn { padding: 8px 10px; }
+  .toolbar-spacer { display: none; }
+  #startup { padding: 64px 20px 24px; gap: 18px; }
+}
+
+@media (max-width: 420px) {
+  .back-text { display: none; }
+  .hud-pill .label { display: none; }
+  .sidebar-section { min-width: 180px; }
 }
