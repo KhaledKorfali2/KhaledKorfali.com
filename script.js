@@ -4,133 +4,133 @@ const projects = [
   {
     name: "Pattern Trace",
     description: "Train yourself to spot the LeetCode pattern before you see the answer.",
-    image: "screenshots/interview-prep.png",
+    image: "screenshots/interview-prep.webp",
     path: "./projects/interview-prep/index.html",
     category: "programming"
   },
   {
     name: "Falling Sand Simulator",
     description: "A particle sandbox of sand, water, fire and smoke interacting cell by cell.",
-    image: "screenshots/falling-sand.png",
+    image: "screenshots/falling-sand.webp",
     path: "./projects/falling-sand/index.html",
     category: "simulation"
   },
   {
     name: "Boid Simulator",
     description: "Flocking behaviour from three simple rules: separation, alignment, cohesion.",
-    image: "screenshots/boid-simulator.png",
+    image: "screenshots/boid-simulator.webp",
     path: "./projects/boid-simulator/index.html",
     category: "simulation"
   },
   {
     name: "Vim System",
     description: "An interactive course that teaches Vim motions and operators in the browser.",
-    image: "screenshots/linux-filesystem.png",
+    image: "screenshots/vim-sim.webp",
     path: "./projects/cs-courses/vim-sim-index.html",
     category: "programming"
   },
   {
     name: "Arabic Letter Quiz",
     description: "Drill the 28 letters of the Arabic alphabet and their forms.",
-    image: "screenshots/arabic-letter-quiz.png",
+    image: "screenshots/arabic-letter-quiz.webp",
     path: "./projects/arabic-letter-quiz/index.html",
     category: "arabic"
   },
   {
     name: "Linux File System",
     description: "Learn the shell by navigating a simulated Linux file system.",
-    image: "screenshots/linux-filesystem.png",
+    image: "screenshots/fs-sim.webp",
     path: "./projects/cs-courses/fs-sim-index.html",
     category: "programming"
   },
   {
     name: "Git System",
     description: "See commits, branches and merges take shape as you type git commands.",
-    image: "screenshots/linux-filesystem.png",
+    image: "screenshots/git-sim.webp",
     path: "./projects/cs-courses/git-sim-index.html",
     category: "programming"
   },
   {
     name: "Sorting Algorithm Simulator",
     description: "Step through sorting algorithms and watch every comparison and swap.",
-    image: "screenshots/sorting-alg.png",
+    image: "screenshots/sorting-alg.webp",
     path: "./projects/sorting-simulator/index.html",
     category: "programming"
   },
   {
     name: "Graph Algorithm Simulator",
     description: "Build a graph and watch BFS, Dijkstra, A*, Kruskal and more run step by step.",
-    image: "screenshots/graph-sim.png",
+    image: "screenshots/graph-sim.webp",
     path: "./projects/graph-simulator/index.html",
     category: "programming"
   },
   {
     name: "Frontend Playground",
     description: "Guided HTML, CSS and JavaScript lessons with a live preview.",
-    image: "screenshots/css-playground.png",
+    image: "screenshots/css-playground.webp",
     path: "./projects/frontend-playground/index.html",
     category: "programming"
   },
   {
     name: "Logic Gate Simulator",
     description: "Wire up logic gates and watch signals propagate through the circuit.",
-    image: "screenshots/gatevis.png",
+    image: "screenshots/gatevis.webp",
     path: "./projects/gatevis/index.html",
     category: "programming"
   },
   {
     name: "Facepaint",
     description: "Draw with your face using your webcam: open your mouth to paint.",
-    image: "screenshots/facepaint.png",
+    image: "screenshots/facepaint.webp",
     path: "./projects/facepaint/index.html",
     category: "simulation"
   },
   {
     name: "Noosphere",
     description: "An interactive particle field that responds to your cursor or touch.",
-    image: "screenshots/noosphere.png",
+    image: "screenshots/noosphere.webp",
     path: "./projects/noosphere/index.html",
     category: "programming"
   },
   {
     name: "Conway's Game of Life",
     description: "The classic cellular automaton: draw a pattern and let it evolve.",
-    image: "screenshots/game-of-life.png",
+    image: "screenshots/game-of-life.webp",
     path: "./projects/game-of-life/index.html",
     category: "simulation"
   },
   {
     name: "Web Protocols",
     description: "TCP, UDP, WebSockets, QUIC and IPv4 compared in motion.",
-    image: "screenshots/web-protocal-comparer.png",
+    image: "screenshots/web-protocal-comparer.webp",
     path: "./projects/web-protocal-comparer/index.html",
     category: "programming"
   },
   {
     name: "Arabic Flashcards",
     description: "Flip through Arabic letters and their isolated, initial, medial and final forms.",
-    image: "screenshots/arabic-flashcards.png",
+    image: "screenshots/arabic-flashcards.webp",
     path: "./projects/arabic-flashcards/index.html",
     category: "arabic"
   },
   {
     name: "Arabic Word Guess",
     description: "A Wordle-style game for guessing Qur'anic Arabic words letter by letter.",
-    image: "screenshots/arabic-word-guess.png",
+    image: "screenshots/arabic-word-guess.webp",
     path: "./projects/arabic-word-guess/index.html",
     category: "arabic"
   },
   {
     name: "Arabic Word Breakdown",
     description: "Paste or scan Arabic text and hear it broken down letter by letter.",
-    image: "screenshots/arabic-breakdown.png",
+    image: "screenshots/arabic-breakdown.webp",
     path: "./projects/arabic-breakdown/index.html",
     category: "arabic"
   },
   {
     name: "Surah Quiz",
     description: "Test your knowledge of the 114 surahs: names, numbers and order.",
-    image: "screenshots/surah-quiz.png",
+    image: "screenshots/surah-quiz.webp",
     path: "./projects/surah-quiz/index.html",
     category: "arabic"
   },

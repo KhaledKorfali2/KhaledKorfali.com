@@ -527,8 +527,9 @@ header.light nav a.active {
 .teaser-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1px;
-  background: var(--border);
+  /* Dividers are drawn per card (box-shadow) so a short last row
+     doesn't leave a grey block in the empty slots. */
+  background: var(--surface-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -612,8 +613,9 @@ header.light nav a.active {
   list-style: none;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-  gap: 1px;
-  background: var(--border);
+  /* Dividers are drawn per card (box-shadow) so a short last row
+     doesn't leave a grey block in the empty slots. */
+  background: var(--surface-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -622,6 +624,7 @@ header.light nav a.active {
 /* ── Project Card ── */
 .grid-item {
   background: var(--surface-card);
+  box-shadow: 1px 0 0 var(--border), 0 1px 0 var(--border);
   position: relative;
   overflow: hidden;
   transition: background 0.2s var(--ease);
