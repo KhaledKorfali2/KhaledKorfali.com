@@ -3,7 +3,7 @@
 const projects = [
   {
     name: "Pattern Trace",
-    description: "Train yourself to spot the LeetCode pattern before you see the answer.",
+    description: "Spot the pattern in 150+ LeetCode problems, with spaced repetition and step-through visualisations.",
     image: "screenshots/interview-prep.webp",
     path: "./projects/interview-prep/index.html",
     category: "programming"
