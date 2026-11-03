@@ -90,15 +90,16 @@ export class FaceSignals {
     }
 
     // Pointer: nose displacement from rest, in eye-distances → [-1, 1] across the canvas.
-    // A ~15° head turn moves the nose ~0.3 eye-distances (heads pivot at the neck), so the
-    // default reach puts the canvas edge there; nodding has less range, so y gets more gain.
+    // At the default reach the canvas edge is about one eye-distance of nose travel —
+    // a comfortable turn or lean (real use showed ~0.35 was far too twitchy). Nodding
+    // has less range than turning, so y gets a little more gain.
     // Mirrored horizontally so turning left moves the brush left, like a mirror.
     const n = this.neutral || { x: m.noseX, y: m.noseY, eyeDist: m.eyeDist };
     if (!this.neutral) this.neutral = n;
     const reach = this.get("reach");
     const f = this.filter.filter((m.noseX - n.x) / n.eyeDist, (m.noseY - n.y) / n.eyeDist, frame.t);
-    const x = clamp(-f.x * reach * 1.3, -1, 1);
-    const y = clamp(f.y * reach * 1.8, -1, 1);
+    const x = clamp(-f.x * reach * 0.45, -1, 1);
+    const y = clamp(f.y * reach * 0.62, -1, 1);
 
     // Mouth → pen, with hysteresis and a few frames of debounce.
     const { on, off } = this.thresholds();

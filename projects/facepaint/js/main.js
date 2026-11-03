@@ -2,6 +2,7 @@
 import * as settings from "./settings.js";
 import { Paint } from "./paint.js";
 import { FaceSignals } from "./signals.js";
+import { HandSignals } from "./hands.js";
 import { Preview } from "./preview.js";
 import * as tracker from "./tracker.js";
 
@@ -11,34 +12,39 @@ const COLORS = [
   ["Green", "#3ecf74"], ["Lime", "#b0e840"], ["Brown", "#a0604a"], ["Black", "#16161a"],
 ];
 const SIZES = [3, 6, 10, 16, 26];
+const MIN_SIZE = 2, MAX_SIZE = 48;
+const RAINBOW = "conic-gradient(#f44,#fd4,#4e8,#4cf,#86f,#f4c,#f44)";
 
 const $ = (id) => document.getElementById(id);
 const app = $("app");
 const paper = $("paper");
 const cursor = $("cursor");
-const paint = new Paint(paper);
-const signals = new FaceSignals(settings.get);
+const paint = new Paint(paper, $("bloom"));
+const face = new FaceSignals(settings.get);
+const hands = new HandSignals(settings.get);
 const preview = new Preview($("pip"));
 
-let mode = "intro";          // intro | face | mouse
+let mode = "intro";          // intro | camera | mouse
 let calibrating = false;
-let holdDown = false;        // "hold" trigger: screen pressed / Space held
+let holdDown = false;        // face "hold" trigger: screen pressed / Space held
 let pen = false;
 let noFaceSince = null;
+let sizeGesture = null;      // { start } while the off hand is resizing
+let switching = false;
+let hue = Math.random() * 360; // rainbow ink carries on from stroke to stroke
+
+const control = () => settings.get("control");
+const hueAt = (st) => (st.hue0 + st.dist[st.dist.length - 1] * 0.45) % 360; // matches paint.js
 
 /* ── layout ── */
-function layout() { paint.resize(); }
-new ResizeObserver(layout).observe(paper);
-paint.setPaper(settings.get("paper"));
+new ResizeObserver(() => paint.resize()).observe(paper);
 
-/* ── status pill ── */
+/* ── status & toast ── */
 function setStatus(text, tone = "") {
   const s = $("status");
   s.dataset.tone = tone;
   s.querySelector("span").textContent = text;
 }
-
-/* ── toast ── */
 let toastTimer;
 function toast(text, action) {
   const t = $("toast"), btn = $("toastAction");
@@ -54,48 +60,63 @@ function toast(text, action) {
 const color = () => COLORS[settings.get("color")] || COLORS[0];
 function setColor(i, announce = false) {
   const n = ((i % COLORS.length) + COLORS.length) % COLORS.length;
+  if (settings.get("rainbow")) settings.set("rainbow", false); // picking a colour means you want that colour
   settings.set("color", n);
+  if (announce) toast(COLORS[n][0]);
   syncTools();
-  if (announce) toast(color()[0]);
 }
-function setSize(px) { settings.set("size", px); syncTools(); }
+function setSize(px) { settings.set("size", Math.round(Math.max(MIN_SIZE, Math.min(MAX_SIZE, px)))); }
 function syncTools() {
   const [name, hex] = color();
-  $("swatch").style.background = hex;
-  $("colorBtn").setAttribute("aria-label", `Colour: ${name}`);
-  const d = $("sizeDot"), size = settings.get("size");
+  const rainbow = settings.get("rainbow"), size = settings.get("size");
+  $("swatch").style.background = rainbow ? RAINBOW : hex;
+  $("colorBtn").setAttribute("aria-label", rainbow ? "Colour: rainbow" : `Colour: ${name}`);
+  const d = $("sizeDot");
   d.style.width = d.style.height = Math.max(7, Math.min(22, size)) + "px";
-  d.style.background = hex;
-  cursor.style.setProperty("--c", hex);
+  d.style.background = rainbow ? RAINBOW : hex;
+  cursor.style.setProperty("--c", rainbow ? `hsl(${hue} 92% 62%)` : hex);
   cursor.style.setProperty("--s", Math.max(8, size) + "px");
-  document.querySelectorAll("#colors button").forEach((b, i) => b.setAttribute("aria-pressed", String(i === settings.get("color"))));
+  document.querySelectorAll("#colors button").forEach((b, i) => b.setAttribute("aria-pressed", String(!rainbow && i === settings.get("color"))));
   document.querySelectorAll("#sizes button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.size === size)));
   $("undoBtn").disabled = !paint.canUndo;
   $("redoBtn").disabled = !paint.canRedo;
   $("clearBtn").disabled = paint.isEmpty;
+  const anyFx = ["glow", "bloom", "rainbow", "fade"].some((k) => settings.get(k)) || settings.get("sym") > 1;
+  $("fxBtn").classList.toggle("is-on", anyFx);
 }
 $("colors").innerHTML = COLORS.map(([n, h], i) => `<button type="button" style="--c:${h}" data-color="${i}" aria-label="${n}" title="${n}"></button>`).join("");
 $("sizes").innerHTML = SIZES.map((s, i) => `<button type="button" data-size="${s}" aria-label="Size ${i + 1}" title="Size ${i + 1}"><i style="width:${Math.min(s, 24)}px;height:${Math.min(s, 24)}px"></i></button>`).join("");
 paint.onChange(syncTools);
-syncTools();
 
 /* ── popovers ── */
+const POPS = [["colorPop", "colorBtn"], ["sizePop", "sizeBtn"], ["fxPop", "fxBtn"], ["savePop", "saveBtn"]];
 function togglePop(which, open) {
-  for (const [pop, btn] of [["colorPop", "colorBtn"], ["sizePop", "sizeBtn"]]) {
+  if (which === "fxPop") fillFx();
+  for (const [pop, btn] of POPS) {
     const show = pop === which && (open ?? $(pop).hidden);
     $(pop).hidden = !show;
     $(btn).setAttribute("aria-expanded", String(show));
   }
 }
-$("colorBtn").onclick = () => togglePop("colorPop");
-$("sizeBtn").onclick = () => togglePop("sizePop");
+for (const [pop, btn] of POPS) $(btn).onclick = () => togglePop(pop);
 $("colors").onclick = (e) => { const b = e.target.closest("[data-color]"); if (b) { setColor(+b.dataset.color); togglePop(null); } };
 $("sizes").onclick = (e) => { const b = e.target.closest("[data-size]"); if (b) { setSize(+b.dataset.size); togglePop(null); } };
 document.addEventListener("pointerdown", (e) => {
-  if (!(e.target instanceof Element) || !e.target.closest(".pop, #colorBtn, #sizeBtn")) togglePop(null);
+  if (!(e.target instanceof Element) || !e.target.closest(".pop, .dock")) togglePop(null);
 });
 
-/* ── history & export ── */
+/* ── effects ── */
+function fillFx() {
+  document.querySelectorAll("[data-fx]").forEach((c) => { c.checked = settings.get(c.dataset.fx); });
+  document.querySelectorAll('input[name="fxSym"]').forEach((r) => { r.checked = +r.value === settings.get("sym"); });
+}
+$("fxPop").addEventListener("change", (e) => {
+  const c = e.target;
+  if (c.dataset.fx) settings.set(c.dataset.fx, c.checked);
+  if (c.name === "fxSym") settings.set("sym", +c.value);
+});
+
+/* ── history, export, replay ── */
 const doUndo = () => { endStroke(); if (!paint.undo()) toast("Nothing to undo"); };
 const doRedo = () => { if (!paint.redo()) toast("Nothing to redo"); };
 function doClear() {
@@ -103,6 +124,7 @@ function doClear() {
   if (paint.clear()) toast("Canvas cleared", { label: "Undo", run: () => paint.undo() });
 }
 async function doSave() {
+  togglePop(null);
   if (paint.isEmpty) return toast("Draw something first");
   const blob = await paint.toBlob();
   const name = `facepaint-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.png`;
@@ -118,58 +140,82 @@ async function doSave() {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   toast("Saved");
 }
+async function doReplay() {
+  togglePop(null);
+  endStroke(); pen = false;
+  if (paint.replaying) return paint.stopReplay();
+  if (paint.isEmpty) return toast("Draw something first");
+  app.classList.add("is-replaying");
+  toast("Replaying", { label: "Stop", run: () => paint.stopReplay() });
+  await paint.replay();
+  app.classList.remove("is-replaying");
+  $("toast").classList.remove("show");
+}
 $("undoBtn").onclick = doUndo;
 $("redoBtn").onclick = doRedo;
 $("clearBtn").onclick = doClear;
-$("saveBtn").onclick = doSave;
+$("saveImg").onclick = doSave;
+$("replayBtn").onclick = doReplay;
 
 /* ── drawing ── */
-function startStroke(pt) { paint.begin(color()[1], settings.get("size"), pt); }
-function endStroke() { if (paint.drawing) paint.end(); }
-function placeCursor(docPt, visible = true, drawing = false) {
-  if (!visible) { cursor.classList.add("is-hidden"); return; }
+function startStroke(pt) {
+  if (paint.replaying) paint.stopReplay();
+  paint.begin(color()[1], settings.get("size"), pt, { rainbow: settings.get("rainbow"), sym: settings.get("sym"), hue0: hue });
+}
+function endStroke() {
+  const c = paint.current;
+  if (!c) return;
+  if (c.rainbow) hue = hueAt(c); // the next stroke picks up where this one left off
+  paint.end();
+}
+function placeCursor(docPt, drawing = false) {
+  if (!docPt) { cursor.classList.add("is-hidden"); return; }
   const [x, y] = paint.toCss(docPt[0], docPt[1]);
   cursor.style.transform = `translate(${x}px, ${y}px)`;
   cursor.classList.remove("is-hidden");
   cursor.classList.toggle("is-drawing", drawing);
+  if (settings.get("rainbow")) cursor.style.setProperty("--c", `hsl(${paint.current ? hueAt(paint.current) : hue} 92% 62%)`);
+}
+function penTo(want, pt) {
+  if (want && !pen) startStroke(pt);
+  else if (want) paint.extend(pt);
+  if (!want && pen) endStroke();
+  pen = want;
 }
 
-/* ── face mode ── */
+/* ── camera frames ── */
 function onFrame(frame) {
   if (frame.ended) {
-    endStroke();
+    penTo(false);
     toast("Camera disconnected");
     setStatus("Camera off", "bad");
     return;
   }
-  const sig = signals.update(frame);
+  if (switching || paint.replaying) return;
+  if (frame.kind === "hands") onHands(frame); else onFace(frame);
+}
 
+function onFace(frame) {
+  const sig = face.update(frame);
   if (sig.events.includes("calibrated")) finishCalibration();
   if (calibrating) {
-    $("calibProg").style.strokeDashoffset = String(327 * (1 - signals.calibrationProgress));
+    $("calibProg").style.strokeDashoffset = String(327 * (1 - face.calibrationProgress));
     $("calibTitle").textContent = sig.face ? "Look here" : "Looking for your face…";
+    $("calibSub").textContent = sig.face ? "Keep your face relaxed for a moment." : "Make sure your face is in view and well lit.";
     // No face for a while (lighting, wrong camera…): don't trap people behind the overlay.
     if (sig.face) noFaceSince = null; else noFaceSince ??= frame.t;
     $("calibSkip").hidden = !(noFaceSince !== null && frame.t - noFaceSince > 6);
-    $("calibSub").textContent = sig.face ? "Keep your face relaxed for a moment." : "Make sure your face is in view and well lit.";
   }
-  for (const e of sig.events) {
+  if (settings.get("winks")) for (const e of sig.events) {
     if (e === "wink-screen-left") setColor(settings.get("color") - 1, true);
     if (e === "wink-screen-right") setColor(settings.get("color") + 1, true);
   }
-
   const trigger = settings.get("trigger");
-  const wantPen = sig.face && !calibrating && (trigger === "mouth" ? sig.pen : holdDown);
   if (sig.face && !calibrating) {
     const pt = paint.fromUnit(sig.x, sig.y);
-    if (wantPen && !pen) startStroke(pt);
-    else if (wantPen) paint.extend(pt);
-    placeCursor(pt, true, wantPen);
-  } else {
-    placeCursor(null, false);
-  }
-  if (!wantPen && pen) endStroke();
-  pen = wantPen;
+    penTo(trigger === "mouth" ? sig.pen : holdDown, pt);
+    placeCursor(pt, pen);
+  } else { penTo(false); placeCursor(null); }
 
   if (!calibrating) {
     if (!sig.face) setStatus("Face not found", "bad");
@@ -180,31 +226,79 @@ function onFrame(frame) {
   if (settings.get("showPreview")) preview.render(frame, sig, pen);
 }
 
+function onHands(frame) {
+  const sig = hands.update(frame);
+  // Off hand: pinch + vertical drag resizes, relative to the size when the pinch began.
+  if (sig.events.includes("size-start")) sizeGesture = { start: settings.get("size") };
+  if (sizeGesture && sig.sizeDelta !== undefined) {
+    setSize(sizeGesture.start + sig.sizeDelta * (MAX_SIZE - MIN_SIZE) / 2);
+    showSizeHud();
+  }
+  if (sig.events.includes("size-end")) { sizeGesture = null; hideSizeHud(); }
+
+  if (sig.found) {
+    const pt = paint.fromUnit(sig.x, sig.y);
+    penTo(sig.pen, pt);
+    placeCursor(pt, pen);
+  } else { penTo(false); placeCursor(null); }
+
+  const drawHand = settings.get("dominantHand") === "left" ? "left" : "right";
+  if (!sig.found) setStatus(`Show your ${drawHand} hand`, "bad");
+  else if (sizeGesture) setStatus(`Size ${settings.get("size")}`, "ready");
+  else if (pen) setStatus("Painting", "on");
+  else setStatus("Pinch to paint", "ready");
+  preview.setMessage(sig.found ? "" : "Raise your hand");
+  if (settings.get("showPreview")) preview.renderHands(frame, sig, hands.roles(frame.hands), pen);
+}
+
+let hudTimer;
+function showSizeHud() {
+  const h = $("sizeHud"), dot = h.querySelector("i"), s = settings.get("size");
+  clearTimeout(hudTimer);
+  h.hidden = false;
+  dot.style.width = dot.style.height = s + "px";
+  dot.style.background = settings.get("rainbow") ? `hsl(${hue} 92% 62%)` : color()[1];
+  h.querySelector("span").textContent = s;
+}
+function hideSizeHud() { clearTimeout(hudTimer); hudTimer = setTimeout(() => { $("sizeHud").hidden = true; }, 600); }
+
+/* ── calibration (face only) ── */
 function beginCalibration(full = true) {
-  endStroke();
+  penTo(false);
   calibrating = true;
+  noFaceSince = null;
   app.classList.add("is-calibrating");
   $("calib").hidden = false;
+  $("calibSkip").hidden = true;
   $("calibProg").style.strokeDashoffset = "327";
   setStatus("Calibrating", "");
-  signals.calibrate(full ? 1600 : 800, full);
+  face.calibrate(full ? 1600 : 800, full);
 }
 function finishCalibration() {
   calibrating = false;
   app.classList.remove("is-calibrating");
   $("calib").hidden = true;
-  if (!settings.get("tipsSeen")) $("hint").hidden = false;
+  maybeHint();
 }
+function cancelCalibration() {
+  calibrating = false;
+  app.classList.remove("is-calibrating");
+  $("calib").hidden = true;
+}
+function maybeHint() { if (!settings.get("tipsSeen")) $("hint").hidden = false; }
 
-async function startFace() {
+/* ── start / switching ── */
+async function startCamera() {
+  const chosen = document.querySelector('input[name="introControl"]:checked')?.value;
+  if (chosen) settings.set("control", chosen);
   $("startBtn").hidden = true;
   $("mouseBtn").hidden = true;
   $("introError").hidden = true;
   $("introLoading").hidden = false;
   try {
-    await tracker.start(onFrame, (s) => { $("introStatus").textContent = s; });
-    enterMode("face");
-    beginCalibration(true);
+    await tracker.start(onFrame, (s) => { $("introStatus").textContent = s; }, control());
+    enterMode("camera");
+    if (control() === "face") beginCalibration(true); else maybeHint();
   } catch (err) {
     console.error(err);
     $("introLoading").hidden = true;
@@ -216,25 +310,58 @@ async function startFace() {
   }
 }
 
+async function switchControl(next) {
+  if (mode !== "camera" || switching || tracker.currentKind() === next) return;
+  switching = true;
+  penTo(false);
+  cancelCalibration();
+  placeCursor(null);
+  preview.clear();
+  setStatus(next === "hands" ? "Loading hand tracker…" : "Loading face tracker…", "");
+  try {
+    await tracker.setKind(next);
+    switching = false;
+    applySettings();
+    toast(next === "hands" ? "Hand control: pinch to paint" : "Face control");
+    if (next === "face") beginCalibration(!face.calibrated);
+  } catch (e) {
+    console.error(e);
+    switching = false;
+    toast("Couldn't load that tracker. Check your connection.");
+    settings.set("control", tracker.currentKind());
+  }
+}
+const toggleControl = () => settings.set("control", control() === "face" ? "hands" : "face");
+
 function enterMode(m) {
   mode = m;
   app.dataset.mode = m;
   $("intro").hidden = true;
   if (m === "mouse") setStatus("Drawing with pointer", "ready");
   applySettings();
-  layout();
+  paint.resize();
+}
+
+function useMouse() {
+  tracker.stop();
+  cancelCalibration();
+  enterMode("mouse");
+  toast("Drag to draw");
 }
 
 /* ── pointer input: mouse mode draws directly; face + "hold" uses presses as the pen ── */
+const holdMode = () => mode === "camera" && app.dataset.control === "face" && settings.get("trigger") === "hold";
 paper.addEventListener("pointerdown", (e) => {
   togglePop(null);
+  if (paint.replaying) return paint.stopReplay();
   if (mode === "mouse") {
     paper.setPointerCapture(e.pointerId);
     const r = paper.getBoundingClientRect();
-    startStroke(paint.toDoc(e.clientX - r.left, e.clientY - r.top));
+    const pt = paint.toDoc(e.clientX - r.left, e.clientY - r.top);
+    startStroke(pt);
     pen = true;
-    placeCursor(paint.toDoc(e.clientX - r.left, e.clientY - r.top), e.pointerType === "mouse", true);
-  } else if (mode === "face" && settings.get("trigger") === "hold") {
+    if (e.pointerType === "mouse") placeCursor(pt, true);
+  } else if (holdMode()) {
     paper.setPointerCapture(e.pointerId); // keep the press even if the finger slides off the canvas
     holdDown = true;
   }
@@ -242,13 +369,10 @@ paper.addEventListener("pointerdown", (e) => {
 paper.addEventListener("pointermove", (e) => {
   if (mode !== "mouse") return;
   const r = paper.getBoundingClientRect();
-  const pt = paint.toDoc(e.clientX - r.left, e.clientY - r.top);
   // Coalesced events give every sample between frames (smoother fast strokes); fall back to the event itself.
   const batch = e.getCoalescedEvents?.();
-  for (const ce of batch && batch.length ? batch : [e]) {
-    if (pen) paint.extend(paint.toDoc(ce.clientX - r.left, ce.clientY - r.top));
-  }
-  placeCursor(pt, e.pointerType === "mouse", pen);
+  if (pen) for (const ce of batch && batch.length ? batch : [e]) paint.extend(paint.toDoc(ce.clientX - r.left, ce.clientY - r.top));
+  if (e.pointerType === "mouse") placeCursor(paint.toDoc(e.clientX - r.left, e.clientY - r.top), pen);
 });
 const release = () => {
   holdDown = false;
@@ -256,7 +380,7 @@ const release = () => {
 };
 paper.addEventListener("pointerup", release);
 paper.addEventListener("pointercancel", release);
-paper.addEventListener("pointerleave", (e) => { if (mode === "mouse" && e.pointerType === "mouse") cursor.classList.add("is-hidden"); });
+paper.addEventListener("pointerleave", (e) => { if (mode === "mouse" && e.pointerType === "mouse") placeCursor(null); });
 
 /* ── keyboard ── */
 document.addEventListener("keydown", (e) => {
@@ -266,15 +390,18 @@ document.addEventListener("keydown", (e) => {
   if (mod && k === "s") { e.preventDefault(); return doSave(); }
   if (mod && k === "z") { e.preventDefault(); return e.shiftKey ? doRedo() : doUndo(); }
   if (mod && k === "y") { e.preventDefault(); return doRedo(); }
-  if (mod) return;
-  if (k === " " && mode === "face" && settings.get("trigger") === "hold") { holdDown = true; e.preventDefault(); return; }
+  if (mod || mode === "intro") return;
+  if (k === " " && holdMode()) { holdDown = true; e.preventDefault(); return; }
   if (k === "z") return e.shiftKey ? doRedo() : doUndo();
   if (k === "y") return doRedo();
-  if (k === "[" ) return setColor(settings.get("color") - 1, true);
+  if (k === "[") return setColor(settings.get("color") - 1, true);
   if (k === "]") return setColor(settings.get("color") + 1, true);
   if (k >= "1" && k <= "5") return setSize(SIZES[+k - 1]);
-  if (k === "c" && mode === "face") return beginCalibration(false);
-  if (k === "escape") return togglePop(null);
+  if (k === "e") return togglePop("fxPop");
+  if (k === "r") return doReplay();
+  if (k === "h" && mode === "camera") return toggleControl();
+  if (k === "c" && mode === "camera" && app.dataset.control === "face") return beginCalibration(false);
+  if (k === "escape") { if (paint.replaying) paint.stopReplay(); return togglePop(null); }
 });
 document.addEventListener("keyup", (e) => { if (e.key === " ") holdDown = false; });
 window.addEventListener("blur", () => { holdDown = false; });
@@ -287,49 +414,68 @@ function fillForm() {
     if (!el.name || !(el.name in settings.DEFAULTS)) continue;
     const v = settings.get(el.name);
     if (el.type === "checkbox") el.checked = v;
-    else if (el.type === "radio") el.checked = el.value === v;
+    else if (el.type === "radio") el.checked = el.value === String(v);
     else el.value = v;
   }
-  form.querySelector("[data-mouth-only]").hidden = settings.get("trigger") !== "mouth";
 }
 form.addEventListener("input", (e) => {
   const el = e.target;
   if (!el.name || !(el.name in settings.DEFAULTS)) return;
   settings.set(el.name, el.type === "checkbox" ? el.checked : el.type === "range" ? +el.value : el.value);
 });
-$("settingsBtn").onclick = () => { fillForm(); sheet.showModal(); };
+$("settingsBtn").onclick = () => { togglePop(null); fillForm(); sheet.showModal(); };
 sheet.addEventListener("click", (e) => { if (e.target === sheet) sheet.close(); });
 $("recalBtn").onclick = () => { sheet.close(); beginCalibration(true); };
 $("recenterBtn").onclick = () => beginCalibration(false);
+$("inputBtn").onclick = toggleControl;
 
 function applySettings() {
-  app.classList.toggle("no-preview", mode !== "face" || !settings.get("showPreview"));
+  app.classList.toggle("no-preview", mode !== "camera" || !settings.get("showPreview"));
+  // While a tracker loads, the UI keeps showing the one that's running.
+  app.dataset.control = mode === "camera" ? tracker.currentKind() : control();
+  app.dataset.trigger = settings.get("trigger");
+  app.dataset.paper = settings.get("paper");
   preview.showMesh = settings.get("showMesh");
   paint.setPaper(settings.get("paper"));
-  app.dataset.paper = settings.get("paper");
-  app.dataset.trigger = settings.get("trigger");
+  paint.setEffects({ glow: settings.get("glow"), bloom: settings.get("bloom"), fade: settings.get("fade") });
+  form.querySelector("[data-mouth-only]").hidden = settings.get("trigger") !== "mouth";
+
+  const handsNow = app.dataset.control === "hands";
+  $("inputBtn").setAttribute("aria-label", handsNow ? "Switch to face control" : "Switch to hand control");
+  $("inputBtn").title = handsNow ? "Switch to face (H)" : "Switch to hands (H)";
   document.querySelector("[data-paint-hint]").textContent =
     settings.get("trigger") === "mouth" ? "Open your mouth to paint" : "Hold the screen or Space to paint";
-  signals.applySmoothing();
+  const lefty = settings.get("dominantHand") === "left";
+  const draw = lefty ? "left" : "right", other = lefty ? "right" : "left";
+  document.querySelector("[data-aim-hand]").textContent = `Move your ${draw} hand to aim`;
+  document.querySelector("[data-size-hand]").textContent = `Pinch your ${other} hand, move up/down for size`;
+  document.querySelector("[data-intro-aim]").textContent = `Raise your ${draw} hand and move it around.`;
+  document.querySelector("[data-intro-size]").textContent = `Pinch with your ${other} hand and move it up or down.`;
+  face.applySmoothing();
+  hands.applySmoothing();
+  syncTools();
 }
 settings.onChange((k) => {
+  if (k === "control") { if (sheet.open) fillForm(); return switchControl(control()); }
   applySettings();
-  if (k === "trigger") form.querySelector("[data-mouth-only]").hidden = settings.get("trigger") !== "mouth";
+});
+
+/* ── intro: face or hands ── */
+function syncIntro() {
+  const c = document.querySelector('input[name="introControl"]:checked')?.value || control();
+  document.querySelectorAll("[data-steps]").forEach((ol) => { ol.hidden = ol.dataset.steps !== c; });
+  app.dataset.control = c;
+}
+document.querySelectorAll('input[name="introControl"]').forEach((r) => {
+  r.checked = r.value === control();
+  r.addEventListener("change", syncIntro);
 });
 
 /* ── first-run hint ── */
 $("hintOk").onclick = () => { $("hint").hidden = true; settings.set("tipsSeen", true); };
 
-/* ── start ── */
-$("startBtn").onclick = startFace;
-function useMouse() {
-  tracker.stop();
-  calibrating = false;
-  app.classList.remove("is-calibrating");
-  $("calib").hidden = true;
-  enterMode("mouse");
-  toast("Drag to draw");
-}
+$("startBtn").onclick = startCamera;
 $("mouseBtn").onclick = useMouse;
 $("calibSkip").onclick = useMouse;
 applySettings();
+syncIntro();

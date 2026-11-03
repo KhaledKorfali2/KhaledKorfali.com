@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>FacePaint — Draw With Your Face</title>
-  <meta name="description" content="Hands-free drawing in your browser: turn your head to aim, open your mouth to paint and wink to change colour. Face tracking runs entirely on your device.">
+  <title>FacePaint — Draw With Your Face or Hands</title>
+  <meta name="description" content="Hands-free drawing in your browser: aim with your head and open your mouth to paint, or pinch in the air with your hands. Glow, bloom, mirror and rainbow effects. Tracking runs entirely on your device.">
   <meta name="theme-color" content="#0c0c0f">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c0c0f'/%3E%3Cpath d='M7 21c4-9 8 2 12-6s5 3 6 0' fill='none' stroke='%23e8c547' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,8 +20,9 @@
   </script>
 </head>
 <body>
-<div class="app" id="app" data-mode="intro">
+<div class="app" id="app" data-mode="intro" data-control="face">
   <canvas id="paper" aria-label="Drawing canvas"></canvas>
+  <canvas id="bloom" aria-hidden="true" hidden></canvas>
   <div id="cursor" aria-hidden="true"><i></i></div>
 
   <header class="top">
@@ -30,21 +31,29 @@
     <span class="logo">Face<b>Paint</b></span>
     <span class="status" id="status" role="status" aria-live="polite"><i></i><span>Starting</span></span>
     <span class="top-spacer"></span>
-    <button type="button" class="icon-btn" id="recenterBtn" aria-label="Recenter (C)" title="Recenter (C)" data-face-only>
+    <button type="button" class="icon-btn" id="inputBtn" data-camera-only aria-label="Switch to hand control" title="Switch to hands (H)">
+      <svg class="ico-face" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><circle cx="7.5" cy="8.5" r=".9" class="fill"/><circle cx="12.5" cy="8.5" r=".9" class="fill"/><path d="M7.5 12.5c1.4 1.2 3.6 1.2 5 0"/></svg>
+      <svg class="ico-hand" viewBox="0 0 20 20"><path d="M7 10V4.5a1.2 1.2 0 012.4 0V9M9.4 8.5V3.5a1.2 1.2 0 012.4 0V9M11.8 9V4.5a1.2 1.2 0 012.4 0V11c0 3.5-2 6-5 6s-4.2-1.6-5.4-3.8L2.6 10a1.2 1.2 0 012-1.2L7 11"/></svg></button>
+    <button type="button" class="icon-btn" id="recenterBtn" data-face-ctl aria-label="Recenter (C)" title="Recenter (C)">
       <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6.5"/><circle cx="10" cy="10" r="1.6" class="fill"/><path d="M10 1.5v3M10 15.5v3M1.5 10h3M15.5 10h3"/></svg></button>
     <button type="button" class="icon-btn" id="settingsBtn" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.8"/><path d="M16.2 12.4l1.3 1-1.6 2.8-1.6-.6a6.5 6.5 0 01-1.7 1l-.3 1.7H9.1l-.3-1.7a6.5 6.5 0 01-1.7-1l-1.6.6-1.6-2.8 1.3-1a6.6 6.6 0 010-2l-1.3-1 1.6-2.8 1.6.6a6.5 6.5 0 011.7-1l.3-1.7h3.2l.3 1.7a6.5 6.5 0 011.7 1l1.6-.6 1.6 2.8-1.3 1a6.6 6.6 0 010 2z"/></svg></button>
   </header>
 
-  <aside class="pip" id="pip" data-face-only aria-label="Camera preview">
+  <aside class="pip" id="pip" data-camera-only aria-label="Camera preview">
     <div class="pip-video"><canvas class="pip-mesh"></canvas><p class="pip-msg" hidden></p></div>
-    <div class="pip-meter" title="Mouth opening — paint starts at the line"><i></i><b></b></div>
+    <div class="pip-meter" id="pipMeter" title="Paint starts at the gold line"><i></i><b></b></div>
   </aside>
 
+  <div class="size-hud" id="sizeHud" hidden aria-hidden="true"><i></i><span></span></div>
+
   <div class="hint" id="hint" hidden>
-    <span data-hint="aim"><svg viewBox="0 0 20 20"><path d="M3 10h14M13 6l4 4-4 4M7 6l-4 4 4 4"/></svg>Turn your head to aim</span>
-    <span data-hint="paint"><svg viewBox="0 0 20 20"><ellipse cx="10" cy="10" rx="5" ry="6"/></svg><b data-paint-hint>Open your mouth to paint</b></span>
-    <span data-hint="wink"><svg viewBox="0 0 20 20"><path d="M3 8c2 2 5 2 7 0M12 9h5"/></svg>Wink to change colour</span>
+    <span data-face-ctl><svg viewBox="0 0 20 20"><path d="M3 10h14M13 6l4 4-4 4M7 6l-4 4 4 4"/></svg>Turn your head to aim</span>
+    <span data-face-ctl><svg viewBox="0 0 20 20"><ellipse cx="10" cy="10" rx="5" ry="6"/></svg><b data-paint-hint>Open your mouth to paint</b></span>
+    <span data-face-ctl><svg viewBox="0 0 20 20"><path d="M3 8c2 2 5 2 7 0M12 9h5"/></svg>Wink to change colour</span>
+    <span data-hand-ctl><svg viewBox="0 0 20 20"><path d="M3 10h14M13 6l4 4-4 4M7 6l-4 4 4 4"/></svg><b data-aim-hand>Move your right hand to aim</b></span>
+    <span data-hand-ctl><svg viewBox="0 0 20 20"><circle cx="7" cy="10" r="3"/><circle cx="13" cy="10" r="3"/></svg>Pinch to paint</span>
+    <span data-hand-ctl><svg viewBox="0 0 20 20"><path d="M10 3v14M6 7l4-4 4 4M6 13l4 4 4-4"/></svg><b data-size-hand>Pinch your left hand, move up/down for size</b></span>
     <button type="button" class="hint-ok" id="hintOk">Got it</button>
   </div>
 
@@ -53,6 +62,8 @@
       <span class="swatch" id="swatch"></span></button>
     <button type="button" class="dock-btn" id="sizeBtn" aria-haspopup="true" aria-expanded="false" aria-label="Brush size" title="Brush size (1–5)">
       <span class="size-dot" id="sizeDot"></span></button>
+    <button type="button" class="dock-btn" id="fxBtn" aria-haspopup="true" aria-expanded="false" aria-label="Effects" title="Effects (E)">
+      <svg viewBox="0 0 20 20"><path d="M4 16L14 6M12.5 4.5l3 3"/><path d="M15.5 11v3M14 12.5h3M6.5 2.5v3M5 4h3M16 1.5v2M15 2.5h2" stroke-width="1.4"/></svg><i class="fx-dot" aria-hidden="true"></i></button>
     <span class="dock-sep" aria-hidden="true"></span>
     <button type="button" class="dock-btn" id="undoBtn" aria-label="Undo (Z)" title="Undo (Z)">
       <svg viewBox="0 0 20 20"><path d="M7.5 5.5L4 9l3.5 3.5"/><path d="M4.5 9H12a4 4 0 010 8H9"/></svg></button>
@@ -61,22 +72,47 @@
     <button type="button" class="dock-btn" id="clearBtn" aria-label="Clear canvas" title="Clear">
       <svg viewBox="0 0 20 20"><path d="M4 6h12M8 6V4h4v2M6 6l1 11h6l1-11"/></svg></button>
     <span class="dock-sep" aria-hidden="true"></span>
-    <button type="button" class="dock-btn dock-save" id="saveBtn" aria-label="Save image (Ctrl+S)" title="Save image (Ctrl+S)">
+    <button type="button" class="dock-btn dock-save" id="saveBtn" aria-haspopup="true" aria-expanded="false" aria-label="Save or replay" title="Save (Ctrl+S) · Replay (R)">
       <svg viewBox="0 0 20 20"><path d="M10 3v10M6 9l4 4 4-4M4 16h12"/></svg></button>
   </nav>
 
   <div class="pop" id="colorPop" role="dialog" aria-label="Colours" hidden><div class="colors" id="colors"></div></div>
   <div class="pop" id="sizePop" role="dialog" aria-label="Brush sizes" hidden><div class="sizes" id="sizes"></div></div>
+  <div class="pop pop-list" id="fxPop" role="dialog" aria-label="Effects" hidden>
+    <label class="fx-row"><span><b>Glow</b><i>Neon halo around strokes</i></span><input type="checkbox" data-fx="glow"></label>
+    <label class="fx-row"><span><b>Bloom</b><i>Soft light bleeding from bright ink</i></span><input type="checkbox" data-fx="bloom"></label>
+    <label class="fx-row"><span><b>Rainbow ink</b><i>Colour shifts as you draw</i></span><input type="checkbox" data-fx="rainbow"></label>
+    <label class="fx-row"><span><b>Fade</b><i>Strokes melt away, like light painting</i></span><input type="checkbox" data-fx="fade"></label>
+    <div class="fx-row fx-sym"><span><b>Mirror</b></span>
+      <span class="seg seg-sm" role="radiogroup" aria-label="Mirror">
+        <label><input type="radio" name="fxSym" value="1"><span>Off</span></label>
+        <label><input type="radio" name="fxSym" value="2"><span>↔</span></label>
+        <label><input type="radio" name="fxSym" value="6"><span>✻ 6</span></label>
+      </span></div>
+  </div>
+  <div class="pop pop-list pop-save" id="savePop" role="dialog" aria-label="Save" hidden>
+    <button type="button" class="menu-row" id="saveImg"><svg viewBox="0 0 20 20"><path d="M10 3v10M6 9l4 4 4-4M4 16h12"/></svg>Save image</button>
+    <button type="button" class="menu-row" id="replayBtn"><svg viewBox="0 0 20 20"><path d="M6 4.5v11l9-5.5z"/></svg>Replay drawing</button>
+  </div>
 
   <section class="intro" id="intro" aria-labelledby="introTitle">
     <a class="intro-back" href="/projects.html">← Projects</a>
     <div class="intro-card">
       <h1 id="introTitle" class="intro-logo">Face<b>Paint</b></h1>
       <p class="intro-sub">Draw without touching anything.</p>
-      <ol class="steps">
+      <span class="seg intro-seg" role="radiogroup" aria-label="Control with">
+        <label><input type="radio" name="introControl" value="face"><span>Use my face</span></label>
+        <label><input type="radio" name="introControl" value="hands"><span>Use my hands</span></label>
+      </span>
+      <ol class="steps" data-steps="face">
         <li><span class="step-ico"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="11"/><path d="M20 26.5v2.5M4 20h6M30 20h6M14 16l-4 4 4 4M26 16l4 4-4 4"/></svg></span><b>Aim</b><span>Turn your head; the brush follows your nose.</span></li>
         <li><span class="step-ico"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="13"/><ellipse cx="20" cy="25" rx="4" ry="5" class="fill"/><circle cx="15" cy="16" r="1.5" class="fill"/><circle cx="25" cy="16" r="1.5" class="fill"/></svg></span><b>Paint</b><span>Open your mouth to draw, close it to lift the brush.</span></li>
         <li><span class="step-ico"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="13"/><path d="M12 16c1.5 1.2 3.5 1.2 5 0"/><circle cx="25" cy="16" r="1.5" class="fill"/><path d="M15 25c3 2.5 7 2.5 10 0"/></svg></span><b>Wink</b><span>Wink to switch colours. Blinks are ignored.</span></li>
+      </ol>
+      <ol class="steps" data-steps="hands" hidden>
+        <li><span class="step-ico"><svg viewBox="0 0 40 40"><path d="M15 21V9.5a2 2 0 014 0V18M19 17V7.5a2 2 0 014 0V18M23 18V9.5a2 2 0 014 0V23c0 6-3.5 10-8.5 10s-7-2.7-9-6.5L6.5 21a2 2 0 013.4-2L15 23"/></svg></span><b>Aim</b><span data-intro-aim>Raise your right hand and move it around.</span></li>
+        <li><span class="step-ico"><svg viewBox="0 0 40 40"><circle cx="15" cy="20" r="6"/><circle cx="25" cy="20" r="6"/><circle cx="20" cy="20" r="2" class="fill"/></svg></span><b>Paint</b><span>Pinch thumb and index together to draw; let go to stop.</span></li>
+        <li><span class="step-ico"><svg viewBox="0 0 40 40"><path d="M20 6v28M13 13l7-7 7 7M13 27l7 7 7-7"/></svg></span><b>Size</b><span data-intro-size>Pinch with your left hand and move it up or down.</span></li>
       </ol>
       <button type="button" class="btn-primary" id="startBtn">Start with camera</button>
       <div class="intro-loading" id="introLoading" hidden><span class="spinner"></span><span id="introStatus">Loading…</span></div>
@@ -98,13 +134,17 @@
       <div class="sheet-head"><h2 id="settingsTitle">Settings</h2><button class="icon-btn" value="close" aria-label="Close">
         <svg viewBox="0 0 20 20"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/></svg></button></div>
       <div class="sheet-body">
-        <fieldset data-face-only>
-          <legend>Aiming</legend>
-          <label class="range"><span>Reach</span><input type="range" name="reach" min="1" max="4" step="0.1"><span class="range-ends"><i>Big head moves</i><i>Small head moves</i></span></label>
+        <fieldset data-camera-only>
+          <legend>Control</legend>
+          <div class="field"><span class="seg" role="radiogroup" aria-label="Control with">
+            <label><input type="radio" name="control" value="face"><span>Face</span></label>
+            <label><input type="radio" name="control" value="hands"><span>Hands</span></label>
+          </span></div>
           <label class="range"><span>Smoothing</span><input type="range" name="smoothing" min="0" max="1" step="0.05"><span class="range-ends"><i>Responsive</i><i>Steady</i></span></label>
         </fieldset>
-        <fieldset data-face-only>
-          <legend>Painting</legend>
+        <fieldset data-face-ctl>
+          <legend>Face</legend>
+          <label class="range"><span>Reach</span><input type="range" name="reach" min="0.6" max="4" step="0.1"><span class="range-ends"><i>Big head moves</i><i>Small head moves</i></span></label>
           <div class="field"><span>Paint while</span>
             <span class="seg" role="radiogroup" aria-label="Paint while">
               <label><input type="radio" name="trigger" value="mouth"><span>Mouth is open</span></label>
@@ -113,6 +153,15 @@
           <label class="range" data-mouth-only><span>Mouth sensitivity</span><input type="range" name="mouthSensitivity" min="0" max="1" step="0.05"><span class="range-ends"><i>Wide open</i><i>Slightly open</i></span></label>
           <label class="switch"><span>Wink to change colour</span><input type="checkbox" name="winks"></label>
         </fieldset>
+        <fieldset data-hand-ctl>
+          <legend>Hands</legend>
+          <div class="field"><span>Drawing hand</span>
+            <span class="seg" role="radiogroup" aria-label="Drawing hand">
+              <label><input type="radio" name="dominantHand" value="right"><span>Right</span></label>
+              <label><input type="radio" name="dominantHand" value="left"><span>Left (lefty)</span></label>
+            </span></div>
+          <label class="range"><span>Pinch sensitivity</span><input type="range" name="pinchSensitivity" min="0" max="1" step="0.05"><span class="range-ends"><i>Firm pinch</i><i>Light pinch</i></span></label>
+        </fieldset>
         <fieldset>
           <legend>Display</legend>
           <div class="field"><span>Paper</span>
@@ -120,11 +169,11 @@
               <label><input type="radio" name="paper" value="dark"><span>Dark</span></label>
               <label><input type="radio" name="paper" value="light"><span>Light</span></label>
             </span></div>
-          <label class="switch" data-face-only><span>Camera preview</span><input type="checkbox" name="showPreview"></label>
-          <label class="switch" data-face-only><span>Face outline on preview</span><input type="checkbox" name="showMesh"></label>
+          <label class="switch" data-camera-only><span>Camera preview</span><input type="checkbox" name="showPreview"></label>
+          <label class="switch" data-camera-only><span>Tracking outline on preview</span><input type="checkbox" name="showMesh"></label>
         </fieldset>
-        <button type="button" class="btn-secondary" id="recalBtn" data-face-only>Recalibrate</button>
-        <p class="sheet-note">Keys: <kbd>Z</kbd> undo · <kbd>Shift</kbd>+<kbd>Z</kbd> redo · <kbd>[</kbd> <kbd>]</kbd> colour · <kbd>1</kbd>–<kbd>5</kbd> size · <kbd>C</kbd> recenter · <kbd>Ctrl</kbd>+<kbd>S</kbd> save</p>
+        <button type="button" class="btn-secondary" id="recalBtn" data-face-ctl>Recalibrate</button>
+        <p class="sheet-note">Keys: <kbd>Z</kbd> undo · <kbd>Shift</kbd>+<kbd>Z</kbd> redo · <kbd>[</kbd> <kbd>]</kbd> colour · <kbd>1</kbd>–<kbd>5</kbd> size · <kbd>E</kbd> effects · <kbd>H</kbd> face/hands · <kbd>C</kbd> recenter · <kbd>R</kbd> replay · <kbd>Ctrl</kbd>+<kbd>S</kbd> save</p>
       </div>
     </form>
   </dialog>

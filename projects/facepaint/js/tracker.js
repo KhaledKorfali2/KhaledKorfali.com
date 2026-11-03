@@ -3,12 +3,15 @@
 // the WASM runtime and model come from the same pinned release.
 const VISION_VERSION = "0.10.35";
 const WASM_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VERSION}/wasm`;
-const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+const FACE_MODEL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+const HAND_MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 
 export class TrackerError extends Error {}
 
-let landmarker = null;
+const models = { face: null, hands: null }; // loaded lazily, kept for the session
+let kind = "face";                           // which model runs each frame
 let vision = null;
+let fileset = null;
 let stream = null;
 let raf = 0;
 let lastTime = -1;
@@ -21,39 +24,49 @@ video.setAttribute("playsinline", "");
 
 export const videoEl = video;
 export const connections = () => vision?.FaceLandmarker ?? null;
+export const handConnections = () => vision?.HandLandmarker?.HAND_CONNECTIONS ?? null;
 
-async function loadModel(onStatus) {
-  if (landmarker) return;
-  onStatus("Loading face tracker…");
+async function loadModel(which, onStatus) {
+  if (models[which]) return;
+  onStatus(which === "face" ? "Loading face tracker…" : "Loading hand tracker…");
   try {
-    vision = await import("mediapipe-vision");
+    vision ??= await import("mediapipe-vision");
+    fileset ??= await vision.FilesetResolver.forVisionTasks(WASM_BASE);
   } catch (e) {
     console.error(e);
-    throw new TrackerError("The face-tracking library couldn't load. Check your connection (or any content blocker) and try again.");
+    throw new TrackerError("The tracking library couldn't load. Check your connection (or any content blocker) and try again.");
   }
-  const fileset = await vision.FilesetResolver.forVisionTasks(WASM_BASE);
-  const opts = (delegate) => ({
-    baseOptions: { modelAssetPath: MODEL_URL, delegate },
-    runningMode: "VIDEO",
-    numFaces: 1,
-    outputFaceBlendshapes: true,
-    minFaceDetectionConfidence: 0.5,
-    minFacePresenceConfidence: 0.5,
-    minTrackingConfidence: 0.5,
-  });
+  const Task = which === "face" ? vision.FaceLandmarker : vision.HandLandmarker;
+  const opts = (delegate) => which === "face" ? {
+    baseOptions: { modelAssetPath: FACE_MODEL, delegate },
+    runningMode: "VIDEO", numFaces: 1, outputFaceBlendshapes: true,
+    minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5,
+  } : {
+    baseOptions: { modelAssetPath: HAND_MODEL, delegate },
+    runningMode: "VIDEO", numHands: 2,
+    minHandDetectionConfidence: 0.5, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5,
+  };
   try {
-    landmarker = await vision.FaceLandmarker.createFromOptions(fileset, opts("GPU"));
+    models[which] = await Task.createFromOptions(fileset, opts("GPU"));
   } catch (gpuErr) {
     // Some browsers/devices have no usable WebGL2 for the GPU delegate; the CPU path is slower but works.
     console.warn("GPU delegate unavailable, using CPU", gpuErr);
     try {
-      landmarker = await vision.FaceLandmarker.createFromOptions(fileset, opts("CPU"));
+      models[which] = await Task.createFromOptions(fileset, opts("CPU"));
     } catch (e) {
       console.error(e);
-      throw new TrackerError("The face model failed to load. Check your connection and try again.");
+      throw new TrackerError(`The ${which === "face" ? "face" : "hand"} model failed to load. Check your connection and try again.`);
     }
   }
 }
+
+/** Switch between face and hand tracking (loads the model the first time). */
+export async function setKind(next, onStatus = () => {}) {
+  await loadModel(next, onStatus);
+  kind = next;
+  lastTime = -1;
+}
+export const currentKind = () => kind;
 
 function describeCameraError(err) {
   switch (err && err.name) {
@@ -94,12 +107,19 @@ async function startCamera(onStatus) {
 
 function loop() {
   raf = requestAnimationFrame(loop);
-  if (!landmarker || video.readyState < 2 || document.hidden) return;
+  const model = models[kind];
+  if (!model || video.readyState < 2 || document.hidden) return;
   if (video.currentTime === lastTime) return;
   lastTime = video.currentTime;
   const now = performance.now();
   let res;
-  try { res = landmarker.detectForVideo(video, now); } catch (e) { console.error(e); return; }
+  try { res = model.detectForVideo(video, now); } catch (e) { console.error(e); return; }
+  if (kind === "hands") {
+    const labels = res.handedness ?? res.handednesses ?? [];
+    const hands = (res.landmarks || []).map((landmarks, i) => ({ landmarks, label: labels[i]?.[0]?.categoryName ?? null }));
+    onFrame({ kind: "hands", t: now / 1000, hands, vw: video.videoWidth, vh: video.videoHeight });
+    return;
+  }
   const lm = res.faceLandmarks?.[0] || null;
   let blend = null;
   const cats = res.faceBlendshapes?.[0]?.categories;
@@ -107,7 +127,7 @@ function loop() {
     blend = {};
     for (const c of cats) if (c.categoryName === "jawOpen" || c.categoryName === "eyeBlinkLeft" || c.categoryName === "eyeBlinkRight") blend[c.categoryName] = c.score;
   }
-  onFrame({ t: now / 1000, landmarks: lm, blend, vw: video.videoWidth, vh: video.videoHeight });
+  onFrame({ kind: "face", t: now / 1000, landmarks: lm, blend, vw: video.videoWidth, vh: video.videoHeight });
 }
 
 async function keepAwake() {
@@ -117,10 +137,10 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && stream) keepAwake();
 });
 
-/** Load the model, open the camera and start emitting frames to `handler`. */
-export async function start(handler, onStatus = () => {}) {
+/** Load the model for `which`, open the camera and start emitting frames to `handler`. */
+export async function start(handler, onStatus = () => {}, which = "face") {
   onFrame = handler;
-  await loadModel(onStatus);
+  await setKind(which, onStatus);
   await startCamera(onStatus);
   lastTime = -1;
   cancelAnimationFrame(raf);

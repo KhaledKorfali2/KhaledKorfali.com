@@ -1,6 +1,6 @@
 // Camera picture-in-picture: mirrored video, a light face outline, and a mouth
 // meter that shows how far the mouth is from the "paint" threshold.
-import { videoEl, connections } from "./tracker.js";
+import { videoEl, connections, handConnections } from "./tracker.js";
 
 export class Preview {
   constructor(root) {
@@ -36,6 +36,33 @@ export class Preview {
   setMessage(text) {
     this.msg.textContent = text || "";
     this.msg.hidden = !text;
+  }
+
+  clear() {
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  /** Hand mode: skeletons (drawing hand gold, other hand blue) and a pinch meter. */
+  renderHands(frame, sig, roles, penOn) {
+    const { ctx } = this;
+    this.clear();
+    this.meterBox.classList.toggle("is-on", !!penOn);
+    this.meter.style.height = Math.min(100, (sig.pinch || 0) / 1.5 * 100) + "%";
+    const C = handConnections();
+    if (!this.showMesh || !C) return;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const P = this.mapper();
+    for (const [h, color] of [[roles.other, "rgba(71,184,232,.9)"], [roles.draw, "rgba(232,197,71,.95)"]]) {
+      if (!h) continue;
+      const L = h.landmarks;
+      ctx.strokeStyle = color; ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      for (const c of C) { const [ax, ay] = P(L[c.start]), [bx, by] = P(L[c.end]); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); }
+      ctx.stroke();
+      ctx.fillStyle = color;
+      for (const i of [4, 8]) { const [x, y] = P(L[i]); ctx.beginPath(); ctx.arc(x, y, 2.6, 0, Math.PI * 2); ctx.fill(); }
+    }
   }
 
   render(frame, sig, penOn) {
