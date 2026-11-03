@@ -2,147 +2,137 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>FacePaint — Draw With Your Face</title>
-  <meta name="description" content="Hands-free drawing in the browser: steer with your nose, open your mouth to paint and wink to switch colours. Face tracking runs locally with MediaPipe.">
+  <meta name="description" content="Hands-free drawing in your browser: turn your head to aim, open your mouth to paint and wink to change colour. Face tracking runs entirely on your device.">
   <meta name="theme-color" content="#0c0c0f">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c0c0f'/%3E%3Cpath d='M7 21c4-9 8 2 12-6s5 3 6 0' fill='none' stroke='%23e8c547' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <!-- Pinned + SRI. If you bump this version, update FACE_MESH_VERSION in js/facemesh.js and recompute the hash. -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js"
-          integrity="sha384-nKiz5QrpRlMQLw5nrZcprT7N9vmmAcIgV8TuGuep4x91V4JIPsXa+D44Wxj0guoa"
-          crossorigin="anonymous"></script>
+  <!-- Pinned MediaPipe Tasks bundle with SRI. If you bump the version, update VISION_VERSION in js/tracker.js and recompute the hash. -->
+  <script type="importmap">
+  {
+    "imports": { "mediapipe-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs" },
+    "integrity": { "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs": "sha384-Ll1OFMb+0geb9fpvYvxFbnpB/UjqBeQ2iVta6EtAGmIW2s0Oed/AhFDe+32PXnKs" }
+  }
+  </script>
 </head>
 <body>
+<div class="app" id="app" data-mode="intro">
+  <canvas id="paper" aria-label="Drawing canvas"></canvas>
+  <div id="cursor" aria-hidden="true"><i></i></div>
 
-  <!-- ── Startup overlay ───────────────────────────────────────── -->
-  <div id="startup" role="dialog" aria-modal="true" aria-labelledby="logo-big" aria-describedby="startup-desc">
-    <a class="back-link startup-back" href="/projects.html">← Projects</a>
-    <div>
-      <div id="logo-big">Face<span>Paint</span></div>
-      <div id="tagline">HANDS-FREE DRAWING</div>
-    </div>
-    <p id="startup-desc">Draw with your face. Open your mouth to draw, close it to stop.<br>Wink left for previous color, wink right for next.</p>
-    <button id="startBtn" type="button">Enable Camera →</button>
-    <div class="spinner" id="spinner" aria-hidden="true"></div>
-    <div id="loading-msg" role="status" aria-live="polite"></div>
-    <p class="privacy-note">Face tracking runs entirely in your browser — video never leaves your device.</p>
+  <header class="top">
+    <a class="icon-btn" href="/projects.html" aria-label="Back to projects" title="All projects">
+      <svg viewBox="0 0 20 20"><path d="M12 4.5L6.5 10l5.5 5.5"/></svg></a>
+    <span class="logo">Face<b>Paint</b></span>
+    <span class="status" id="status" role="status" aria-live="polite"><i></i><span>Starting</span></span>
+    <span class="top-spacer"></span>
+    <button type="button" class="icon-btn" id="recenterBtn" aria-label="Recenter (C)" title="Recenter (C)" data-face-only>
+      <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6.5"/><circle cx="10" cy="10" r="1.6" class="fill"/><path d="M10 1.5v3M10 15.5v3M1.5 10h3M15.5 10h3"/></svg></button>
+    <button type="button" class="icon-btn" id="settingsBtn" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.8"/><path d="M16.2 12.4l1.3 1-1.6 2.8-1.6-.6a6.5 6.5 0 01-1.7 1l-.3 1.7H9.1l-.3-1.7a6.5 6.5 0 01-1.7-1l-1.6.6-1.6-2.8 1.3-1a6.6 6.6 0 010-2l-1.3-1 1.6-2.8 1.6.6a6.5 6.5 0 011.7-1l.3-1.7h3.2l.3 1.7a6.5 6.5 0 011.7 1l1.6-.6 1.6 2.8-1.3 1a6.6 6.6 0 010 2z"/></svg></button>
+  </header>
+
+  <aside class="pip" id="pip" data-face-only aria-label="Camera preview">
+    <div class="pip-video"><canvas class="pip-mesh"></canvas><p class="pip-msg" hidden></p></div>
+    <div class="pip-meter" title="Mouth opening — paint starts at the line"><i></i><b></b></div>
+  </aside>
+
+  <div class="hint" id="hint" hidden>
+    <span data-hint="aim"><svg viewBox="0 0 20 20"><path d="M3 10h14M13 6l4 4-4 4M7 6l-4 4 4 4"/></svg>Turn your head to aim</span>
+    <span data-hint="paint"><svg viewBox="0 0 20 20"><ellipse cx="10" cy="10" rx="5" ry="6"/></svg><b data-paint-hint>Open your mouth to paint</b></span>
+    <span data-hint="wink"><svg viewBox="0 0 20 20"><path d="M3 8c2 2 5 2 7 0M12 9h5"/></svg>Wink to change colour</span>
+    <button type="button" class="hint-ok" id="hintOk">Got it</button>
   </div>
 
-  <!-- ── Main app ──────────────────────────────────────────────── -->
-  <div id="app">
+  <nav class="dock" aria-label="Tools">
+    <button type="button" class="dock-btn" id="colorBtn" aria-haspopup="true" aria-expanded="false" aria-label="Colour" title="Colour ([ and ])">
+      <span class="swatch" id="swatch"></span></button>
+    <button type="button" class="dock-btn" id="sizeBtn" aria-haspopup="true" aria-expanded="false" aria-label="Brush size" title="Brush size (1–5)">
+      <span class="size-dot" id="sizeDot"></span></button>
+    <span class="dock-sep" aria-hidden="true"></span>
+    <button type="button" class="dock-btn" id="undoBtn" aria-label="Undo (Z)" title="Undo (Z)">
+      <svg viewBox="0 0 20 20"><path d="M7.5 5.5L4 9l3.5 3.5"/><path d="M4.5 9H12a4 4 0 010 8H9"/></svg></button>
+    <button type="button" class="dock-btn" id="redoBtn" aria-label="Redo (Shift+Z)" title="Redo (Shift+Z)">
+      <svg viewBox="0 0 20 20"><path d="M12.5 5.5L16 9l-3.5 3.5"/><path d="M15.5 9H8a4 4 0 000 8h3"/></svg></button>
+    <button type="button" class="dock-btn" id="clearBtn" aria-label="Clear canvas" title="Clear">
+      <svg viewBox="0 0 20 20"><path d="M4 6h12M8 6V4h4v2M6 6l1 11h6l1-11"/></svg></button>
+    <span class="dock-sep" aria-hidden="true"></span>
+    <button type="button" class="dock-btn dock-save" id="saveBtn" aria-label="Save image (Ctrl+S)" title="Save image (Ctrl+S)">
+      <svg viewBox="0 0 20 20"><path d="M10 3v10M6 9l4 4 4-4M4 16h12"/></svg></button>
+  </nav>
 
-    <!-- Header / HUD -->
-    <header id="header">
-      <div class="header-left">
-        <a class="back-link" href="/projects.html" aria-label="Back to projects">←<span class="back-text"> Projects</span></a>
-        <h1 id="logo">Face<span class="dot">Paint</span></h1>
-      </div>
-      <div id="hud" aria-live="polite">
-        <div class="hud-pill draw-off" id="hud-draw">
-          <span class="label">Draw</span>
-          <span class="value" id="hud-draw-val">OFF</span>
-        </div>
-        <div class="hud-pill" id="hud-color">
-          <span class="label">Color</span>
-          <div class="color-swatch" id="hud-swatch"></div>
-          <span class="value" id="hud-color-name">White</span>
-        </div>
-        <div class="hud-pill tracking-off" id="hud-track">
-          <span class="label">Track</span>
-          <span class="value" id="hud-track-val">—</span>
-        </div>
-      </div>
-    </header>
+  <div class="pop" id="colorPop" role="dialog" aria-label="Colours" hidden><div class="colors" id="colors"></div></div>
+  <div class="pop" id="sizePop" role="dialog" aria-label="Brush sizes" hidden><div class="sizes" id="sizes"></div></div>
 
-    <!-- Canvas area -->
-    <div id="canvas-area">
-      <video id="video" autoplay playsinline muted></video>
-      <canvas id="mesh-canvas"></canvas>
-      <canvas id="draw-canvas"></canvas>
-      <div id="cursor" class="lost" aria-hidden="true"></div>
-      <div id="gesture-flash" role="status" aria-live="polite"></div>
+  <section class="intro" id="intro" aria-labelledby="introTitle">
+    <a class="intro-back" href="/projects.html">← Projects</a>
+    <div class="intro-card">
+      <h1 id="introTitle" class="intro-logo">Face<b>Paint</b></h1>
+      <p class="intro-sub">Draw without touching anything.</p>
+      <ol class="steps">
+        <li><span class="step-ico"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="11"/><path d="M20 26.5v2.5M4 20h6M30 20h6M14 16l-4 4 4 4M26 16l4 4-4 4"/></svg></span><b>Aim</b><span>Turn your head; the brush follows your nose.</span></li>
+        <li><span class="step-ico"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="13"/><ellipse cx="20" cy="25" rx="4" ry="5" class="fill"/><circle cx="15" cy="16" r="1.5" class="fill"/><circle cx="25" cy="16" r="1.5" class="fill"/></svg></span><b>Paint</b><span>Open your mouth to draw, close it to lift the brush.</span></li>
+        <li><span class="step-ico"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="13"/><path d="M12 16c1.5 1.2 3.5 1.2 5 0"/><circle cx="25" cy="16" r="1.5" class="fill"/><path d="M15 25c3 2.5 7 2.5 10 0"/></svg></span><b>Wink</b><span>Wink to switch colours. Blinks are ignored.</span></li>
+      </ol>
+      <button type="button" class="btn-primary" id="startBtn">Start with camera</button>
+      <div class="intro-loading" id="introLoading" hidden><span class="spinner"></span><span id="introStatus">Loading…</span></div>
+      <p class="intro-error" id="introError" role="alert" hidden></p>
+      <button type="button" class="btn-link" id="mouseBtn">No camera? Draw with your mouse or finger</button>
+      <p class="intro-privacy"><svg viewBox="0 0 20 20"><rect x="4.5" y="9" width="11" height="8" rx="1.5"/><path d="M7 9V6.5a3 3 0 016 0V9"/></svg>Video never leaves your device. Tracking runs in your browser.</p>
     </div>
+  </section>
 
-    <!-- Sidebar -->
-    <aside id="sidebar">
-
-      <div class="sidebar-section">
-        <div class="section-title">Colors</div>
-        <div id="palette" role="group" aria-label="Brush colour"></div>
-        <div id="brush-row">
-          <label for="brushSize">Size</label>
-          <input type="range" id="brushSize" min="1" max="40" value="6">
-          <span id="brushSizeVal">6</span>
-        </div>
-        <div id="brushPreview">
-          <div id="brushDot"></div>
-        </div>
-      </div>
-
-      <div class="sidebar-section">
-        <div class="section-title">Controls</div>
-        <div class="control-list">
-          <div class="control-item">
-            <span class="gesture-tag">😮 Open</span>
-            <span class="desc">Start drawing</span>
-          </div>
-          <div class="control-item">
-            <span class="gesture-tag">😐 Close</span>
-            <span class="desc">Stop drawing</span>
-          </div>
-          <div class="control-item">
-            <span class="gesture-tag">😉 Left</span>
-            <span class="desc">Prev color</span>
-          </div>
-          <div class="control-item">
-            <span class="gesture-tag">😉 Right</span>
-            <span class="desc">Next color</span>
-          </div>
-        </div>
-        <div class="section-title kbd-title">Keyboard</div>
-        <div class="control-list">
-          <div class="control-item"><span class="gesture-tag"><kbd>[</kbd> <kbd>]</kbd></span><span class="desc">Prev / next color</span></div>
-          <div class="control-item"><span class="gesture-tag"><kbd>Z</kbd></span><span class="desc">Undo</span></div>
-          <div class="control-item"><span class="gesture-tag"><kbd>M</kbd> <kbd>V</kbd></span><span class="desc">Mesh / camera</span></div>
-          <div class="control-item"><span class="gesture-tag"><kbd>Ctrl</kbd>+<kbd>S</kbd></span><span class="desc">Save PNG</span></div>
-        </div>
-      </div>
-
-      <div class="sidebar-section">
-        <div class="section-title">Sensitivity</div>
-        <div class="thresh-row">
-          <div class="thresh-item">
-            <label for="mouthThresh">Mouth open <span id="mouthThreshVal">0.060</span></label>
-            <input type="range" id="mouthThresh" min="0.02" max="0.15" step="0.005" value="0.06">
-          </div>
-          <div class="thresh-item">
-            <label for="winkThresh">Wink <span id="winkThreshVal">0.20</span></label>
-            <input type="range" id="winkThresh" min="0.05" max="0.40" step="0.01" value="0.20">
-          </div>
-          <div class="thresh-item">
-            <label for="smoothSlider">Smoothing <span id="smoothVal">0.20</span></label>
-            <input type="range" id="smoothSlider" min="0.05" max="0.60" step="0.05" value="0.20">
-          </div>
-        </div>
-      </div>
-
-    </aside>
-
-    <!-- Toolbar -->
-    <div id="toolbar">
-      <button type="button" class="tool-btn" id="undoBtn" title="Undo (Z)"><span aria-hidden="true">↩</span> Undo</button>
-      <button type="button" class="tool-btn danger" id="clearBtn" title="Clear canvas"><span aria-hidden="true">🗑</span> Clear</button>
-      <button type="button" class="tool-btn" id="saveBtn" title="Save PNG (Ctrl+S)"><span aria-hidden="true">💾</span> Save PNG</button>
-      <span class="toolbar-spacer"></span>
-      <button type="button" class="tool-btn active" id="meshToggle" aria-pressed="true" title="Show face mesh (M)"><span aria-hidden="true">🔲</span> Mesh</button>
-      <button type="button" class="tool-btn active" id="camToggle" aria-pressed="true" title="Show camera preview (V)"><span aria-hidden="true">📷</span> Camera</button>
-    </div>
-
+  <div class="calib" id="calib" hidden role="status" aria-live="polite">
+    <div class="calib-ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="track"/><circle cx="60" cy="60" r="52" class="prog" id="calibProg"/></svg><span class="calib-dot"></span></div>
+    <p class="calib-title" id="calibTitle">Look here</p>
+    <p class="calib-sub" id="calibSub">Keep your face relaxed for a moment.</p>
+    <button type="button" class="btn-link" id="calibSkip" hidden>Can't get it to work? Draw with your mouse instead</button>
   </div>
 
-  <script type="module" src="js/main.js"></script>
+  <dialog class="sheet" id="settings" aria-labelledby="settingsTitle">
+    <form method="dialog">
+      <div class="sheet-head"><h2 id="settingsTitle">Settings</h2><button class="icon-btn" value="close" aria-label="Close">
+        <svg viewBox="0 0 20 20"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/></svg></button></div>
+      <div class="sheet-body">
+        <fieldset data-face-only>
+          <legend>Aiming</legend>
+          <label class="range"><span>Reach</span><input type="range" name="reach" min="1" max="4" step="0.1"><span class="range-ends"><i>Big head moves</i><i>Small head moves</i></span></label>
+          <label class="range"><span>Smoothing</span><input type="range" name="smoothing" min="0" max="1" step="0.05"><span class="range-ends"><i>Responsive</i><i>Steady</i></span></label>
+        </fieldset>
+        <fieldset data-face-only>
+          <legend>Painting</legend>
+          <div class="field"><span>Paint while</span>
+            <span class="seg" role="radiogroup" aria-label="Paint while">
+              <label><input type="radio" name="trigger" value="mouth"><span>Mouth is open</span></label>
+              <label><input type="radio" name="trigger" value="hold"><span>Holding screen / Space</span></label>
+            </span></div>
+          <label class="range" data-mouth-only><span>Mouth sensitivity</span><input type="range" name="mouthSensitivity" min="0" max="1" step="0.05"><span class="range-ends"><i>Wide open</i><i>Slightly open</i></span></label>
+          <label class="switch"><span>Wink to change colour</span><input type="checkbox" name="winks"></label>
+        </fieldset>
+        <fieldset>
+          <legend>Display</legend>
+          <div class="field"><span>Paper</span>
+            <span class="seg" role="radiogroup" aria-label="Paper">
+              <label><input type="radio" name="paper" value="dark"><span>Dark</span></label>
+              <label><input type="radio" name="paper" value="light"><span>Light</span></label>
+            </span></div>
+          <label class="switch" data-face-only><span>Camera preview</span><input type="checkbox" name="showPreview"></label>
+          <label class="switch" data-face-only><span>Face outline on preview</span><input type="checkbox" name="showMesh"></label>
+        </fieldset>
+        <button type="button" class="btn-secondary" id="recalBtn" data-face-only>Recalibrate</button>
+        <p class="sheet-note">Keys: <kbd>Z</kbd> undo · <kbd>Shift</kbd>+<kbd>Z</kbd> redo · <kbd>[</kbd> <kbd>]</kbd> colour · <kbd>1</kbd>–<kbd>5</kbd> size · <kbd>C</kbd> recenter · <kbd>Ctrl</kbd>+<kbd>S</kbd> save</p>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"><span id="toastText"></span><button type="button" id="toastAction" hidden></button></div>
+</div>
+
+<noscript><p style="padding:24px;color:#fff">FacePaint needs JavaScript.</p></noscript>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>
