@@ -13,13 +13,15 @@ const COLORS = [
 ];
 const SIZES = [3, 6, 10, 16, 26];
 const MIN_SIZE = 2, MAX_SIZE = 48;
-const RAINBOW = "conic-gradient(#f44,#fd4,#4e8,#4cf,#86f,#f4c,#f44)";
+const LIGHT_FX = ["glow", "bloom", "neon", "depth", "sparkle", "fade"];
+const BRUSH_FX = ["rainbow", "taper", "dots"];
+const SCOPE_NOTE = { all: "Light effects change the whole drawing.", new: "Light effects apply to strokes you draw from now on." };
 
 const $ = (id) => document.getElementById(id);
 const app = $("app");
 const paper = $("paper");
 const cursor = $("cursor");
-const paint = new Paint(paper, $("bloom"));
+const paint = new Paint(paper, $("bloom"), $("sparks"));
 const face = new FaceSignals(settings.get);
 const hands = new HandSignals(settings.get);
 const preview = new Preview($("pip"));
@@ -66,26 +68,30 @@ function setColor(i, announce = false) {
   syncTools();
 }
 function setSize(px) { settings.set("size", Math.round(Math.max(MIN_SIZE, Math.min(MAX_SIZE, px)))); }
+// Size icon: the squiggle's thickness follows the brush (2–48px → 1.4–7.5 in a 24px icon).
+const iconWidth = (px) => (1.4 + (Math.min(px, 48) - 2) / 46 * 6.1).toFixed(2);
 function syncTools() {
   const [name, hex] = color();
-  const rainbow = settings.get("rainbow"), size = settings.get("size");
-  $("swatch").style.background = rainbow ? RAINBOW : hex;
+  const rainbow = settings.get("rainbow"), size = settings.get("size"), i = settings.get("color");
+  // Palette: big blob = current colour; small dots = the next colours (what a wink or ] reaches).
+  const dots = rainbow ? ["#f44", "#4e8", "#4cf"] : [1, 2, 3].map((d) => COLORS[(i + d) % COLORS.length][1]);
+  $("colorBtn").querySelector(".pal-main").style.fill = rainbow ? "#fd4" : hex;
+  $("colorBtn").querySelectorAll(".pal-dot").forEach((c, k) => { c.style.fill = dots[k]; });
   $("colorBtn").setAttribute("aria-label", rainbow ? "Colour: rainbow" : `Colour: ${name}`);
-  const d = $("sizeDot");
-  d.style.width = d.style.height = Math.max(7, Math.min(22, size)) + "px";
-  d.style.background = rainbow ? RAINBOW : hex;
+  $("sizeLine").style.strokeWidth = iconWidth(size);
+  $("sizeBtn").setAttribute("aria-label", `Brush size: ${size}`);
   cursor.style.setProperty("--c", rainbow ? `hsl(${hue} 92% 62%)` : hex);
   cursor.style.setProperty("--s", Math.max(8, size) + "px");
-  document.querySelectorAll("#colors button").forEach((b, i) => b.setAttribute("aria-pressed", String(!rainbow && i === settings.get("color"))));
+  document.querySelectorAll("#colors button").forEach((b, k) => b.setAttribute("aria-pressed", String(!rainbow && k === i)));
   document.querySelectorAll("#sizes button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.size === size)));
   $("undoBtn").disabled = !paint.canUndo;
   $("redoBtn").disabled = !paint.canRedo;
   $("clearBtn").disabled = paint.isEmpty;
-  const anyFx = ["glow", "bloom", "rainbow", "fade"].some((k) => settings.get(k)) || settings.get("sym") > 1;
+  const anyFx = [...LIGHT_FX, ...BRUSH_FX].some((k) => settings.get(k)) || settings.get("sym") > 1;
   $("fxBtn").classList.toggle("is-on", anyFx);
 }
 $("colors").innerHTML = COLORS.map(([n, h], i) => `<button type="button" style="--c:${h}" data-color="${i}" aria-label="${n}" title="${n}"></button>`).join("");
-$("sizes").innerHTML = SIZES.map((s, i) => `<button type="button" data-size="${s}" aria-label="Size ${i + 1}" title="Size ${i + 1}"><i style="width:${Math.min(s, 24)}px;height:${Math.min(s, 24)}px"></i></button>`).join("");
+$("sizes").innerHTML = SIZES.map((s, i) => `<button type="button" data-size="${s}" aria-label="Size ${i + 1}" title="Size ${i + 1}"><svg viewBox="0 0 24 24"><path d="M5 15c3-5 5-5 7-2s4 3 7-2" style="stroke-width:${iconWidth(s)}"/></svg></button>`).join("");
 paint.onChange(syncTools);
 
 /* ── popovers ── */
@@ -109,12 +115,24 @@ document.addEventListener("pointerdown", (e) => {
 function fillFx() {
   document.querySelectorAll("[data-fx]").forEach((c) => { c.checked = settings.get(c.dataset.fx); });
   document.querySelectorAll('input[name="fxSym"]').forEach((r) => { r.checked = +r.value === settings.get("sym"); });
+  document.querySelectorAll('input[name="fxScope"]').forEach((r) => { r.checked = r.value === settings.get("fxScope"); });
+  $("fxNote").textContent = SCOPE_NOTE[settings.get("fxScope")];
 }
 $("fxPop").addEventListener("change", (e) => {
   const c = e.target;
-  if (c.dataset.fx) settings.set(c.dataset.fx, c.checked);
+  if (c.dataset.fx) {
+    settings.set(c.dataset.fx, c.checked);
+    // One line explains the effect just toggled (chips stay short; touch has no hover tooltips).
+    $("fxNote").textContent = c.checked ? c.closest("[data-tip]").dataset.tip : "";
+  }
   if (c.name === "fxSym") settings.set("sym", +c.value);
+  if (c.name === "fxScope") { settings.set("fxScope", c.value); $("fxNote").textContent = SCOPE_NOTE[c.value]; }
 });
+function applyEffects() {
+  paint.setScope(settings.get("fxScope"));
+  paint.setEffects(Object.fromEntries(LIGHT_FX.map((k) => [k, settings.get(k)])));
+  syncTools();
+}
 
 /* ── history, export, replay ── */
 const doUndo = () => { endStroke(); if (!paint.undo()) toast("Nothing to undo"); };
@@ -158,14 +176,19 @@ $("saveImg").onclick = doSave;
 $("replayBtn").onclick = doReplay;
 
 /* ── drawing ── */
+// The brush is read at every point, so size and colour changes mid-stroke show up in the line.
+const brush = () => ({
+  color: color()[1], size: settings.get("size"), rainbow: settings.get("rainbow"),
+  sym: settings.get("sym"), taper: settings.get("taper"), dots: settings.get("dots"), hue0: hue,
+});
 function startStroke(pt) {
   if (paint.replaying) paint.stopReplay();
-  paint.begin(color()[1], settings.get("size"), pt, { rainbow: settings.get("rainbow"), sym: settings.get("sym"), hue0: hue });
+  paint.begin(pt, brush());
 }
 function endStroke() {
   const c = paint.current;
   if (!c) return;
-  if (c.rainbow) hue = hueAt(c); // the next stroke picks up where this one left off
+  if (c.c[c.c.length - 1] === null) hue = hueAt(c); // rainbow: the next stroke picks up where this one left off
   paint.end();
 }
 function placeCursor(docPt, drawing = false) {
@@ -178,7 +201,7 @@ function placeCursor(docPt, drawing = false) {
 }
 function penTo(want, pt) {
   if (want && !pen) startStroke(pt);
-  else if (want) paint.extend(pt);
+  else if (want) paint.extend(pt, brush());
   if (!want && pen) endStroke();
   pen = want;
 }
@@ -248,7 +271,7 @@ function onHands(frame) {
   else if (pen) setStatus("Painting", "on");
   else setStatus("Pinch to paint", "ready");
   preview.setMessage(sig.found ? "" : "Raise your hand");
-  if (settings.get("showPreview")) preview.renderHands(frame, sig, hands.roles(frame.hands), pen);
+  if (settings.get("showPreview")) preview.renderHands(frame, sig, sig.roles, pen);
 }
 
 let hudTimer;
@@ -371,7 +394,7 @@ paper.addEventListener("pointermove", (e) => {
   const r = paper.getBoundingClientRect();
   // Coalesced events give every sample between frames (smoother fast strokes); fall back to the event itself.
   const batch = e.getCoalescedEvents?.();
-  if (pen) for (const ce of batch && batch.length ? batch : [e]) paint.extend(paint.toDoc(ce.clientX - r.left, ce.clientY - r.top));
+  if (pen) { const b = brush(); for (const ce of batch && batch.length ? batch : [e]) paint.extend(paint.toDoc(ce.clientX - r.left, ce.clientY - r.top), b); }
   if (e.pointerType === "mouse") placeCursor(paint.toDoc(e.clientX - r.left, e.clientY - r.top), pen);
 });
 const release = () => {
@@ -437,7 +460,6 @@ function applySettings() {
   app.dataset.paper = settings.get("paper");
   preview.showMesh = settings.get("showMesh");
   paint.setPaper(settings.get("paper"));
-  paint.setEffects({ glow: settings.get("glow"), bloom: settings.get("bloom"), fade: settings.get("fade") });
   form.querySelector("[data-mouth-only]").hidden = settings.get("trigger") !== "mouth";
 
   const handsNow = app.dataset.control === "hands";
@@ -453,10 +475,13 @@ function applySettings() {
   document.querySelector("[data-intro-size]").textContent = `Pinch with your ${other} hand and move it up or down.`;
   face.applySmoothing();
   hands.applySmoothing();
-  syncTools();
+  applyEffects();
 }
 settings.onChange((k) => {
   if (k === "control") { if (sheet.open) fillForm(); return switchControl(control()); }
+  // Brush changes happen every frame during a hand resize: keep them cheap (no full redraw).
+  if (k === "size" || k === "color" || k === "tipsSeen" || BRUSH_FX.includes(k) || k === "sym") return syncTools();
+  if (LIGHT_FX.includes(k) || k === "fxScope") return applyEffects();
   applySettings();
 });
 

@@ -13,11 +13,17 @@ export const DEFAULTS = {
   showPreview: true,   // camera picture-in-picture
   showMesh: true,      // face outline on the preview
   paper: "dark",       // "dark" | "light"
-  glow: false,         // effects
+  fxScope: "all",      // light effects apply to "all" strokes or only "new" ones
+  glow: false,         // light effects
   bloom: false,
-  rainbow: false,
-  sym: 1,              // 1 off · 2 mirror · 6 kaleidoscope
+  neon: false,
+  depth: false,
+  sparkle: false,
   fade: false,
+  rainbow: false,      // brush options (always for new strokes)
+  taper: false,
+  dots: false,
+  sym: 1,              // 1 off · 2 mirror · 6 kaleidoscope
   color: 0,
   size: 8,
   tipsSeen: false,

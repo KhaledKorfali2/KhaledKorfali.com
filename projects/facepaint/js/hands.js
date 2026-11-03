@@ -7,6 +7,11 @@ import { OneEuro2D } from "./filters.js";
 const WRIST = 0, THUMB_TIP = 4, INDEX_TIP = 8, MIDDLE_MCP = 9;
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+// Centre of the palm (wrist + finger bases): steadier than any single landmark.
+const palm = (h) => {
+  const L = h.landmarks, ids = [0, 5, 9, 13, 17];
+  return { x: ids.reduce((a, i) => a + L[i].x, 0) / 5, y: ids.reduce((a, i) => a + L[i].y, 0) / 5 };
+};
 
 // The part of the camera frame that maps to the whole canvas, so you don't have
 // to reach the very edge of the frame (where tracking is weakest) to reach the edge.
@@ -29,9 +34,7 @@ class Pinch {
 }
 
 /**
- * frame: { t, vw, vh, hands: [{ landmarks: [21×{x,y,z}], label: "Left"|"Right" }] }
- * Labels are as MediaPipe reports them, which assumes a mirrored (selfie) image; the raw
- * camera frame isn't mirrored, so a reported "Left" is the user's right hand.
+ * frame: { t, vw, vh, hands: [{ landmarks: [21×{x,y,z}], label }] } (labels are ignored: see roles())
  */
 export class HandSignals {
   constructor(getSetting) {
@@ -41,6 +44,7 @@ export class HandSignals {
     this.size = new Pinch();
     this.sizeStartY = null;
     this.lostSince = null;
+    this.memory = { draw: null, other: null }; // last palm position + time of each role
     this.applySmoothing();
   }
 
@@ -55,27 +59,37 @@ export class HandSignals {
     return { on, off: on * 1.45 };
   }
 
-  /** Split visible hands into { draw, other } by handedness setting, labels and position. */
-  roles(hands) {
+  /**
+   * Split visible hands into { draw, other }.
+   * MediaPipe's Left/Right labels flip often enough that they can't be trusted,
+   * so roles follow continuity: the hand that was drawing keeps drawing (nearest to
+   * where it was), and only with no recent history does position decide. The raw
+   * (unmirrored) camera frame shows the user's right hand on the image's left.
+   */
+  roles(hands, t = 0) {
     if (!hands?.length) return { draw: null, other: null };
-    const lefty = this.get("dominantHand") === "left";
-    const user = (h) => (h.label === "Left" ? "right" : h.label === "Right" ? "left" : null);
-    const dom = lefty ? "left" : "right";
-    if (hands.length === 1) return { draw: hands[0], other: null }; // one hand up: it draws
-    let [a, b] = hands;
-    if (user(a) === user(b) || !user(a) || !user(b)) {
-      // Ambiguous labels: the user's right hand is on the image's left (raw, unmirrored frame).
-      const wristX = (h) => h.landmarks[WRIST].x;
-      const rightHand = wristX(a) < wristX(b) ? a : b;
-      const leftHand = rightHand === a ? b : a;
-      return dom === "right" ? { draw: rightHand, other: leftHand } : { draw: leftHand, other: rightHand };
+    const recent = (m) => m && t - m.t < 0.7;
+    const near = (h, m) => Math.hypot(palm(h).x - m.x, palm(h).y - m.y);
+    const { draw: pd, other: po } = this.memory;
+    if (hands.length === 1) {
+      const [h] = hands;
+      // The off hand alone (drawing hand dropped out of view for a moment) shouldn't start drawing.
+      if (recent(po) && (!recent(pd) || near(h, po) < near(h, pd))) return { draw: null, other: h };
+      return { draw: h, other: null };
     }
-    return user(a) === dom ? { draw: a, other: b } : { draw: b, other: a };
+    const [a, b] = hands;
+    if (recent(pd)) return near(a, pd) <= near(b, pd) ? { draw: a, other: b } : { draw: b, other: a };
+    if (recent(po)) return near(a, po) <= near(b, po) ? { draw: b, other: a } : { draw: a, other: b };
+    const userRight = palm(a).x < palm(b).x ? a : b, userLeft = userRight === a ? b : a;
+    return this.get("dominantHand") === "left" ? { draw: userLeft, other: userRight } : { draw: userRight, other: userLeft };
   }
 
   update(frame) {
     const events = [];
-    const { draw, other } = this.roles(frame.hands);
+    const roles = this.roles(frame.hands, frame.t);
+    const { draw, other } = roles;
+    if (draw) this.memory.draw = { ...palm(draw), t: frame.t };
+    if (other) this.memory.other = { ...palm(other), t: frame.t };
     const { on, off } = this.thresholds();
     const px = (L, i) => ({ x: L[i].x * (frame.vw || 640), y: L[i].y * (frame.vh || 480) });
     const pinchDist = (L) => {
@@ -84,7 +98,7 @@ export class HandSignals {
     };
 
     // Drawing hand
-    let out = { found: !!draw, events, pen: false, pinch: 0, x: 0, y: 0 };
+    let out = { found: !!draw, events, pen: false, pinch: 0, x: 0, y: 0, roles };
     if (draw) {
       this.lostSince = null;
       const L = draw.landmarks;
