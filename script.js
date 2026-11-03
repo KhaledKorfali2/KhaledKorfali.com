@@ -100,8 +100,8 @@ const projects = [
     category: "simulation"
   },
   {
-    name: "Web Protocols",
-    description: "TCP, UDP, WebSockets, QUIC and IPv4 compared in motion.",
+    name: "Wire: How Networks Work",
+    description: "An interactive networking course: watch real packets as you learn TCP, TLS, HTTP/2, HTTP/3 and more.",
     image: "screenshots/web-protocal-comparer.webp",
     path: "./projects/web-protocal-comparer/index.html",
     category: "programming"

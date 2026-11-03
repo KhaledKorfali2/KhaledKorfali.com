@@ -2,140 +2,66 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Wire — TCP, UDP, WebSockets, QUIC &amp; IPv4 in Motion</title>
-<meta name="description" content="Interactive network protocol simulator: compare TCP, UDP, WebSocket, QUIC and IPv4. Edit real packet fields and bytes, compute real checksums, simulate loss and corruption, and inspect a live packet capture.">
-<meta name="theme-color" content="#0C0A14">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wire — Learn How the Internet Moves Data</title>
+<meta name="description" content="An interactive course on networking: watch real packets move on sequence diagrams as you learn IP, UDP, TCP, TLS, DNS, HTTP/1.1, HTTP/2, HTTP/3 (QUIC) and WebSockets — then experiment in a network lab.">
+<meta name="theme-color" content="#0c0a14" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f6fb" media="(prefers-color-scheme: light)">
+<meta name="color-scheme" content="dark light">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c0a14'/%3E%3Cpath d='M9 7v18M23 7v18' stroke='%233a3057' stroke-width='2'/%3E%3Cpath d='M9 10l14 5M23 17L9 22' stroke='%23a78bfa' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/wire.css">
+<script>
+  try {
+    var t = (JSON.parse(localStorage.getItem("wire.v2") || "{}").settings || {}).theme;
+    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+    else if (window.matchMedia("(prefers-color-scheme: light)").matches) document.documentElement.dataset.theme = "light";
+  } catch (e) {}
+</script>
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 
-<header class="hero">
-  <a class="back-link" href="/projects.html"><span aria-hidden="true">←</span> Projects</a>
-  <div class="hero-eyebrow">interactive simulation</div>
-  <h1 class="hero-title">Same wire.<br><span class="glow">Different promises.</span></h1>
-  <p class="hero-sub">Every protocol here moves bytes between a client and a server. What separates them is what each one promises about those bytes — delivery, order, speed, and who pays for the difference. Switch protocols, edit the actual packet fields, send it, even break the connection, and watch each one handle it on its own terms.</p>
-</header>
-
-<nav class="proto-tabs" id="protoTabs" aria-label="Protocol">
-  <button type="button" class="tab active" data-proto="tcp" aria-pressed="true">TCP</button>
-  <button type="button" class="tab" data-proto="udp" aria-pressed="false">UDP</button>
-  <button type="button" class="tab" data-proto="ws" aria-pressed="false">WebSocket</button>
-  <button type="button" class="tab" data-proto="quic" aria-pressed="false">QUIC</button>
-  <button type="button" class="tab" data-proto="ip" aria-pressed="false">IPv4</button>
-</nav>
-
-<main class="stage">
-
-  <section class="panel panel-stage">
-    <div class="proto-header">
-      <h2 id="protoTitle">TCP — Transmission Control Protocol</h2>
-      <p id="protoTagline">Reliable, ordered, connection-based. Every byte arrives, or the sender knows it didn't.</p>
-    </div>
-
-    <svg id="flowSvg" viewBox="0 0 900 320" role="img" aria-label="Animated diagram of packets travelling between client and server. Each step is also written to the event log below."></svg>
-
-    <div class="flow-steps" id="flowSteps" aria-hidden="true">
-      <span class="flow-step" data-step="1"><i>1</i>Connect</span>
-      <span class="flow-step-arrow">→</span>
-      <span class="flow-step" data-step="2"><i>2</i>Send</span>
-      <span class="flow-step-arrow">→</span>
-      <span class="flow-step" data-step="3"><i>3</i>Disconnect</span>
-    </div>
-
-    <div class="controls-row">
-      <button type="button" id="connectBtn" class="btn-primary">Connect</button>
-      <button type="button" id="sendBtn" class="btn-secondary" disabled>Send packet</button>
-      <button type="button" id="dropBtn" class="btn-ghost" aria-pressed="false" disabled>Simulate packet loss</button>
-      <button type="button" id="disconnectBtn" class="btn-ghost" disabled>Disconnect</button>
-    </div>
-
-    <div class="event-log mono" id="eventLog" role="log" aria-live="polite" aria-label="Event log" tabindex="0"></div>
-  </section>
-
-  <aside class="panel panel-why">
-    <div class="aside-tabs" role="group" aria-label="Side panel">
-      <button type="button" class="aside-tab active" data-aside="why" aria-pressed="true" aria-controls="whyPane">Why it works</button>
-      <button type="button" class="aside-tab" data-aside="packet" aria-pressed="false" aria-controls="packetPane">Packet inspector</button>
-    </div>
-
-    <div id="whyPane" class="aside-pane">
-      <div id="whyContent"></div>
-    </div>
-
-    <div id="packetPane" class="aside-pane hidden">
-      <div class="mode-toggle" id="modeToggle" role="group" aria-label="Inspector mode">
-        <button type="button" class="mode-btn active" data-mode="general" aria-pressed="true" title="Named fields, guided defaults">Field mode</button>
-        <button type="button" class="mode-btn" data-mode="advanced" aria-pressed="false" title="Raw bytes, real checksums &amp; masking">Bit mode</button>
+<div class="app">
+  <aside class="sidebar" aria-label="Sidebar">
+    <a class="brand" href="#/">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--panel-3)"/><path d="M9 7v18M23 7v18" stroke="var(--line-2)" stroke-width="2"/><path d="M9 10l14 5M23 17L9 22" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/></svg>
+      <span><span class="brand-name">WIRE</span><span class="brand-sub" style="display:block">how the internet moves data</span></span>
+    </a>
+    <nav class="nav" aria-label="Main" data-nav></nav>
+    <div class="side-foot">
+      <div class="streak-card" data-course></div>
+      <div class="side-links">
+        <a href="/projects.html">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          All projects</a>
+        <button type="button" data-theme-toggle aria-label="Switch theme"></button>
       </div>
-
-      <div class="packet-toolbar">
-        <span class="field-hint" id="packetHint" aria-live="polite">Edit the fields below, then hit "Send packet" — your edits travel on the wire.</span>
-        <button type="button" id="resetPacketBtn" class="btn-ghost btn-tiny">Reset</button>
-      </div>
-
-      <div class="byte-view" id="byteView" aria-hidden="true"></div>
-      <div class="byte-legend mono" id="byteLegend"></div>
-
-      <form class="packet-form" id="packetForm" aria-label="Packet fields"></form>
-
-      <div id="wireBlock" class="wire-block hidden"></div>
-
-      <div class="hexdump-block">
-        <div class="wire-block-title">Bytes on the wire <span class="hexdump-tip">hover or focus a field to see its bytes</span></div>
-        <div id="hexDump" class="hex-dump" role="region" aria-label="Hex dump of the current packet" tabindex="0"></div>
-      </div>
-
-      <label class="corrupt-row" id="corruptRow">
-        <input type="checkbox" id="corruptToggle">
-        <span id="corruptLabel">Corrupt this packet before sending</span>
-      </label>
     </div>
   </aside>
 
-</main>
-
-<section class="compare-section">
-  <div class="panel-label compare-label">side by side</div>
-  <div class="compare-table-wrap" role="region" aria-label="Protocol comparison table (scrolls horizontally)" tabindex="0">
-    <table class="compare-table">
-      <thead>
-        <tr>
-          <th scope="col"><span class="visually-hidden">Property</span></th>
-          <th scope="col">TCP</th>
-          <th scope="col">UDP</th>
-          <th scope="col">WebSocket</th>
-          <th scope="col">QUIC</th>
-        </tr>
-      </thead>
-      <tbody id="compareBody"></tbody>
-    </table>
+  <div class="main">
+    <header class="topbar">
+      <a class="brand" href="#/">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" style="width:26px;height:26px"><rect width="32" height="32" rx="8" fill="var(--panel-3)"/><path d="M9 7v18M23 7v18" stroke="var(--line-2)" stroke-width="2"/><path d="M9 10l14 5M23 17L9 22" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <span class="brand-name">WIRE</span>
+      </a>
+      <div class="topbar-actions">
+        <a class="icon-btn" href="/projects.html" aria-label="All projects"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <button type="button" class="icon-btn" data-theme-toggle aria-label="Switch theme"></button>
+      </div>
+    </header>
+    <main id="main" tabindex="-1"></main>
   </div>
-  <p class="compare-footnote">IPv4 isn't in this table because it isn't a peer of the other four — it's the addressing/routing layer underneath all of them. See its own tab for what it actually promises.</p>
-</section>
+</div>
 
-<section class="panel capture-section">
-  <div class="capture-header">
-    <div class="panel-label capture-label">packet capture</div>
-    <div class="capture-actions">
-      <button type="button" id="compareCaptureBtn" class="btn-secondary btn-tiny" disabled>Compare selected (0/2)</button>
-      <button type="button" id="clearCaptureBtn" class="btn-ghost btn-tiny">Clear</button>
-    </div>
-  </div>
-  <p class="capture-hint">Every packet you send gets logged here, byte for byte, like a live capture tool would show it. Check two rows to compare them side by side.</p>
-  <div id="captureList" class="capture-list">
-    <div class="capture-empty" id="captureEmpty">No packets sent yet — hit "Send packet" above to start capturing.</div>
-  </div>
-  <div id="captureCompare" class="capture-compare hidden" aria-live="polite"></div>
-</section>
+<nav class="tabbar" aria-label="Main" data-nav></nav>
+<div class="toast" role="status" aria-live="polite"></div>
 
-<footer class="footnote">
-  <p>WebSocket isn't a rival to TCP — it's built on top of it. A WebSocket connection starts as a normal HTTP request, asks to "upgrade," and then keeps that same TCP connection open indefinitely so both sides can push messages without re-handshaking every time. UDP skips the handshake and the guarantees entirely, which is exactly why video calls and game state use it — a late packet is more useless than a missing one. QUIC takes a third path: it runs over UDP, but re-implements reliability and ordering itself, per-stream, with encryption baked in from the very first packet — so one lost packet on one stream no longer stalls every other stream sharing the connection. IPv4 sits underneath all of them, responsible only for getting a packet from one address to another, hop by hop, with no promise it will arrive at all.</p>
-</footer>
-
-<script src="script.js"></script>
+<noscript><p style="padding:24px">Wire needs JavaScript enabled.</p></noscript>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>
