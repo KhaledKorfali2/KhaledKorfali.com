@@ -17,7 +17,7 @@
 // Anything that is genuinely secret or random (keys, ciphertext, randoms, certificate data) is
 // deterministic pseudo-random filler, labelled as such.
 
-import { ADDRESSES } from "./engine.js";
+import { ADDRESSES, MACS } from "./engine.js";
 
 export const CAP = 256;
 
@@ -254,6 +254,91 @@ export const HEADER_LAYOUTS = {
       ],
     ],
   },
+
+  ethernet: {
+    id: "ethernet", name: "Ethernet II frame", rfc: "IEEE 802.3 / RFC 894",
+    note: "Shown as software sees it: the 7-byte preamble and 1-byte start-frame delimiter before the frame, and the 4-byte FCS (CRC-32) after it, are added and checked by the network card and are not shown.",
+    rows: [
+      [f("Destination MAC", 32, "dst", "Hardware address of the next device on this link; ff:ff:ff:ff:ff:ff means every device on the segment (broadcast).", { note: "48 bits; continues on the next row." })],
+      [
+        f("Destination MAC (cont.)", 16, "dst", "Last 16 bits of the 48-bit destination MAC address."),
+        f("Source MAC", 16, "src", "Hardware address of the network card that sent this frame.", { note: "48 bits; continues on the next row." }),
+      ],
+      [f("Source MAC (cont.)", 32, "src", "Last 32 bits of the 48-bit source MAC address.")],
+      [
+        f("EtherType", 16, "type", "What the payload is, so the receiver hands it to the right protocol: 0x0800 = IPv4, 0x0806 = ARP, 0x86DD = IPv6."),
+        f("Payload", 16, "payload", "The packet being carried (46–1500 bytes); shorter payloads are padded with zeros up to 46 bytes.", { variable: true }),
+      ],
+      [f("Payload continued …", 32, "payload", "The rest of the payload (the 4-byte FCS checksum that follows it is not shown).", { variable: true })],
+    ],
+  },
+
+  arp: {
+    id: "arp", name: "ARP packet", rfc: "RFC 826",
+    rows: [
+      [
+        f("Hardware Type (HTYPE)", 16, "htype", "Kind of link-layer address being resolved: 1 = Ethernet."),
+        f("Protocol Type (PTYPE)", 16, "ptype", "Kind of address being looked up, using EtherType numbers: 0x0800 = IPv4."),
+      ],
+      [
+        f("HLEN", 8, "hlen", "Length of a hardware address in bytes: 6 for an Ethernet MAC."),
+        f("PLEN", 8, "plen", "Length of a protocol address in bytes: 4 for IPv4."),
+        f("Operation (OPER)", 16, "oper", "1 = request (\"who has this IP?\"), 2 = reply (\"that IP is at this MAC\")."),
+      ],
+      [f("Sender Hardware Address (SHA)", 32, "sha", "MAC address of the device sending this ARP message.", { note: "48 bits; continues on the next row." })],
+      [
+        f("SHA (cont.)", 16, "sha", "Last 16 bits of the sender's MAC address."),
+        f("Sender Protocol Address (SPA)", 16, "spa", "IPv4 address of the sender (0.0.0.0 in an address probe, RFC 5227).", { note: "32 bits; continues on the next row." }),
+      ],
+      [
+        f("SPA (cont.)", 16, "spa", "Last 16 bits of the sender's IPv4 address."),
+        f("Target Hardware Address (THA)", 16, "tha", "MAC address of the target: all zeros in a request (that's the unknown being asked for).", { note: "48 bits; continues on the next row." }),
+      ],
+      [f("THA (cont.)", 32, "tha", "Last 32 bits of the target's MAC address.")],
+      [f("Target Protocol Address (TPA)", 32, "tpa", "IPv4 address being looked up (request) or the requester's address (reply).")],
+    ],
+  },
+
+  dhcp: {
+    id: "dhcp", name: "DHCP message (BOOTP format)", rfc: "RFC 2131 / RFC 2132",
+    rows: [
+      [
+        f("op", 8, "op", "Message direction: 1 = BOOTREQUEST (client to server), 2 = BOOTREPLY (server to client)."),
+        f("htype", 8, "htype", "Hardware address type: 1 = Ethernet."),
+        f("hlen", 8, "hlen", "Hardware address length in bytes: 6 for an Ethernet MAC."),
+        f("hops", 8, "hops", "Relay agents add 1 when they forward the message; clients send 0."),
+      ],
+      [f("xid", 32, "xid", "Transaction ID: a random number the client picks so it can match replies to its own requests.")],
+      [
+        f("secs", 16, "secs", "Seconds since the client started trying to get an address."),
+        f("B", 1, "broadcast", "Broadcast flag: 1 = the client can't receive unicast yet, so the server must broadcast its reply."),
+        f("Flags (reserved)", 15, "flagsReserved", "Reserved flag bits; must be zero."),
+      ],
+      [f("ciaddr", 32, "ciaddr", "Client IP address: filled in only when the client already has an address (renewing).")],
+      [f("yiaddr", 32, "yiaddr", "'Your' IP address: the address the server is offering or assigning to the client.")],
+      [f("siaddr", 32, "siaddr", "Next-server IP address, used for network booting (often 0).")],
+      [f("giaddr", 32, "giaddr", "Relay agent IP address, when the message crossed a DHCP relay (0 on the same network).")],
+      [f("chaddr — client hardware address (16 bytes)", 32, "chaddr", "The client's MAC address (6 bytes) followed by 10 zero bytes of padding.", { variable: true, bytes: 16, note: "16 bytes (4 rows)." })],
+      [f("sname — server host name (64 bytes)", 32, "sname", "Optional server host name as a null-terminated string; usually all zeros.", { variable: true, bytes: 64, note: "64 bytes (16 rows)." })],
+      [f("file — boot file name (128 bytes)", 32, "file", "Boot file name for network booting (PXE); usually all zeros.", { variable: true, bytes: 128, note: "128 bytes (32 rows)." })],
+      [f("Magic Cookie", 32, "cookie", "Always 0x63825363 (99.130.83.99): marks the start of DHCP options, telling DHCP apart from plain BOOTP.")],
+      [f("Options", 32, "options", "Type-length-value options: message type (53), requested IP, lease time, subnet mask, router, DNS servers … ending with 255.", { variable: true })],
+    ],
+  },
+
+  ssh: {
+    id: "ssh", name: "SSH binary packet", rfc: "RFC 4253 §6",
+    note: "Before NEWKEYS everything is readable and the MAC is empty. Afterwards the packet is encrypted; with OpenSSH's default chacha20-poly1305@openssh.com even the length field is encrypted, and a 16-byte authentication tag is the MAC.",
+    rows: [
+      [f("packet_length", 32, "packetLength", "Length of the packet in bytes, not counting this field or the MAC (padding_length + payload + padding).")],
+      [
+        f("padding_length", 8, "paddingLength", "How many bytes of random padding follow the payload (at least 4)."),
+        f("payload", 24, "payload", "The SSH message: its first byte is the message number (20 = KEXINIT, 50 = USERAUTH_REQUEST, 94 = CHANNEL_DATA …).", { variable: true }),
+      ],
+      [f("random padding", 32, "padding", "4–255 random bytes, so the whole packet is a multiple of the cipher block size (at least 8) and lengths leak less.", { variable: true })],
+      [f("MAC", 32, "mac", "Message Authentication Code proving the packet was not altered; empty until keys are agreed.", { variable: true })],
+    ],
+  },
 };
 
 const DESC = {};
@@ -441,8 +526,11 @@ function normalize(packet) {
   const from = str(p.from, "client"), to = str(p.to, "server");
   const addr = (node) => (Object.prototype.hasOwnProperty.call(ADDRESSES, node) ? ADDRESSES[node] : null);
   const ip = obj(h.ip);
+  const broadcast = to === "broadcast" || p.broadcast === true;
   const srcB = ipBytes(ip && ip.src) || ipBytes(addr(from)) || [10, 0, 0, 1];
-  const dstB = ipBytes(ip && ip.dst) || ipBytes(addr(to)) || [10, 0, 0, 2];
+  const dstB = ipBytes(ip && ip.dst) || (to === "broadcast" ? [255, 255, 255, 255] : null) || ipBytes(addr(to)) || [10, 0, 0, 2];
+  const ssh = obj(h.ssh), ftp = obj(h.ftp), smtp = obj(h.smtp);
+  const svcPort = ssh ? 22 : ftp ? 21 : smtp ? 25 : 443;
   const label = str(p.label, ""), kind = str(p.kind, "");
   const sm = label.match(/\((\d+)\/(\d+)\)/);
   const size = p.size === undefined || p.size === null || typeof p.size === "object" || !Number.isFinite(Number(p.size))
@@ -453,6 +541,7 @@ function normalize(packet) {
     ip: ip ? { ttl: int(ip.ttl, 64, 0, 255), id: int(ip.id, 0x1c46, 0, 65535), proto: int(ip.proto, 0, 0, 255) } : null,
     tcp: obj(h.tcp), udp: obj(h.udp), icmp: obj(h.icmp), dns: obj(h.dns),
     tls: obj(h.tls), http: obj(h.http), quic: obj(h.quic), ws: obj(h.ws),
+    eth: obj(h.eth), arp: obj(h.arp), dhcp: obj(h.dhcp), ssh, ftp, smtp, broadcast, addr,
     payloadStr: typeof p.payload === "string" ? p.payload : null,
     seg: sm ? { k: +sm[1], n: Math.max(+sm[1], +sm[2]) } : null,
     seed: `${str(p.no, "0")}|${kind}|${label}|${from}>${to}`,
@@ -465,8 +554,8 @@ function normalize(packet) {
     }
     const syn = ordered.includes("SYN");
     ctx.tcpN = {
-      srcPort: int(t.srcPort, from === "client" ? 51422 : 443, 0, 65535),
-      dstPort: int(t.dstPort, from === "client" ? 443 : 51422, 0, 65535),
+      srcPort: int(t.srcPort, from === "client" ? 51422 : svcPort, 0, 65535),
+      dstPort: int(t.dstPort, from === "client" ? svcPort : 51422, 0, 65535),
       seq: mod32(t.seq, 0), ack: ordered.includes("ACK") ? mod32(t.ack, 0) : 0,
       flags: ordered, window: int(t.window, 64240, 0, 0x7fffffff),
       mss: t.mss !== undefined && t.mss !== null ? int(t.mss, 1460, 0, 65535) : syn ? 1460 : null,
@@ -476,7 +565,7 @@ function normalize(packet) {
 }
 
 const TCP_FLAGS = ["CWR", "ECE", "URG", "ACK", "PSH", "RST", "SYN", "FIN"];
-const PORTS = { 53: "DNS", 80: "HTTP", 443: "HTTPS", 22: "SSH", 25: "SMTP", 123: "NTP" };
+const PORTS = { 20: "FTP data", 21: "FTP", 53: "DNS", 67: "DHCP server", 68: "DHCP client", 80: "HTTP", 443: "HTTPS", 22: "SSH", 25: "SMTP", 123: "NTP", 587: "SMTP submission", 990: "FTPS" };
 const portName = (n) => (PORTS[n] ? `${n} (${PORTS[n]})` : String(n));
 
 /* ------------------------------------------------------------------------------------------------
@@ -550,8 +639,10 @@ function tcpLayer(ctx, payload) {
 function udpLayer(ctx, payload) {
   const u = ctx.udp || {};
   const D = (k) => d("udp", k);
-  const sp = int(u.srcPort, ctx.from === "client" ? 54321 : 443, 0, 65535);
-  const dp = int(u.dstPort, ctx.from === "client" ? 443 : 54321, 0, 65535);
+  // DHCP: clients always use port 68, servers port 67 (RFC 2131 §4.1).
+  const dh = ctx.dhcp ? (dhcpInfo(ctx).op === 2 ? [67, 68] : [68, 67]) : null;
+  const sp = int(u.srcPort, dh ? dh[0] : ctx.from === "client" ? 54321 : 443, 0, 65535);
+  const dp = int(u.dstPort, dh ? dh[1] : ctx.from === "client" ? 443 : 54321, 0, 65535);
   const len = 8 + payload.length;
   const w = new W();
   w.field("srcPort", "Source Port", 16, sp, portName(sp), D("srcPort"));
@@ -621,9 +712,14 @@ function icmpLayer(ctx, target) {
 
 function dataLayer(ctx, n, name = "Payload") {
   const isStr = ctx.payloadStr !== null;
-  const bytes = isStr ? text(ctx.payloadStr) : randBytes(Math.min(n || 0, MAX_PAYLOAD), ctx.seed + ":data");
+  let bytes = isStr ? text(ctx.payloadStr) : randBytes(Math.min(n || 0, MAX_PAYLOAD), ctx.seed + ":data");
+  // A short description with a full-size packet (e.g. "upload bytes 1–1460" in a 1500 B segment):
+  // keep the text at the front and fill the rest, so lengths and checksums match the real size.
+  const want = Math.min(n || 0, MAX_PAYLOAD);
+  const padded = isStr && want > bytes.length;
+  if (padded) bytes = bytes.concat(randBytes(want - bytes.length, ctx.seed + ":fill"));
   const w = new W();
-  w.bytes("data", "Data", bytes, isStr ? `"${preview(bytes)}" (${bytes.length} bytes)` : `${bytes.length} bytes (stand-in application bytes)`,
+  w.bytes("data", "Data", bytes, isStr ? `"${preview(text(ctx.payloadStr))}"${padded ? " + filler" : ""} (${bytes.length} bytes)` : `${bytes.length} bytes (stand-in application bytes)`,
     "Application bytes carried by the transport; the network does not interpret them.");
   return mk("data", name, w);
 }
@@ -1423,16 +1519,493 @@ function quicLayers(ctx, target) {
 }
 
 /* ------------------------------------------------------------------------------------------------
+ * Ethernet II (IEEE 802.3) and ARP (RFC 826 / RFC 5227)
+ * ---------------------------------------------------------------------------------------------- */
+
+const BCAST_MAC = [255, 255, 255, 255, 255, 255];
+const ZERO_MAC = [0, 0, 0, 0, 0, 0];
+function macBytes(s) {
+  if (typeof s !== "string") return null;
+  const m = s.trim().match(/^([0-9a-fA-F]{2})[:-]([0-9a-fA-F]{2})[:-]([0-9a-fA-F]{2})[:-]([0-9a-fA-F]{2})[:-]([0-9a-fA-F]{2})[:-]([0-9a-fA-F]{2})$/);
+  return m ? m.slice(1).map((x) => parseInt(x, 16)) : null;
+}
+const macStr = (b) => b.map((x) => x.toString(16).padStart(2, "0")).join(":");
+const nodeMac = (node, fallbackLast) => macBytes(Object.prototype.hasOwnProperty.call(MACS, node) ? MACS[node] : null) || [0x02, 0, 0, 0, 0, fallbackLast];
+const ETHERTYPES = { 0x0800: "IPv4", 0x0806: "ARP", 0x86dd: "IPv6" };
+const isBcast = (b) => b.every((x) => x === 255);
+
+function ethInfo(ctx) {
+  const e = ctx.eth || {};
+  const src = macBytes(e.src) || nodeMac(ctx.from, 1);
+  const dst = macBytes(e.dst) || (ctx.broadcast ? BCAST_MAC : nodeMac(ctx.to, 2));
+  const type = ctx.arp ? 0x0806 : ctx.ip ? 0x0800 : int(e.type, 0x0800, 0, 0xffff);
+  return { src, dst, type };
+}
+
+function ethLayer(ctx) {
+  const { src, dst, type } = ethInfo(ctx);
+  const D = (k) => d("ethernet", k);
+  const w = new W();
+  w.bytes("dst", "Destination MAC", dst, macStr(dst) + (isBcast(dst) ? " (broadcast: every device on the segment)" : ""), D("dst"));
+  w.bytes("src", "Source MAC", src, macStr(src), D("src"));
+  w.field("type", "EtherType", 16, type, `${hex(type, 4)} (${ETHERTYPES[type] || "other"})`, D("type"));
+  return mk("eth", "Ethernet II", w, { layout: "ethernet", note: HEADER_LAYOUTS.ethernet.note });
+}
+
+function ethPadLayer(n) {
+  const w = new W();
+  w.bytes("payload", "Padding", Array(n).fill(0), `${n} zero bytes`,
+    "Ethernet frames must carry at least 46 bytes of payload (64-byte minimum frame), so short payloads such as ARP's 28 bytes are padded with zeros. Not part of the packet inside.");
+  return mk("eth-pad", "Ethernet padding", w, { note: "Trailing bytes of the Ethernet frame after its payload; the 4-byte FCS that follows is not shown." });
+}
+
+function arpInfo(ctx) {
+  const a = ctx.arp;
+  const op = int(a.op, 1, 0, 65535);
+  const sha = macBytes(a.sha) || macBytes(ctx.eth && ctx.eth.src) || nodeMac(ctx.from, 1);
+  const spa = ipBytes(a.spa) || ipBytes(ctx.addr(ctx.from)) || [0, 0, 0, 0];
+  const tha = macBytes(a.tha) || (op === 2 ? macBytes(ctx.eth && ctx.eth.dst) || nodeMac(ctx.to, 2) : ZERO_MAC);
+  const tpa = ipBytes(a.tpa) || ipBytes(ctx.addr(ctx.to)) || (op === 2 ? [0, 0, 0, 0] : [192, 168, 1, 1]);
+  const probe = op === 1 && spa.every((x) => x === 0);
+  const announce = !probe && spa.join(".") === tpa.join(".");
+  return { op, sha, spa, tha, tpa, probe, announce };
+}
+
+function arpLayer(ctx) {
+  const { op, sha, spa, tha, tpa, probe, announce } = arpInfo(ctx);
+  const D = (k) => d("arp", k);
+  const w = new W();
+  w.field("htype", "Hardware Type", 16, 1, "1 (Ethernet)", D("htype"));
+  w.field("ptype", "Protocol Type", 16, 0x0800, "0x0800 (IPv4)", D("ptype"));
+  w.field("hlen", "Hardware Address Length", 8, 6, "6 bytes (MAC)", D("hlen"));
+  w.field("plen", "Protocol Address Length", 8, 4, "4 bytes (IPv4)", D("plen"));
+  w.field("oper", "Operation", 16, op, `${op} (${op === 1 ? "request" : op === 2 ? "reply" : "other"})`, D("oper"));
+  w.bytes("sha", "Sender Hardware Address", sha, macStr(sha), D("sha"));
+  w.bytes("spa", "Sender Protocol Address", spa, spa.join(".") + (probe ? " (probe: the sender has no address yet, RFC 5227)" : ""), D("spa"));
+  w.bytes("tha", "Target Hardware Address", tha, macStr(tha) + (op === 1 && tha.every((x) => x === 0) ? " (unknown: this is what is being asked)" : ""), D("tha"));
+  w.bytes("tpa", "Target Protocol Address", tpa, tpa.join(".") + (announce ? " (same as sender: a gratuitous announcement)" : ""), D("tpa"));
+  const what = probe ? "probe" : announce ? "announcement (gratuitous)" : op === 1 ? "request" : op === 2 ? "reply" : "packet";
+  return mk("arp", `ARP ${what}`, w, { layout: "arp" });
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * DHCP (RFC 2131 / RFC 2132)
+ * ---------------------------------------------------------------------------------------------- */
+
+const DHCP_TYPES = { DISCOVER: 1, OFFER: 2, REQUEST: 3, DECLINE: 4, ACK: 5, NAK: 6, RELEASE: 7, INFORM: 8 };
+const DHCP_TYPE_NAMES = Object.fromEntries(Object.entries(DHCP_TYPES).map(([k, v]) => [v, k]));
+const DHCP_OPT_NAMES = { 1: "Subnet Mask", 3: "Router", 6: "Domain Name Server", 12: "Host Name", 15: "Domain Name", 26: "Interface MTU",
+  28: "Broadcast Address", 42: "NTP Servers", 50: "Requested IP Address", 51: "IP Address Lease Time", 53: "DHCP Message Type",
+  54: "Server Identifier", 55: "Parameter Request List", 58: "Renewal Time (T1)", 59: "Rebinding Time (T2)", 119: "Domain Search", 121: "Classless Static Route" };
+const DHCP_PARAM_KEYS = { subnetMask: 1, router: 3, dns: 6, hostName: 12, domainName: 15, mtu: 26, broadcast: 28, ntp: 42,
+  leaseTime: 51, renewalTime: 58, rebindingTime: 59, domainSearch: 119, classlessRoutes: 121 };
+
+function dhcpInfo(ctx) {
+  const x = ctx.dhcp;
+  const tn = str(x.msgType, "").toUpperCase().replace(/^DHCP/, "");
+  let type = DHCP_TYPES[tn] || (typeof x.msgType === "number" ? int(x.msgType, 1, 1, 8) : 0);
+  const op0 = x.op === 1 || x.op === 2 ? x.op : null;
+  if (!type) type = op0 === 2 ? 2 : 1;
+  const op = op0 || ([2, 5, 6].includes(type) ? 2 : 1);
+  let xid;
+  if (typeof x.xid === "string" && /^(0x)?[0-9a-fA-F]{1,8}$/.test(x.xid.trim())) xid = parseInt(x.xid.trim().replace(/^0x/, ""), 16) >>> 0;
+  else xid = mod32(x.xid, 0x3903f326);
+  const chaddr = macBytes(x.chaddr) || macBytes(ctx.eth && (op === 1 ? ctx.eth.src : ctx.eth.dst)) || nodeMac(op === 1 ? ctx.from : ctx.to, 1);
+  const fl = obj(x.flags);
+  const bcast = fl ? !!fl.broadcast : x.flags === true || (typeof x.flags === "number" && (x.flags & 0x8000) !== 0);
+  const ip = (v) => ipBytes(v) || [0, 0, 0, 0];
+  return { op, type, xid, chaddr, bcast, secs: int(x.secs, 0, 0, 65535), hops: int(x.hops, 0, 0, 255),
+    ciaddr: ip(x.ciaddr), yiaddr: ip(x.yiaddr), siaddr: ip(x.siaddr), giaddr: ip(x.giaddr), options: obj(x.options) || {} };
+}
+
+function dhcpLayer(ctx) {
+  const I = dhcpInfo(ctx);
+  const D = (k) => d("dhcp", k);
+  const w = new W();
+  const ipv = (b, what) => b.join(".") + (b.every((v) => v === 0) ? ` (${what})` : "");
+  w.field("op", "op", 8, I.op, I.op === 1 ? "1 (BOOTREQUEST)" : "2 (BOOTREPLY)", D("op"));
+  w.field("htype", "htype", 8, 1, "1 (Ethernet)", D("htype"));
+  w.field("hlen", "hlen", 8, 6, "6", D("hlen"));
+  w.field("hops", "hops", 8, I.hops, String(I.hops), D("hops"));
+  w.field("xid", "xid", 32, I.xid, hex(I.xid, 8), D("xid"));
+  w.field("secs", "secs", 16, I.secs, `${I.secs} s`, D("secs"));
+  w.field("broadcast", "Broadcast flag", 1, I.bcast ? 1 : 0, I.bcast ? "1 (reply must be broadcast)" : "0 (unicast reply is fine)", D("broadcast"));
+  w.field("flagsReserved", "Flags (reserved)", 15, 0, "0", D("flagsReserved"));
+  w.bytes("ciaddr", "ciaddr", I.ciaddr, ipv(I.ciaddr, "client has no address yet"), D("ciaddr"));
+  w.bytes("yiaddr", "yiaddr", I.yiaddr, ipv(I.yiaddr, "none"), D("yiaddr"));
+  w.bytes("siaddr", "siaddr", I.siaddr, ipv(I.siaddr, "none"), D("siaddr"));
+  w.bytes("giaddr", "giaddr", I.giaddr, ipv(I.giaddr, "no relay"), D("giaddr"));
+  w.bytes("chaddr", "chaddr (16 bytes)", [...I.chaddr, ...Array(10).fill(0)], `${macStr(I.chaddr)} + 10 zero bytes`, D("chaddr"));
+  w.bytes("sname", "sname (64 bytes)", Array(64).fill(0), "empty (64 zero bytes)", D("sname"));
+  w.bytes("file", "file (128 bytes)", Array(128).fill(0), "empty (128 zero bytes)", D("file"));
+  w.bytes("cookie", "Magic Cookie", [0x63, 0x82, 0x53, 0x63], "0x63825363 (DHCP)", D("cookie"));
+
+  const o = I.options, opts = [];
+  const opt = (code, data, value, desc) => opts.push(P(`Option ${code}: ${DHCP_OPT_NAMES[code] || "option"}`, [code, data.length, ...data], value, desc));
+  const ips = (v) => (Array.isArray(v) ? v : [v]).map(ipBytes).filter(Boolean).slice(0, 8);
+  opt(53, [I.type], `${I.type} (DHCP${DHCP_TYPE_NAMES[I.type] || "?"})`, "Which DHCP message this is: 1 DISCOVER, 2 OFFER, 3 REQUEST, 4 DECLINE, 5 ACK, 6 NAK, 7 RELEASE.");
+  if (ipBytes(o.requestedIp)) opt(50, ipBytes(o.requestedIp), o.requestedIp, "The address the client is asking for (the one it was offered, or its previous one).");
+  if (ipBytes(o.serverId)) opt(54, ipBytes(o.serverId), o.serverId, "Which DHCP server this is about: in a REQUEST it tells all servers whose offer was accepted.");
+  if (o.leaseTime !== undefined && o.leaseTime !== null) {
+    const lease = mod32(o.leaseTime, 86400);
+    opt(51, u32(lease), `${lease} s`, "How long the client may use the address before it must renew.");
+    if (I.op === 2) {
+      const t1 = mod32(o.renewalTime, Math.floor(lease / 2)), t2 = mod32(o.rebindingTime, Math.floor((lease * 7) / 8));
+      opt(58, u32(t1), `${t1} s (50 % of the lease)`, "T1: when the client should start renewing with the same server (default 50 % of the lease).");
+      opt(59, u32(t2), `${t2} s (87.5 % of the lease)`, "T2: when the client should ask any server if renewing failed (default 87.5 % of the lease).");
+    }
+  }
+  if (ipBytes(o.subnetMask)) opt(1, ipBytes(o.subnetMask), o.subnetMask, "Which part of the address is the network: 255.255.255.0 = a /24.");
+  const rt = ips(o.router);
+  if (rt.length) opt(3, rt.flat(), rt.map((b) => b.join(".")).join(", "), "Default gateway: where to send packets for other networks.");
+  const dns = ips(o.dns);
+  if (dns.length) opt(6, dns.flat(), dns.map((b) => b.join(".")).join(", "), "DNS resolvers the client should use.");
+  let plist = arr(o.paramList).map((v) => (typeof v === "number" ? int(v, 0, 1, 254) : DHCP_PARAM_KEYS[str(v, "")] || 0)).filter((v) => v > 0).slice(0, 32);
+  if (!o.paramList && I.op === 1 && (I.type === 1 || I.type === 3)) plist = [1, 3, 6, 15, 28, 51, 58, 59];
+  if (plist.length) opt(55, plist, plist.map((c) => `${c} ${DHCP_OPT_NAMES[c] || ""}`.trim()).join(", "), "Options the client would like the server to include in its reply.");
+  opts.push(P("Option 255: End", [255], "end of options", "Marks the end of the options field."));
+  const used = 240 + sum(opts);
+  if (used < 300) opts.push(P("Padding", Array(300 - used).fill(0), `${300 - used} zero bytes (pad to 300)`,
+    "Option 0 (pad): clients traditionally pad DHCP messages to the 300-byte BOOTP minimum (RFC 1542)."));
+  w.parts(opts, "options");
+  return mk("dhcp", `DHCP ${DHCP_TYPE_NAMES[I.type] || "message"}`, w, { layout: "dhcp" });
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * FTP (RFC 959) and SMTP (RFC 5321): CRLF-terminated text lines
+ * ---------------------------------------------------------------------------------------------- */
+
+const FTP_CMDS = {
+  USER: "Log in as this user.", PASS: "The password, sent as plain text on the control connection (unless FTPS is used).",
+  TYPE: "Transfer type: I = image (binary, byte for byte), A = ASCII text.", PASV: "Asks the server to open a data port and tell the client where to connect (passive mode).",
+  EPSV: "Extended passive mode (RFC 2428): the reply contains only a port.", PORT: "Active mode: tells the server which address and port to connect back to for data (h1,h2,h3,h4,p1,p2).",
+  RETR: "Retrieve (download) a file over a data connection.", STOR: "Store (upload) a file over a data connection.", LIST: "Send a directory listing over a data connection.",
+  QUIT: "End the session.", AUTH: "AUTH TLS: upgrade the control connection to TLS (explicit FTPS, RFC 4217).",
+  PBSZ: "Protection buffer size; always 0 with TLS (RFC 4217).", PROT: "Data channel protection: P = private (TLS on the data connection too), C = clear.",
+  CWD: "Change working directory.", PWD: "Print working directory.", SYST: "Ask the server's operating system type.", FEAT: "List the extensions the server supports.",
+};
+const SMTP_CMDS = {
+  EHLO: "Extended hello: names the sending host and asks which extensions the server supports.", HELO: "Original (non-extended) hello.",
+  MAIL: "Starts a mail transaction and gives the envelope sender (where bounces go).", RCPT: "One envelope recipient; repeated for each recipient.",
+  DATA: "The message (headers + body) follows, ending with a line containing only '.'.", QUIT: "End the session.",
+  STARTTLS: "Upgrade this connection to TLS (RFC 3207); everything after it is encrypted.", AUTH: "Authenticate the sender (submission servers).",
+  RSET: "Abort the current mail transaction.", NOOP: "Do nothing (keep-alive).", VRFY: "Ask whether a mailbox exists.",
+};
+const REPLY_CLASS = { 1: "positive preliminary: more replies will follow", 2: "positive completion: done", 3: "positive intermediate: send the next part",
+  4: "transient failure: try again later", 5: "permanent failure: don't retry" };
+
+function textLines(ctx, proto, target) {
+  const o = ctx[proto];
+  let s = ctx.payloadStr !== null && ctx.payloadStr !== "" ? ctx.payloadStr : str(o.line, "");
+  if (!s && target) return { fill: textFill(target, ctx.seed + proto) };
+  if (!s) return null;
+  s = s.replace(/\r?\n/g, "\r\n");
+  if (!s.endsWith("\r\n")) s += "\r\n";
+  return { lines: s.slice(0, -2).split("\r\n") };
+}
+
+function textProtoLayers(ctx, proto, target) {
+  const T = textLines(ctx, proto, target);
+  if (!T) return null;
+  const NAME = proto.toUpperCase();
+  const w = new W();
+  if (T.fill) {
+    w.bytes("data", "Text", T.fill, `${T.fill.length} bytes (stand-in text)`, "Plain ASCII text carried on the connection.");
+    return { layers: [mk(proto, `${NAME} text`, w)] };
+  }
+  const CMDS = proto === "ftp" ? FTP_CMDS : SMTP_CMDS;
+  const isReply = /^\d{3}([ -]|$)/.test(T.lines[0]);
+  const isCmd = !isReply && /^[A-Za-z]{3,8}( |$)/.test(T.lines[0]) && CMDS[T.lines[0].split(" ")[0].toUpperCase()] !== undefined;
+  const hostPort = (m) => `${m.slice(1, 5).join(".")} port ${+m[5]} × 256 + ${+m[6]} = ${+m[5] * 256 + +m[6]}`;
+  const many = T.lines.length > 10;
+  T.lines.forEach((line, i) => {
+    if (many && i >= 9) return;
+    const tag = T.lines.length > 1 ? `Line ${i + 1}: ` : "";
+    if (isReply && /^\d{3}/.test(line)) {
+      const code = line.slice(0, 3), rest = line.slice(3);
+      const m = /\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)/.exec(rest);
+      w.bytes("data", `${tag}Reply Code`, text(code), `${code} (${REPLY_CLASS[code[0]] || "reply"})`,
+        "Three digits: the first says success or failure class, the rest refine it. Programs read the code; humans read the text.");
+      w.bytes("data", `${tag}${rest[0] === "-" ? "Text (more lines follow)" : "Text"}`, text(rest), (m ? `${rest.trim()} → ${hostPort(m)}` : rest.trim()) || "(empty)",
+        rest[0] === "-" ? "A '-' after the code means this reply continues on the next line; the last line uses a space." : "Human-readable explanation of the reply code.");
+    } else if (isCmd && i === 0) {
+      const sp = line.indexOf(" ");
+      const verb = sp < 0 ? line : line.slice(0, sp), arg = sp < 0 ? "" : line.slice(sp);
+      w.bytes("data", "Command", text(verb), verb.toUpperCase(), CMDS[verb.toUpperCase()]);
+      if (arg) {
+        const m = /(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)/.exec(arg);
+        w.bytes("data", "Argument", text(arg), (m ? `${arg.trim()} → ${hostPort([null, ...m.slice(1)])}` : arg.trim()) + (verb.toUpperCase() === "PASS" && !ctx.tls ? " (readable by anyone on the path!)" : ""),
+          verb.toUpperCase() === "PASS" ? "The password itself; without TLS it crosses the network as plain text." : "The command's parameter, after a single space.");
+      }
+    } else {
+      w.bytes("data", `${tag}Text`, text(line), line.length > 60 ? line.slice(0, 60) + "…" : line || "(empty line)",
+        proto === "smtp" ? "Message text: header lines, a blank line, then the body; a line with only '.' ends it." : "A line of text.");
+    }
+    w.bytes("data", `${tag}CRLF`, [13, 10], "\\r\\n", "Every line ends with carriage return + line feed (0x0D 0x0A).");
+  });
+  if (many) {
+    const rest = text(T.lines.slice(9).join("\r\n") + "\r\n");
+    w.bytes("data", `Lines 10–${T.lines.length}`, rest, `${rest.length} bytes, ${T.lines.length - 9} more lines`, "More CRLF-terminated lines of text.");
+  }
+  const kind = isReply ? "reply" : isCmd ? "command" : proto === "smtp" ? "message text" : "text";
+  return { layers: [mk(proto, `${NAME} ${kind}`, w, { note: `${NAME} is a text protocol: every byte is an ASCII character and every line ends in CRLF.` })] };
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * SSH (RFC 4253 transport, RFC 4252 auth, RFC 4254 connection, RFC 5656 / 8731 ECDH)
+ * ---------------------------------------------------------------------------------------------- */
+
+const SSH_MSGS = { DISCONNECT: 1, IGNORE: 2, UNIMPLEMENTED: 3, DEBUG: 4, SERVICE_REQUEST: 5, SERVICE_ACCEPT: 6, EXT_INFO: 7,
+  KEXINIT: 20, NEWKEYS: 21, KEX_ECDH_INIT: 30, KEX_ECDH_REPLY: 31, USERAUTH_REQUEST: 50, USERAUTH_FAILURE: 51, USERAUTH_SUCCESS: 52,
+  USERAUTH_BANNER: 53, USERAUTH_PK_OK: 60, GLOBAL_REQUEST: 80, REQUEST_SUCCESS: 81, REQUEST_FAILURE: 82, CHANNEL_OPEN: 90,
+  CHANNEL_OPEN_CONFIRMATION: 91, CHANNEL_OPEN_FAILURE: 92, CHANNEL_WINDOW_ADJUST: 93, CHANNEL_DATA: 94, CHANNEL_EXTENDED_DATA: 95,
+  CHANNEL_EOF: 96, CHANNEL_CLOSE: 97, CHANNEL_REQUEST: 98, CHANNEL_SUCCESS: 99, CHANNEL_FAILURE: 100 };
+const SSH_ALIAS = { KEXDH_INIT: "KEX_ECDH_INIT", KEXDH_REPLY: "KEX_ECDH_REPLY", CHANNEL_CONFIRMATION: "CHANNEL_OPEN_CONFIRMATION",
+  KEYSTROKE: "CHANNEL_DATA", OUTPUT: "CHANNEL_DATA", "PTY-REQ": "CHANNEL_REQUEST", PTY_REQ: "CHANNEL_REQUEST", SHELL: "CHANNEL_REQUEST" };
+const SSH_VERSION = "SSH-2.0-OpenSSH_9.6";
+
+function sshInfo(ctx) {
+  const s = ctx.ssh;
+  const raw = str(s.msg, "").toUpperCase().replace(/^SSH_MSG_/, "").replace(/^SSH_/, "");
+  const name = SSH_ALIAS[raw] || raw || (ctx.kind === "KEYSTROKE" || ctx.kind === "OUTPUT" ? "CHANNEL_DATA" : "");
+  const versionLine = (!SSH_MSGS[name] && (typeof s.version === "string" || raw === "VERSION" || raw === "IDENT"))
+    || (!SSH_MSGS[name] && ctx.payloadStr !== null && ctx.payloadStr.startsWith("SSH-"));
+  const request = raw === "PTY-REQ" || raw === "PTY_REQ" ? "pty-req" : raw === "SHELL" ? "shell" : str(s.request, "shell");
+  const encrypted = s.encrypted === true;
+  return { s, name, raw, versionLine, request, encrypted, isClient: ctx.from === "client" };
+}
+
+const sshStr = (b) => [...u32(b.length), ...b];
+const sshText = (s) => sshStr(text(s));
+
+/** Payload parts (first: the message number byte) of one SSH message. */
+function sshPayload(ctx, I, target) {
+  const { s, name, isClient } = I;
+  const no = SSH_MSGS[name];
+  const seed = ctx.seed + "ssh" + name;
+  const parts = [];
+  const add = (n, bytes, value, desc) => parts.push(P(n, bytes, value, desc));
+  const nl = (n, list, desc) => add(n, sshText(list), list || "(empty)", desc);
+  const u32f = (n, v, value, desc) => add(n, u32(v), value ?? String(v), desc);
+  if (!no) {
+    const b = ctx.payloadStr !== null ? text(ctx.payloadStr) : randBytes(16, seed);
+    add("Payload", b, `${b.length} bytes (message not modelled)`, "SSH message bytes.");
+    return parts;
+  }
+  add("Message Number", [no], `${no} (SSH_MSG_${name})`, "First byte of every SSH payload: which message this is (RFC 4250 numbers).");
+  const user = str(s.user, "alice");
+  const hostKey = sshStr([...sshText("ssh-ed25519"), ...sshStr(randBytes(32, "hostkey"))]);
+  const userKey = sshStr([...sshText("ssh-ed25519"), ...sshStr(randBytes(32, "userkey"))]);
+  switch (name) {
+    case "KEXINIT": {
+      add("Cookie", randBytes(16, seed + "cookie"), "16 random bytes", "Random bytes so each key exchange is unique.");
+      const kex = "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,diffie-hellman-group14-sha256" + (isClient ? ",ext-info-c,kex-strict-c-v00@openssh.com" : ",kex-strict-s-v00@openssh.com");
+      const ciphers = "chacha20-poly1305@openssh.com,aes128-gcm@openssh.com,aes256-gcm@openssh.com,aes128-ctr,aes256-ctr";
+      const macs = "umac-64-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,hmac-sha2-256";
+      nl("kex_algorithms", kex, "Key-exchange methods in preference order; the first one both sides support wins.");
+      nl("server_host_key_algorithms", isClient ? "ssh-ed25519,ecdsa-sha2-nistp256,rsa-sha2-512,rsa-sha2-256" : "rsa-sha2-512,rsa-sha2-256,ecdsa-sha2-nistp256,ssh-ed25519",
+        "Kinds of server host key (used to sign the exchange and prove the server's identity).");
+      nl("encryption_algorithms_client_to_server", ciphers, "Ciphers for client → server traffic.");
+      nl("encryption_algorithms_server_to_client", ciphers, "Ciphers for server → client traffic (negotiated separately).");
+      nl("mac_algorithms_client_to_server", macs, "Integrity algorithms client → server (unused with AEAD ciphers such as chacha20-poly1305).");
+      nl("mac_algorithms_server_to_client", macs, "Integrity algorithms server → client.");
+      nl("compression_algorithms_client_to_server", "none,zlib@openssh.com", "Compression client → server.");
+      nl("compression_algorithms_server_to_client", "none,zlib@openssh.com", "Compression server → client.");
+      nl("languages_client_to_server", "", "Language tags (almost always empty).");
+      nl("languages_server_to_client", "", "Language tags (almost always empty).");
+      add("first_kex_packet_follows", [0], "false", "Whether a guessed key-exchange packet follows immediately.");
+      u32f("reserved", 0, "0", "Reserved for future extension; zero.");
+      break;
+    }
+    case "NEWKEYS": break;
+    case "KEX_ECDH_INIT":
+      add("Q_C (client ephemeral public key)", sshStr(randBytes(32, seed + "q")), "32-byte curve25519 public key", "The client's one-time Diffie-Hellman share.");
+      break;
+    case "KEX_ECDH_REPLY":
+      add("K_S (server host key)", hostKey, "ssh-ed25519 public key", "The server's long-term host key: the client checks it against known_hosts.");
+      add("Q_S (server ephemeral public key)", sshStr(randBytes(32, seed + "q")), "32-byte curve25519 public key", "The server's one-time Diffie-Hellman share; both sides now compute the same secret.");
+      add("Signature of H", sshStr([...sshText("ssh-ed25519"), ...sshStr(randBytes(64, seed + "sig"))]), "ssh-ed25519, 64-byte signature",
+        "The host key's signature over the exchange hash: proves this server holds the private key, so no one is in the middle.");
+      break;
+    case "SERVICE_REQUEST": case "SERVICE_ACCEPT":
+      add("Service Name", sshText(str(s.service, "ssh-userauth")), str(s.service, "ssh-userauth"), "Which service to start: ssh-userauth (log in), then ssh-connection.");
+      break;
+    case "EXT_INFO":
+      u32f("nr-extensions", 1, "1", "Number of extensions that follow.");
+      add("server-sig-algs", [...sshText("server-sig-algs"), ...sshText("ssh-ed25519,rsa-sha2-512,rsa-sha2-256")], "ssh-ed25519,rsa-sha2-512,rsa-sha2-256", "Signature algorithms the server accepts for public-key login.");
+      break;
+    case "USERAUTH_REQUEST": {
+      const method = str(s.method ?? s.auth, "publickey") === "password" ? "password" : "publickey";
+      add("User Name", sshText(user), user, "The account to log in as.");
+      add("Service Name", sshText("ssh-connection"), "ssh-connection", "The service to start after login succeeds.");
+      add("Method Name", sshText(method), method, "How the user proves who they are.");
+      if (method === "password") {
+        const pw = str(s.password, "hunter2");
+        add("Change Password", [0], "false", "FALSE: a normal login, not a password change.");
+        add("Password", sshText(pw), pw, "The password in plain text inside the packet; it is protected only by the SSH encryption around it.");
+      } else {
+        const signed = s.signed === undefined ? true : !!s.signed;
+        add("Has Signature", [signed ? 1 : 0], signed ? "true" : "false (query: 'would you accept this key?')", "FALSE first asks whether the key is acceptable; TRUE carries the actual proof.");
+        add("Public Key Algorithm", sshText("ssh-ed25519"), "ssh-ed25519", "Type of the user's key.");
+        add("Public Key", userKey, "ssh-ed25519 public key (51 bytes)", "The user's public key, which must be listed in the server's authorized_keys.");
+        if (signed) add("Signature", sshStr([...sshText("ssh-ed25519"), ...sshStr(randBytes(64, seed + "usig"))]), "ssh-ed25519, 64-byte signature",
+          "Signature over the session ID and this request with the user's private key; the private key never leaves the client.");
+      }
+      break;
+    }
+    case "USERAUTH_FAILURE":
+      add("Authentications That Can Continue", sshText("publickey,password"), "publickey,password", "Methods the client may try next.");
+      add("Partial Success", [0], "false", "TRUE only in multi-factor setups.");
+      break;
+    case "USERAUTH_SUCCESS": break;
+    case "USERAUTH_PK_OK":
+      add("Public Key Algorithm", sshText("ssh-ed25519"), "ssh-ed25519", "Echo of the key type the server would accept.");
+      add("Public Key", userKey, "ssh-ed25519 public key", "Echo of the key: 'yes, sign with this one'.");
+      break;
+    case "CHANNEL_OPEN":
+      add("Channel Type", sshText("session"), "session", "A session channel: a shell, a command, or a subsystem such as SFTP.");
+      u32f("Sender Channel", 0, "0", "The client's number for this channel.");
+      u32f("Initial Window Size", 2097152, "2097152 bytes", "How much data the peer may send on this channel before waiting for a window adjust.");
+      u32f("Maximum Packet Size", 32768, "32768 bytes", "Largest data packet accepted on this channel.");
+      break;
+    case "CHANNEL_OPEN_CONFIRMATION":
+      u32f("Recipient Channel", 0, "0", "The channel number the client chose.");
+      u32f("Sender Channel", 0, "0", "The server's own number for the channel.");
+      u32f("Initial Window Size", 2097152, "2097152 bytes", "Flow-control window granted to the client.");
+      u32f("Maximum Packet Size", 32768, "32768 bytes", "Largest data packet the server accepts.");
+      break;
+    case "CHANNEL_REQUEST": {
+      const rq = I.request;
+      u32f("Recipient Channel", 0, "0", "Which channel this request is for.");
+      add("Request Type", sshText(rq), rq, rq === "pty-req" ? "Allocate a pseudo-terminal so interactive programs work." : rq === "shell" ? "Start the user's login shell." : "Channel-specific request.");
+      add("Want Reply", [1], "true", "Ask the server to answer with CHANNEL_SUCCESS or CHANNEL_FAILURE.");
+      if (rq === "pty-req") {
+        add("TERM", sshText("xterm-256color"), "xterm-256color", "Terminal type, so programs know which control codes work.");
+        u32f("Width (characters)", 80, "80", "Terminal width in characters.");
+        u32f("Height (rows)", 24, "24", "Terminal height in rows.");
+        u32f("Width (pixels)", 0, "0", "Terminal width in pixels (0 = unknown).");
+        u32f("Height (pixels)", 0, "0", "Terminal height in pixels (0 = unknown).");
+        add("Terminal Modes", sshStr([0]), "TTY_OP_END only", "Encoded terminal settings; here just the end marker.");
+      }
+      break;
+    }
+    case "CHANNEL_SUCCESS": case "CHANNEL_FAILURE": case "CHANNEL_EOF": case "CHANNEL_CLOSE":
+      u32f("Recipient Channel", 0, "0", "Which channel this is about.");
+      break;
+    case "CHANNEL_WINDOW_ADJUST":
+      u32f("Recipient Channel", 0, "0", "Which channel's window grows.");
+      u32f("Bytes to Add", int(s.bytes, 2097152, 0, 2 ** 32 - 1), undefined, "How many more bytes the peer may now send.");
+      break;
+    case "CHANNEL_DATA": case "CHANNEL_EXTENDED_DATA": {
+      let data;
+      if (typeof s.data === "string") data = text(s.data);
+      else if (ctx.payloadStr !== null) data = text(ctx.payloadStr);
+      else data = textFill(Math.max(1, Math.min(32768, (target ?? 0) - 4 - 1 - 9 - 8 - (I.encrypted ? int(s.macLen, 16, 0, 64) : 0))), seed + "data");
+      u32f("Recipient Channel", 0, "0", "Which channel the data belongs to.");
+      if (name === "CHANNEL_EXTENDED_DATA") u32f("Data Type Code", 1, "1 (stderr)", "Kind of extended data: 1 = standard error.");
+      add("Data", sshStr(data), `"${preview(data)}" (${data.length} byte${data.length === 1 ? "" : "s"})`,
+        isClient ? "What the user typed: in an interactive session every keystroke is sent at once in its own packet." : "Terminal output from the server (including the echo of typed characters).");
+      break;
+    }
+    case "DISCONNECT":
+      u32f("Reason Code", 11, "11 (SSH_DISCONNECT_BY_APPLICATION)", "Why the connection is closing.");
+      add("Description", sshText("disconnected by user"), "disconnected by user", "Human-readable reason.");
+      add("Language Tag", sshText(""), "(empty)", "Language of the description.");
+      break;
+    case "GLOBAL_REQUEST":
+      add("Request Name", sshText("keepalive@openssh.com"), "keepalive@openssh.com", "Connection-wide request; this one just checks the peer is alive.");
+      add("Want Reply", [1], "true", "Ask for REQUEST_SUCCESS/FAILURE.");
+      break;
+    default: {
+      const b = ctx.payloadStr !== null ? text(ctx.payloadStr) : [];
+      if (b.length) add("Data", b, `${b.length} bytes`, "Message-specific fields.");
+    }
+  }
+  return parts;
+}
+
+/** The identification line without its CRLF (RFC 4253 §4.2: at most 255 bytes including CRLF). */
+function sshVersionString(ctx, I) {
+  const v = ctx.payloadStr !== null && ctx.payloadStr.startsWith("SSH-") ? ctx.payloadStr : str(I.s.version, SSH_VERSION);
+  return v.replace(/[\r\n]+$/g, "").replace(/[\r\n]/g, " ").slice(0, 253);
+}
+
+function sshLayers(ctx, target) {
+  const I = sshInfo(ctx);
+  if (I.versionLine) {
+    const v = sshVersionString(ctx, I);
+    const m = /^(SSH-[^-\s]+-)(\S*)( .*)?$/.exec(v);
+    const w = new W();
+    if (m) {
+      w.bytes("data", "Protocol Version", text(m[1]), m[1].slice(4, -1), "'SSH-2.0-': the protocol version this side speaks.");
+      w.bytes("data", "Software Version", text(m[2]), m[2] || "(empty)", "The implementation and its version (shown to the other side; often used for compatibility quirks).");
+      if (m[3]) w.bytes("data", "Comments", text(m[3]), m[3].trim(), "Optional free text after a space.");
+    } else w.bytes("data", "Identification String", text(v), v, "The identification line.");
+    w.bytes("data", "CRLF", [13, 10], "\\r\\n", "The identification line ends with carriage return + line feed.");
+    return { layers: [mk("ssh-version", "SSH identification string", w, {
+      note: "Sent in clear text by both sides before anything else. Both lines are later hashed into the key exchange, so tampering with them is detected." })] };
+  }
+  const payload = sshPayload(ctx, I, target);
+  const pl = sum(payload);
+  const block = 8;
+  let pad = block - ((5 + pl) % block);
+  if (pad < 4) pad += block;
+  const want = I.s.padding;
+  if (typeof want === "number" && Number.isInteger(want) && want >= 4 && want <= 255 && (5 + pl + want) % block === 0) pad = want;
+  const L = 1 + pl + pad;
+  const padding = randBytes(pad, ctx.seed + "sshpad");
+  const plain = (w) => {
+    const D = (k) => d("ssh", k);
+    w.field("packetLength", "packet_length", 32, L, `${L} bytes (1 + ${pl} payload + ${pad} padding)`, D("packetLength"));
+    w.field("paddingLength", "padding_length", 8, pad, `${pad} bytes`, D("paddingLength"));
+    w.parts(payload.map((p) => ({ ...p, name: `payload: ${p.name}` })), "payload");
+    w.bytes("padding", "random padding", padding, `${pad} random bytes (4 + L total = ${4 + L}, a multiple of ${block})`, D("padding"));
+  };
+  const label = SSH_MSGS[I.name] ? I.name : "message";
+  if (!I.encrypted) {
+    const w = new W();
+    plain(w);
+    return { layers: [mk("ssh", `SSH ${label}`, w, { layout: "ssh",
+      note: "Before NEWKEYS no keys exist yet, so this packet is readable by anyone and the MAC field is empty (0 bytes)." })] };
+  }
+  const macLen = int(I.s.macLen, 16, 0, 64);
+  const w = new W();
+  w.bytes("packetLength", "packet_length (encrypted)", randBytes(4, ctx.seed + "sshlen"), `encrypted (really ${L})`,
+    "chacha20-poly1305@openssh.com encrypts even the length, with a separate key, so observers can't see where packets start and end.", { encrypted: true });
+  w.bytes("payload", "Encrypted packet", randBytes(L, ctx.seed + "sshct"), `${L} bytes of ciphertext: padding_length + ${label} + padding`,
+    "padding_length, payload and padding, encrypted; only the two endpoints can read them.", { encrypted: true });
+  if (macLen) w.bytes("mac", "MAC", randBytes(macLen, ctx.seed + "sshmac"), `${macLen}-byte${macLen === 16 ? " Poly1305 tag" : ""}`,
+    "Authentication tag over the packet and its sequence number: any change makes the receiver drop the connection.", { encrypted: true });
+  const pw = new W();
+  plain(pw);
+  return { layers: [
+    mk("ssh", `SSH packet (encrypted)`, w, { layout: "ssh", encrypted: true }),
+    mk("ssh", `SSH ${label} (decrypted)`, pw, { layout: "ssh", decrypted: true,
+      note: "Shown decrypted: on the wire these bytes travel encrypted inside the packet above (no MAC in the plaintext view)." }),
+  ] };
+}
+
+/* ------------------------------------------------------------------------------------------------
  * Assembly
  * ---------------------------------------------------------------------------------------------- */
 
 const CONTROL_KINDS = new Set(["SYN", "SYN-ACK", "ACK", "FIN", "RST"]);
 
 function build(ctx) {
+  const layers = ctx.arp ? [arpLayer(ctx)] : buildIp(ctx);
+  if (!ctx.eth) return layers;
+  // Ethernet II framing (outermost); payloads shorter than 46 bytes are zero-padded on the wire.
+  const payloadLen = layers.reduce((s, l) => s + (l.decrypted ? 0 : l.full.length), 0);
+  const out = [ethLayer(ctx), ...layers];
+  if (payloadLen < 46) out.push(ethPadLayer(46 - payloadLen));
+  return out;
+}
+
+function buildIp(ctx) {
   let transport = ctx.tcp ? "tcp" : ctx.udp ? "udp" : ctx.icmp ? "icmp" : null;
   if (!transport) {
-    if (ctx.dns || ctx.quic || (ctx.http && str(ctx.http.version, "") === "3")) transport = "udp";
-    else if (ctx.tls || ctx.http || ctx.ws) transport = "tcp";
+    if (ctx.dns || ctx.dhcp || ctx.quic || (ctx.http && str(ctx.http.version, "") === "3")) transport = "udp";
+    else if (ctx.tls || ctx.http || ctx.ws || ctx.ssh || ctx.ftp || ctx.smtp) transport = "tcp";
     else if (ctx.ip && ctx.ip.proto === 6) transport = "tcp";
     else if (ctx.ip && ctx.ip.proto === 17) transport = "udp";
     else if (ctx.ip && ctx.ip.proto === 1) { transport = "icmp"; ctx.icmp = {}; }
@@ -1449,15 +2022,27 @@ function build(ctx) {
       if (ctx.http) return str(ctx.http.version, "1.1").startsWith("2") || str(ctx.http.version, "") === "3" ? http2Layers(ctx, t) : http1Layers(ctx, t);
       return null;
     };
-    if (ctx.tls) app = tlsLayers(ctx, target, ctx.ws || ctx.http ? inner : null).layers;
+    const tp = ctx.ftp ? "ftp" : ctx.smtp ? "smtp" : null;
+    const opening = ctx.tcpN.flags.includes("SYN") || ctx.tcpN.flags.includes("RST");
+    if (ctx.ssh && !ctx.ws && !ctx.http) { if (!opening) app = sshLayers(ctx, target).layers; }
+    else if (tp && !ctx.ws && !ctx.http) {
+      if (opening) app = [];
+      else if (ctx[tp].encrypted === true || ctx.tls) {
+        // FTPS / SMTP after STARTTLS: the text line travels inside a TLS record (decrypted view below it).
+        if (!ctx.tls) ctx.tls = { record: "application_data", version: "1.3" };
+        app = tlsLayers(ctx, target, (t) => textProtoLayers(ctx, tp, t)).layers;
+      } else app = (textProtoLayers(ctx, tp, target) || { layers: [] }).layers;
+    }
+    else if (ctx.tls) app = tlsLayers(ctx, target, ctx.ws || ctx.http ? inner : null).layers;
     else if (ctx.ws || ctx.http) app = inner(target).layers;
-    else if (ctx.payloadStr !== null) app = [dataLayer(ctx, 0)];
+    else if (ctx.payloadStr !== null) app = [dataLayer(ctx, target || 0)];
     else {
       const control = ctx.tcpN.flags.includes("SYN") || CONTROL_KINDS.has(ctx.kind) || /^ACK\b/.test(ctx.label);
       if (!control && target) app = [dataLayer(ctx, target)];
     }
   } else if (transport === "udp") {
     if (ctx.dns) app = [dnsLayer(ctx)];
+    else if (ctx.dhcp) app = [dhcpLayer(ctx)];
     else if (ctx.quic || ctx.http) { if (!ctx.quic) ctx.quic = { form: "short", pn: 0, frames: [] }; app = quicLayers(ctx, target).layers; }
     else if (ctx.payloadStr !== null || target) app = [dataLayer(ctx, target || 0)];
   } else if (!transport && (target || ctx.payloadStr !== null)) {
@@ -1534,13 +2119,57 @@ export function describePacket(packet) {
       const sp = u.fields[0].value.split(" ")[0], dp = u.fields[1].value.split(" ")[0];
       return `UDP ${sp} → ${dp} len=${u.fields[2].value.split(" ")[0] - 8}`;
     }
-    return ctx.ip ? `IPv4 ${ctx.src} → ${ctx.dst}` : ctx.label || ctx.kind || "packet";
+    if (ctx.ip) return `IPv4 ${ctx.src} → ${ctx.dst}`;
+    if (ctx.eth) { const e = ethInfo(ctx); return `Ethernet ${macStr(e.src)} → ${macStr(e.dst)} type ${hex(e.type, 4)}`; }
+    return ctx.label || ctx.kind || "packet";
   } catch {
     return (packet && typeof packet.label === "string" && packet.label) || "packet";
   }
 }
 
 function describeApp(ctx, layers) {
+  if (ctx.arp) {
+    const a = arpInfo(ctx);
+    const tpa = a.tpa.join("."), spa = a.spa.join(".");
+    if (a.probe) return `ARP Probe: Who has ${tpa}? Tell 0.0.0.0`;
+    if (a.announce) return `ARP Announcement: ${spa} is at ${macStr(a.sha)}`;
+    if (a.op === 1) return `ARP Who has ${tpa}? Tell ${spa}`;
+    if (a.op === 2) return `ARP ${spa} is at ${macStr(a.sha)}`;
+    return `ARP op ${a.op} ${spa} → ${tpa}`;
+  }
+  if (ctx.dhcp && layers.some((l) => l.id === "dhcp")) {
+    const I = dhcpInfo(ctx);
+    const t = DHCP_TYPE_NAMES[I.type] || "message", x = hex(I.xid, 8), y = I.yiaddr.join(".");
+    const req = ipBytes(I.options.requestedIp) ? I.options.requestedIp : I.ciaddr.some(Boolean) ? I.ciaddr.join(".") : "";
+    if (I.op === 1) return `DHCP ${t}${req && t !== "DISCOVER" ? ` ${req}` : ""} xid ${x} from ${macStr(I.chaddr)}`;
+    const lease = I.options.leaseTime !== undefined && I.options.leaseTime !== null ? ` lease ${mod32(I.options.leaseTime, 86400)} s` : "";
+    return `DHCP ${t}${y !== "0.0.0.0" ? ` ${y}` : ""}${lease} xid ${x} to ${macStr(I.chaddr)}`;
+  }
+  if (ctx.ssh && layers.some((l) => l.id === "ssh" || l.id === "ssh-version")) {
+    const I = sshInfo(ctx);
+    if (I.versionLine) return `SSH version exchange: ${sshVersionString(ctx, I)}`;
+    let extra = "";
+    if (I.name === "CHANNEL_DATA") {
+      const dl = layers.filter((l) => l.id === "ssh").pop();
+      const df = dl && dl.fields.find((f) => f.name === "payload: Data");
+      if (df) extra = ` ${df.value.replace(/ \(\d+ bytes?\)$/, "")}`;
+    } else if (I.name === "CHANNEL_REQUEST") extra = ` ${I.request}`;
+    else if (I.name === "USERAUTH_REQUEST") extra = ` ${str(I.s.method ?? I.s.auth, "publickey") === "password" ? "password" : "publickey"}`;
+    return `SSH ${SSH_MSGS[I.name] ? I.name : "packet"}${extra}${I.encrypted ? " (encrypted)" : ""}`;
+  }
+  const tpName = ctx.ftp ? "ftp" : ctx.smtp ? "smtp" : null;
+  if (tpName && !ctx.http && !ctx.ws && !(ctx.tls && arr(ctx.tls.messages).length)) {
+    const L = layers.find((l) => l.id === tpName);
+    if (L) {
+      const T = textLines(ctx, tpName, 0);
+      const first = T && T.lines ? T.lines[0] : "";
+      const reply = /^\d{3}/.test(first);
+      const shown = first.length > 60 ? first.slice(0, 60) + "…" : first;
+      const more = T && T.lines && T.lines.length > 1 ? ` (+${T.lines.length - 1} lines)` : "";
+      const tv = ctx.tls ? ` (in TLS ${str(ctx.tls.version, "1.3") === "1.2" ? "1.2" : "1.3"})` : "";
+      return `${tpName.toUpperCase()} ${reply ? "←" : "→"} ${shown || L.name}${more}${tv}`;
+    }
+  }
   if (ctx.dns) {
     const q = ctx.dns, id = hex(int(q.id, 0x1a2b, 0, 65535), 4);
     const qt = typeof q.qtype === "number" ? QTYPE_NAMES[q.qtype] || q.qtype : str(q.qtype, "A").toUpperCase();

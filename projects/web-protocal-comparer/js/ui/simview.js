@@ -17,21 +17,43 @@ export const LINK_CONTROLS = {
 const PCT = new Set(["loss", "reorder"]);
 export const DEFAULT_LINK = { latency: 40, loss: 0, jitter: 0, reorder: 0, bandwidth: 0 };
 
+// A few headline numbers per protocol (then packets / lost / retransmitted) — enough to compare runs without a wall of stats.
+const HEADLINE = {
+  arp: ["resolvedMs", "pingRttMs", "arpRequests", "mac"],
+  dhcp: ["offerMs", "ackMs", "configuredMs", "address"],
+  nat: ["connectMs", "responseMs", "mappedPort", "inboundBlocked"],
+  ip: ["rttAvg", "lossPct", "timeExceeded"],
+  udp: ["sent", "received", "reordered"],
+  dns: ["resolvedMs", "attempts", "answer"],
+  tcp: ["handshakeMs", "completeMs", "rtoCount", "fastRetransmits", "maxCwnd"],
+  tls: ["handshakeMs", "firstByteMs"],
+  ssh: ["handshakeMs", "authMs", "echoRttMs"],
+  http1: ["firstResourceMs", "pageLoadMs", "connections"],
+  http2: ["firstResourceMs", "pageLoadMs"],
+  http3: ["handshakeMs", "firstResourceMs", "pageLoadMs"],
+  websocket: ["upgradeMs", "messages"],
+  ftp: ["loginMs", "transferMs", "completeMs", "connections"],
+  smtp: ["tlsMs", "deliveredMs", "completeMs"],
+};
+const COMMON = ["packets", "lost", "retransmissions"];
 const METRICS = {
   handshakeMs: "Handshake done", upgradeMs: "Upgrade done", resolvedMs: "Resolved", firstResourceMs: "First resource",
-  firstData: "First data", pageLoadMs: "Page load", completeMs: "Complete", done: "Finished",
-  packets: "Packets", lost: "Lost", retransmissions: "Retransmitted", rtoCount: "Timeouts (RTO)",
-  fastRetransmits: "Fast retransmits", maxCwnd: "Peak cwnd", bytesOnWire: "Bytes on wire",
-  sent: "Sent", received: "Received", reordered: "Out of order", attempts: "Attempts", connections: "Connections",
-  messages: "Messages", hops: "Hops",
+  pageLoadMs: "Page load", completeMs: "Complete", firstByteMs: "First byte", pingRttMs: "Ping RTT", arpRequests: "ARP requests",
+  mac: "MAC learned", offerMs: "Offer received", ackMs: "Lease granted", configuredMs: "Ready to use", address: "Address",
+  connectMs: "Connected", responseMs: "Response", mappedPort: "Public port", inboundBlocked: "Inbound SYNs blocked",
+  rttAvg: "Avg RTT", lossPct: "Ping loss %", timeExceeded: "Time exceeded", sent: "Sent", received: "Received",
+  reordered: "Out of order", attempts: "Attempts", answer: "Answer", rtoCount: "Timeouts (RTO)", fastRetransmits: "Fast retransmits",
+  maxCwnd: "Peak cwnd", authMs: "Authenticated", echoRttMs: "Keystroke echo", connections: "Connections", messages: "Messages",
+  loginMs: "Logged in", transferMs: "Transfer done", tlsMs: "TLS ready", deliveredMs: "Mail accepted",
+  packets: "Packets", lost: "Lost", retransmissions: "Retransmitted", done: "Finished",
 };
-const PRIMARY = ["handshakeMs", "upgradeMs", "resolvedMs", "firstResourceMs", "pageLoadMs", "completeMs", "done"];
+const TIME_KEYS = /Ms$|^rtt|^done$/;
 
 function fmtMetric(k, v) {
   if (v == null) return "—";
   if (typeof v === "boolean") return v ? "yes" : "no";
   if (typeof v === "string") return v;
-  if (/Ms$/.test(k) || k === "firstData" || k === "done") return fmtMs(v);
+  if (TIME_KEYS.test(k)) return fmtMs(v);
   if (k === "bytesOnWire") return fmtBytes(v);
   return String(Math.round(v * 100) / 100);
 }
@@ -58,7 +80,9 @@ export function mountSim(host, scenario, opts = {}) {
 
   host.innerHTML = `<div class="sim${opts.mini ? " sim-mini" : ""}" id="${id}">
     ${opts.title ? `<div class="sim-title">${esc(opts.title)}</div>` : ""}
-    <div class="sim-controls" data-controls></div>
+    ${opts.lab ? `<details class="sim-settings" ${window.matchMedia("(max-width: 760px)").matches ? "" : "open"}>
+      <summary><span>Network &amp; protocol settings</span><span class="sim-settings-sum faint" data-sum></span></summary>
+      <div class="sim-controls" data-controls></div></details>` : `<div class="sim-controls" data-controls></div>`}
     <div class="sim-main">
       <div class="sim-diagram"><div class="sim-ladder" id="${id}-ladder"><p class="faint" style="padding:40px;text-align:center">Loading simulation…</p></div></div>
       <aside class="sim-side" aria-label="Packet inspector"><div class="sim-side-head">Packet inspector</div><div data-insp></div></aside>
@@ -85,7 +109,19 @@ export function mountSim(host, scenario, opts = {}) {
     if (opts.lab) return ["latency", "loss", "jitter", "reorder", "bandwidth", ...(stack?.options || []).map((o) => o.key)];
     return sc.controls || [];
   }
+  // One-line summary for the collapsed Lab settings, e.g. "RTT 80 ms · 2% loss".
+  function renderSummary() {
+    const el2 = root.querySelector("[data-sum]");
+    if (!el2) return;
+    const L = sc.link, bits = [`RTT ${L.latency * 2} ms`];
+    if (L.loss) bits.push(`${Math.round(L.loss * 100)}% loss`);
+    if (L.jitter) bits.push(`${L.jitter} ms jitter`);
+    if (L.reorder) bits.push(`${Math.round(L.reorder * 100)}% reorder`);
+    if (L.bandwidth) bits.push(LINK_CONTROLS.bandwidth.choices.find(([v]) => v === L.bandwidth)?.[1] || "");
+    el2.textContent = bits.join(" · ");
+  }
   function renderControls() {
+    renderSummary();
     const keys = controlKeys();
     const box = $("[data-controls]");
     if (!keys.length) { box.hidden = true; return; }
@@ -133,6 +169,7 @@ export function mountSim(host, scenario, opts = {}) {
     const c = LINK_CONTROLS[key] || (stack?.options || []).find((o) => o.key === key) || {};
     const out = root.querySelector(`[data-out="${key}"]`); if (out) out.textContent = v + (c.unit ? " " + c.unit : "");
     const hint = root.querySelector(`[data-hint="${key}"]`); if (hint && c.hint) hint.textContent = hintText(c, v);
+    renderSummary();
     clearTimeout(debounce); debounce = setTimeout(() => rerun(true), 180);
   });
   root.addEventListener("change", (e) => {
@@ -144,6 +181,7 @@ export function mountSim(host, scenario, opts = {}) {
     if (seg) {
       readValue(seg);
       seg.parentElement.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b === seg)));
+      renderSummary();
       return rerun(true);
     }
     const act = e.target.closest("[data-act]")?.dataset.act;
@@ -157,7 +195,7 @@ export function mountSim(host, scenario, opts = {}) {
     const row = e.target.closest("[data-pk]");
     if (row) selectPacket(+row.dataset.pk, true);
   });
-  scrub.addEventListener("input", () => { pause(); setTime((+scrub.value / 1000) * (trace?.duration || 0)); });
+  scrub.addEventListener("input", () => { if (!trace) return; pause(); setTime(ladder.timeAt(+scrub.value / 1000)); });
 
   /* ── simulation & rendering ── */
   function rerun(animate) {
@@ -183,12 +221,10 @@ export function mountSim(host, scenario, opts = {}) {
 
   function renderStats() {
     const s = trace.summary || {};
-    // Prefer a stack's own milestones over the engine's generic first/last delivery times.
-    const own = ["completeMs", "pageLoadMs", "resolvedMs", "upgradeMs", "firstResourceMs"].some((k) => s[k] != null);
-    const keys = Object.keys(s).filter((k) => METRICS[k] && s[k] != null && !(own && (k === "firstData" || k === "done")));
-    keys.sort((a, b) => (PRIMARY.includes(b) - PRIMARY.includes(a)) || Object.keys(METRICS).indexOf(a) - Object.keys(METRICS).indexOf(b));
-    $("[data-stats]").innerHTML = keys.map((k) => `<div class="stat ${PRIMARY.includes(k) ? "stat-primary" : ""} ${(k === "lost" || k === "retransmissions" || k === "rtoCount") && s[k] ? "stat-bad" : ""}">
-      <span>${esc(METRICS[k])}</span><b>${esc(fmtMetric(k, s[k]))}</b></div>`).join("")
+    const head = HEADLINE[trace.stack] || ["done"];
+    const keys = [...head, ...COMMON].filter((k) => s[k] != null && s[k] !== "");
+    $("[data-stats]").innerHTML = keys.map((k) => `<div class="stat ${head.includes(k) && TIME_KEYS.test(k) ? "stat-primary" : ""} ${(k === "lost" || k === "retransmissions" || k === "rtoCount" || k === "inboundBlocked") && s[k] ? "stat-bad" : ""}">
+      <span>${esc(METRICS[k] || k)}</span><b>${esc(fmtMetric(k, s[k]))}</b></div>`).join("")
       + (s.failed ? `<div class="stat stat-bad"><span>Result</span><b>failed</b></div>` : "")
       + (trace.truncated ? `<p class="sim-trunc">Stopped after ${fmtMs(trace.duration)} of simulated time. At this much loss, retransmission timers keep doubling, so finishing can take minutes. Lower the loss to see the whole exchange.</p>` : "");
   }
@@ -209,7 +245,7 @@ export function mountSim(host, scenario, opts = {}) {
     $("[data-logcount]").textContent = `(${trace.packets.length} packets)`;
     $("[data-log]").innerHTML = items.map((it) => `<div class="log-row" role="listitem" data-t="${it.t}" ${it.pk ? `data-pk="${it.pk}" tabindex="0"` : ""}>${it.html}</div>`).join("");
   }
-  const short = (n) => ({ client: "C", server: "S", resolver: "DNS" }[n] || n.toUpperCase());
+  const short = (n) => ({ client: "C", server: "S", resolver: "DNS", printer: "PRN", gateway: "GW", dhcp: "DHCP", broadcast: "all" }[n] || n.toUpperCase());
 
   function selectPacket(no, scroll) {
     if (!trace || !no) { renderInspector(insp, null); return; }
@@ -224,7 +260,8 @@ export function mountSim(host, scenario, opts = {}) {
     t = Math.max(0, Math.min(nt, trace.duration));
     ladder.setTime(t, { autoscroll: playing });
     chart?.setTime(t);
-    scrub.value = trace.duration ? Math.round((t / trace.duration) * 1000) : 1000;
+    // The scrubber follows the drawing (collapsed idle gaps take little room), not raw time.
+    scrub.value = Math.round(ladder.fractionAt(t) * 1000);
     scrub.style.setProperty("--p", (scrub.value / 10) + "%");
     timeEl.textContent = `${fmtMs(t)} / ${fmtMs(trace.duration)}`;
   }
@@ -232,8 +269,9 @@ export function mountSim(host, scenario, opts = {}) {
     if (!playing || destroyed) return;
     if (!root.isConnected) return destroy();
     const dt = Math.min(64, now - lastFrame); lastFrame = now;
-    const rate = (trace.duration / 7000) * SPEEDS[speedIdx]; // whole run ≈ 7 s at 1×
-    setTime(t + dt * Math.max(rate, 0.02));
+    // Move evenly down the diagram: the whole run takes ≈ 7 s at 1×.
+    const f = Math.min(1, ladder.fractionAt(t) + (dt / 7000) * SPEEDS[speedIdx]);
+    setTime(f >= 1 ? trace.duration : Math.max(ladder.timeAt(f), t + 0.001));
     if (t >= trace.duration) {
       pause();
       // The home-page demo loops quietly.

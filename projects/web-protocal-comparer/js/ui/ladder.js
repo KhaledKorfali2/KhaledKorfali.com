@@ -4,7 +4,8 @@
 import { esc } from "../util.js";
 
 const NS = "http://www.w3.org/2000/svg";
-const LABEL = { client: "Client", server: "Server", resolver: "DNS resolver", r1: "Router 1", r2: "Router 2", r3: "Router 3", r4: "Router 4" };
+const LABEL = { client: "Client", server: "Server", resolver: "DNS resolver", r1: "Router 1", r2: "Router 2", r3: "Router 3", r4: "Router 4",
+  printer: "Printer", gateway: "Gateway router", dhcp: "DHCP server" };
 
 export function packetClass(p) {
   if (p.lost) return "lost";
@@ -13,11 +14,12 @@ export function packetClass(p) {
   if (["SYN", "SYN-ACK", "FIN", "UPGRADE", "101", "INITIAL", "HANDSHAKE", "CLOSE"].includes(k)) return "hand";
   if (k === "ACK" || k === "PONG" || (k === "ACK" && !p.size)) return "ack";
   if (k === "TLS") return "tls";
-  if (["ECHO", "ECHO-REPLY", "TIME-EXCEEDED"].includes(k)) return "icmp";
+  if (["ECHO", "ECHO-REPLY", "TIME-EXCEEDED", "ARP-REQUEST", "ARP-REPLY"].includes(k)) return "icmp";
+  if (["DISCOVER", "OFFER", "REQUEST", "SSH", "AUTH", "CMD", "REPLY"].includes(k)) return "hand";
   if (k === "PING") return "ctrl";
   return "data";
 }
-export const nodeLabel = (n) => LABEL[n] || n;
+export const nodeLabel = (n, trace) => trace?.labels?.[n] || LABEL[n] || n;
 
 const el = (tag, attrs = {}, parent) => {
   const e = document.createElementNS(NS, tag);
@@ -43,31 +45,69 @@ export function mountLadder(host, trace, { onSelect, addr = () => "" } = {}) {
   const duration = Math.max(trace.duration, rtt * 0.5);
   const width = Math.max(300, host.clientWidth || 600);
   const narrow = width < 520;
-  // Scale so one round trip is ~120 px, but keep very long traces within reason.
+  // Scale so one round trip is ~120 px. Long idle stretches (e.g. waiting out a
+  // backed-off retransmission timer) are collapsed into short "… later" breaks
+  // so the busy parts stay readable; very long traces are then scaled to fit.
   let pxPerMs = (narrow ? 104 : 124) / rtt;
-  const maxH = 4200;
-  if (duration * pxPerMs > maxH) pxPerMs = maxH / duration;
-  const top = 18, bottom = 30;
-  const height = Math.ceil(duration * pxPerMs) + top + bottom;
+  const top = 18, bottom = 30, maxH = 4200;
+  const gapMax = Math.max(rtt * 2.5, 30), breakPx = 44;
+  const times = new Set([0, duration]);
+  for (const p of trace.packets) for (const h of p.hops) { times.add(h.t0); times.add(h.t1); }
+  for (const x of [...trace.notes, ...trace.deliveries, ...trace.marks]) times.add(x.t);
+  const ts = [...times].filter((t) => t >= 0 && t <= duration).sort((a, b) => a - b);
+  const pts = [{ t: 0, y: 0 }], breaks = [];
+  for (let i = 1; i < ts.length; i++) {
+    const a = ts[i - 1], b = ts[i], prev = pts[pts.length - 1].y;
+    if (b - a > gapMax) {
+      // keep a little real time on both sides of the break so arrows don't touch it
+      const pad = gapMax * 0.3;
+      pts.push({ t: a + pad, y: prev + pad * pxPerMs });
+      pts.push({ t: b - pad, y: prev + pad * pxPerMs + breakPx });
+      breaks.push({ t0: a + pad, t1: b - pad, y0: prev + pad * pxPerMs, y1: prev + pad * pxPerMs + breakPx });
+      pts.push({ t: b, y: prev + 2 * pad * pxPerMs + breakPx });
+    } else pts.push({ t: b, y: prev + (b - a) * pxPerMs });
+  }
+  let scale = 1;
+  const rawH = pts[pts.length - 1].y;
+  if (rawH > maxH) scale = maxH / rawH;
+  const height = Math.ceil(rawH * scale) + top + bottom;
+  const warp = (t) => {
+    if (t <= 0) return 0;
+    let lo = 0, hi = pts.length - 1;
+    if (t >= pts[hi].t) return pts[hi].y;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (pts[m].t <= t) lo = m; else hi = m; }
+    const a = pts[lo], b = pts[hi];
+    return a.y + (b.t === a.t ? 0 : ((t - a.t) / (b.t - a.t)) * (b.y - a.y));
+  };
+  const unwarp = (y) => {
+    if (y <= 0) return 0;
+    let lo = 0, hi = pts.length - 1;
+    if (y >= pts[hi].y) return pts[hi].t;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (pts[m].y <= y) lo = m; else hi = m; }
+    const a = pts[lo], b = pts[hi];
+    return a.t + (b.y === a.y ? 0 : ((y - a.y) / (b.y - a.y)) * (b.t - a.t));
+  };
+  pxPerMs *= scale;
   const axisW = narrow ? 34 : 50;
   const margin = narrow ? 34 : 70;
   const laneX = (i) => nodes.length === 1 ? width / 2
     : axisW + margin + (i * (width - axisW - margin * 2)) / (nodes.length - 1);
   const X = Object.fromEntries(nodes.map((n, i) => [n, laneX(i)]));
-  const Y = (t) => top + t * pxPerMs;
+  const Y = (t) => top + warp(t) * scale;
+  const inBreak = (t) => breaks.some((b) => t > b.t0 && t < b.t1);
 
   // Lane headers (HTML, sticky)
   const head = document.createElement("div");
   head.className = "ladder-head";
   head.innerHTML = nodes.map((n) => `<div class="lane-tag" style="left:${(X[n] / width) * 100}%">
-      <b>${esc(nodeLabel(n))}</b><span>${esc(addr(n))}</span></div>`).join("");
+      <b>${esc(nodeLabel(n, trace))}</b><span>${esc(addr(n))}</span></div>`).join("");
   host.appendChild(head);
 
   const scroller = document.createElement("div");
   scroller.className = "ladder-scroll";
   host.appendChild(scroller);
   const svg = el("svg", { viewBox: `0 0 ${width} ${height}`, width, height, class: "ladder-svg", role: "img",
-    "aria-label": `Sequence diagram: ${trace.packets.length} packets between ${nodes.map(nodeLabel).join(", ")} over ${Math.round(duration)} ms` });
+    "aria-label": `Sequence diagram: ${trace.packets.length} packets between ${nodes.map((n) => nodeLabel(n, trace)).join(", ")} over ${Math.round(duration)} ms` });
   scroller.appendChild(svg);
 
   const defs = el("defs", {}, svg);
@@ -81,9 +121,18 @@ export function mountLadder(host, trace, { onSelect, addr = () => "" } = {}) {
   const gAxis = el("g", { class: "ladder-axis" }, svg);
   const step = niceStep((narrow ? 46 : 40) / pxPerMs);
   for (let t = 0; t <= duration + 0.01; t += step) {
+    if (inBreak(t) || breaks.some((b) => Math.abs(Y(t) - b.y0 * scale - top) < 10 || Math.abs(Y(t) - b.y1 * scale - top) < 10)) continue;
     el("line", { x1: axisW - 4, x2: width, y1: Y(t), y2: Y(t), class: "grid" }, gAxis);
     const tx = el("text", { x: axisW - 8, y: Y(t) + 3.5, class: "tick" }, gAxis);
     tx.textContent = t >= 1000 && step >= 100 ? (t / 1000).toFixed(t % 1000 ? 1 : 0) + "s" : Math.round(t) + (t === 0 ? " ms" : "");
+  }
+  // Collapsed idle gaps
+  for (const b of breaks) {
+    const y0 = top + b.y0 * scale, y1 = top + b.y1 * scale, g = el("g", { class: "gap" }, gAxis);
+    el("rect", { x: axisW - 4, y: y0 + 4, width: width - axisW + 4, height: Math.max(0, y1 - y0 - 8) }, g);
+    const tx = el("text", { x: axisW + 6, y: (y0 + y1) / 2 + 4 }, g);
+    const span = b.t1 - b.t0;
+    tx.textContent = `… ${span >= 1000 ? (span / 1000).toFixed(span >= 10000 ? 0 : 1) + " s" : Math.round(span) + " ms"} with nothing on the wire …`;
   }
   // Lanes
   const gLanes = el("g", {}, svg);
@@ -121,10 +170,11 @@ export function mountLadder(host, trace, { onSelect, addr = () => "" } = {}) {
       let x2 = X[hop.to], y2 = Y(hop.t1);
       if (hop.lost) { x2 = (x1 + x2) / 2; }
       const hit = el("line", { x1, y1, x2, y2, class: "hit" }, g);
-      const line = el("line", { x1, y1, x2, y2, class: "arrow", "marker-end": hop.lost ? "" : mid(c) }, g);
+      const line = el("line", { x1, y1, x2, y2, class: "arrow", "marker-end": hop.lost || hop.blocked ? "" : mid(c) }, g);
       const seg = { hop, x1, y1, x2, y2, line, hit, lostMark: null, dot: null };
-      if (hop.lost) {
-        const lm = el("g", { class: "lost-x", transform: `translate(${x2},${y2})` }, g);
+      if (hop.lost || hop.blocked) {
+        // Lost in transit: ✕ midway. Blocked (e.g. by NAT): the packet reaches the router and stops there.
+        const lm = el("g", { class: "lost-x", transform: `translate(${hop.blocked ? x2 - Math.sign(x2 - x1) * 9 : x2},${y2})` }, g);
         el("path", { d: "M-5,-5 L5,5 M5,-5 L-5,5" }, lm);
         seg.lostMark = lm;
       }
@@ -150,7 +200,7 @@ export function mountLadder(host, trace, { onSelect, addr = () => "" } = {}) {
       }
     });
     const title = el("title", {}, g);
-    title.textContent = `#${p.no} ${p.label} — ${nodeLabel(p.from)} → ${nodeLabel(p.to)}, sent ${p.t.toFixed(1)} ms${p.lost ? ", lost" : p.arrived != null ? `, arrived ${p.arrived.toFixed(1)} ms` : ""}`;
+    title.textContent = `#${p.no} ${p.label} — ${nodeLabel(p.from, trace)} → ${p.broadcast ? "everyone (broadcast)" : nodeLabel(p.to, trace)}, sent ${p.t.toFixed(1)} ms${p.blocked ? ", dropped by " + nodeLabel(p.blocked, trace) : p.lost ? ", lost" : p.arrived != null ? `, arrived ${p.arrived.toFixed(1)} ms` : ""}`;
     pkEls.push(h);
   }
 
@@ -248,5 +298,10 @@ export function mountLadder(host, trace, { onSelect, addr = () => "" } = {}) {
   }
   function followPlayback(on) { follow = on; if (on) scroller.scrollTop = 0; }
 
-  return { setTime, select, followPlayback, duration, destroy() { host.innerHTML = ""; } };
+  // Playback runs evenly down the drawing (collapsed gaps pass quickly), so the
+  // player works in fractions of the height and converts to time here.
+  const H = pts[pts.length - 1].y;
+  const timeAt = (f) => unwarp(Math.max(0, Math.min(1, f)) * H);
+  const fractionAt = (t) => (H ? warp(t) / H : 1);
+  return { setTime, select, followPlayback, duration, timeAt, fractionAt, destroy() { host.innerHTML = ""; } };
 }

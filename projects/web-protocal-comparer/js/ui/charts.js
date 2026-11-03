@@ -11,11 +11,12 @@ export function headerDiagram(id) {
   const ruler = Array.from({ length: 32 }, (_, i) => `<span>${i % 8 === 0 ? i : ""}</span>`).join("");
   return `<figure class="hdr" aria-label="${esc(L.name)} header layout">
     <figcaption><b>${esc(L.name)}</b>${L.rfc ? `<span>${esc(L.rfc)}</span>` : ""}</figcaption>
+    ${L.note ? `<p class="hdr-note">${esc(L.note)}</p>` : ""}
     <div class="hdr-scroll"><div class="hdr-grid">
       <div class="hdr-ruler" aria-hidden="true">${ruler}</div>
       ${L.rows.map((row) => `<div class="hdr-row">${row.map((f) =>
         `<div class="hdr-f ${f.variable ? "is-var" : ""}" style="grid-column: span ${f.bits}" title="${esc(f.name)}${f.desc ? " — " + esc(f.desc) : ""}" tabindex="0">
-          <span class="hdr-name">${esc(f.name)}</span><span class="hdr-bits">${f.variable ? "variable" : f.bits + (f.bits === 1 ? " bit" : " bits")}</span>
+          <span class="hdr-name">${esc(f.name)}</span><span class="hdr-bits">${f.variable ? (f.bytes ? f.bytes + " bytes" : "variable") : f.bits + (f.bits === 1 ? " bit" : " bits")}</span>
         </div>`).join("")}</div>`).join("")}
     </div></div>
     ${L.rows.flat().some((f) => f.desc) ? `<details class="hdr-legend"><summary>What each field does</summary><dl>${L.rows.flat().filter((f) => f.desc).map((f) =>

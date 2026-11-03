@@ -36,7 +36,7 @@ export function render(el) {
       const d = ls.filter((l) => isDone(l.id)).length;
       return `<section class="module card">
         <div class="module-head"><span class="module-num mono">${String(mi + 1).padStart(2, "0")}</span>
-          <div><h2>${esc(m.title)}</h2><p>${esc(m.blurb)}</p></div>
+          <div><h2>${esc(m.title)}${m.level ? ` <span class="level level-${esc(m.level.toLowerCase())}">${esc(m.level)}</span>` : ""}</h2><p>${esc(m.blurb)}</p></div>
           <span class="module-prog mono" aria-label="${d} of ${ls.length} done">${d}/${ls.length}</span></div>
         <ol class="lesson-list">${ls.map((l) => `<li><a href="#/learn/${l.id}" class="${isDone(l.id) ? "is-done" : ""}">
           <span class="ll-check" aria-hidden="true">${isDone(l.id) ? ICON.check : ""}</span>

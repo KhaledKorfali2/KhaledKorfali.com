@@ -1,4 +1,4 @@
-import { STACKS, loadStack } from "../sim/stacks/index.js";
+import { STACKS, loadStack, stackSelect } from "../sim/stacks/index.js";
 import { mountSim, LINK_CONTROLS, DEFAULT_LINK } from "../ui/simview.js";
 import { labState, saveLab } from "../store.js";
 import { esc, fmtMs, ICON } from "../util.js";
@@ -36,8 +36,12 @@ export function render(el) {
   const body = el.querySelector("[data-body]");
 
   function persist() { saveLab({ mode, single, race }); }
-  const stackPicker = (cur, name) => `<div class="stack-pick" role="group" aria-label="${name}">${STACKS.map((s) =>
-    `<button type="button" class="chip-btn" data-stack="${s.id}" data-side="${name}" aria-pressed="${s.id === cur}">${esc(s.name)}</button>`).join("")}</div>`;
+  // One grouped dropdown instead of fifteen buttons; the line under it says what the protocol is for.
+  const stackPicker = (cur, name) => `<div class="stack-picker">
+      <label class="stack-picker-label" for="pick-${name}">${name === "single" ? "Protocol" : "Protocol " + name.toUpperCase()}</label>
+      ${stackSelect(cur, `id="pick-${name}" data-pick="${name}"`)}
+      <p class="stack-desc">${esc(STACKS.find((s) => s.id === cur)?.short || "")}</p>
+    </div>`;
 
   function renderSingle() {
     views.forEach((v) => v.destroy()); views = [];
@@ -124,6 +128,19 @@ export function render(el) {
     clearTimeout(debounce);
     debounce = setTimeout(() => views.forEach((vw) => vw.update({ link: race.link, options: race.options || {} })), 200);
   });
+  el.addEventListener("change", (e) => {
+    const sel = e.target.closest("[data-pick]");
+    if (!sel) return;
+    const side = sel.dataset.pick;
+    if (side === "single") {
+      single = { stack: sel.value, options: {}, link: single.link, seed: single.seed };
+      persist(); renderSingle();
+    } else {
+      race[side] = { stack: sel.value, options: {} };
+      persist(); renderRace();
+    }
+    el.querySelector(`[data-pick="${side}"]`)?.focus();
+  });
   el.addEventListener("click", (e) => {
     const m = e.target.closest("[data-mode]");
     if (m) {
@@ -131,16 +148,6 @@ export function render(el) {
       el.querySelectorAll("[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b === m)));
       persist();
       return mode === "single" ? renderSingle() : renderRace();
-    }
-    const s = e.target.closest("[data-stack]");
-    if (s) {
-      const side = s.dataset.side;
-      if (side === "single") {
-        single = { stack: s.dataset.stack, options: {}, link: single.link, seed: single.seed };
-        persist(); return renderSingle();
-      }
-      race[side] = { stack: s.dataset.stack, options: {} };
-      persist(); return renderRace();
     }
     const p = e.target.closest("[data-preset]");
     if (p) {

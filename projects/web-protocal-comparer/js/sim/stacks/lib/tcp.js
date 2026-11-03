@@ -50,7 +50,16 @@ function demux(sim, node) {
     sim.on(node, (pkt) => {
       const t = pkt.headers && pkt.headers.tcp;
       if (!t) return;
-      const ep = m.get(t.dstPort + ":" + t.srcPort);
+      let ep = m.get(t.dstPort + ":" + t.srcPort);
+      // A listener created with anyPeerPort accepts a SYN from whatever source port arrives — behind
+      // NAT the server sees the router's mapped port, not the client's own — and binds to it.
+      if (!ep && (t.flags || []).includes("SYN") && !(t.flags || []).includes("ACK")) {
+        for (const [k, e] of m) {
+          if (!e.anyPeerPort || e.state !== "LISTEN" || e.lport !== t.dstPort) continue;
+          m.delete(k); e.rport = t.srcPort; m.set(e.lport + ":" + e.rport, e); ep = e;
+          break;
+        }
+      }
       if (ep) ep.receive(pkt);
     });
   }
@@ -62,7 +71,11 @@ function demux(sim, node) {
  * @param {object} o
  *  client, server: node names; clientPort, serverPort
  *  clientOpts / serverOpts: { initCwnd = 10, ssthresh = Infinity, rcvBuf = 65535, fastRetransmit = true,
- *                             delayedAck = 0 (ms), metrics = false, tag = "" }
+ *                             delayedAck = 0 (ms), metrics = false, tag = "", synRetries = Infinity }
+ * Either node may open the connection: `client` is simply the side that calls connect() (active open),
+ * e.g. { client: "server", server: "client" } for an FTP active-mode data connection.
+ *  serverOpts.anyPeerPort: the listener accepts the first SYN to serverPort from any source port and
+ *                          binds to it (needed behind NAT, where the server sees the mapped port).
  */
 export function tcpConnection(sim, o) {
   const cNode = o.client || "client", sNode = o.server || "server";
@@ -81,6 +94,7 @@ export class Endpoint {
     this.sim = sim; this.node = o.node; this.peer = o.peer; this.role = o.role;
     this.lport = o.lport; this.rport = o.rport; this.isn = o.isn;
     this.tag = o.tag || "";
+    this.anyPeerPort = !!o.anyPeerPort;   // listener: bind to the SYN's source port (e.g. a NAT-mapped port)
     this.state = o.role === "client" ? "CLOSED" : "LISTEN";
     // congestion control
     this.initCwnd = o.initCwnd ?? 10;
@@ -97,6 +111,7 @@ export class Endpoint {
     this.rto = INIT_RTO; this.srtt = null; this.rttvar = null; this.timerId = null; this.timing = null;
     this.dupAcks = 0; this.inFR = false; this.recover = this.isn; this.synRetx = false;
     this.finSeg = null; this.wndNoted = false; this.caNoted = false;
+    this.synRetries = o.synRetries ?? Infinity; this.synTries = 0;   // SYN retransmissions before giving up
     // receive side
     this.rcvBuf = o.rcvBuf ?? 65535;
     this.wscale = this.rcvBuf > 65535 ? Math.ceil(Math.log2(this.rcvBuf / 65535)) : 0;
@@ -114,6 +129,7 @@ export class Endpoint {
     this.onAllAcked = null;      // () every written byte is acknowledged
     this.onHold = null;          // ({ missing, seg }) data buffered behind a gap
     this.onRelease = null;       // ({ count }) a gap was filled
+    this.onConnectFail = null;   // () connect() gave up after `synRetries` SYN retransmissions
   }
 
   get established() { return this.una > this.isn && this.rcvNxt !== null; }
@@ -168,6 +184,14 @@ export class Endpoint {
     if (this.state === "CLOSE_WAIT") this.state = "LAST_ACK";
     else this.state = "FIN_WAIT_1";
     this.trySend();
+  }
+
+  /** Drop the connection silently (no RST is modelled): stop every timer and ignore further packets. */
+  abort() {
+    this.stopTimer();
+    if (this.delackTimer !== null) { this.sim.cancel(this.delackTimer); this.delackTimer = null; }
+    this.owe = null;
+    this.state = "CLOSED";
   }
 
   /** Would a write made now leave immediately (nothing queued, cwnd and rwnd have room)? */
@@ -288,6 +312,13 @@ export class Endpoint {
   onRto() {
     if (this.una >= this.max) return;
     const seg = this.segs[this.ackIdx];
+    if (seg.syn && this.state === "SYN_SENT" && this.synTries >= this.synRetries) {
+      this.note(`no SYN-ACK after ${this.synTries + 1} SYNs → giving up on the connection`, "loss");
+      this.abort();
+      if (this.onConnectFail) this.onConnectFail();
+      return;
+    }
+    if (seg.syn && this.state === "SYN_SENT") this.synTries++;
     const old = Math.round(this.rto);
     this.stats.rto++;
     this.timing = null;               // Karn: nothing in flight may be timed now

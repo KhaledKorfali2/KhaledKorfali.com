@@ -1,10 +1,12 @@
 // Discrete-event network simulator.
 //
-// A simulation is a line of nodes (endpoints at both ends, optional routers
-// between). Protocol stacks register handlers on endpoints, send packets and
-// set timers; the engine moves packets hop by hop with latency, jitter,
-// serialisation delay (bandwidth), random or scripted loss, and TTL expiry at
-// routers. run() returns a complete, deterministic trace that the UI replays.
+// A simulation is either a line of nodes (endpoints at both ends, optional
+// routers between) or, with `lan: true`, one shared segment where every node
+// hears broadcasts. Protocol stacks register handlers on endpoints, send
+// packets and set timers; the engine moves packets hop by hop with latency,
+// jitter, serialisation delay (bandwidth), random or scripted loss, TTL expiry
+// at routers and optional NAT at one router. run() returns a complete,
+// deterministic trace that the UI replays.
 
 const DEFAULT_LINK = {
   latency: 40,     // one-way, end to end, ms
@@ -19,10 +21,24 @@ export const ADDRESSES = {
   server: "93.184.216.34",
   resolver: "1.1.1.1",
   r1: "192.168.1.1",
+  gateway: "192.168.1.1",
+  dhcp: "192.168.1.1",
+  printer: "192.168.1.30",
   r2: "10.24.0.1",
   r3: "72.14.215.85",
   r4: "142.250.64.1",
 };
+
+// Hardware (Ethernet) addresses for nodes on the local segment.
+export const MACS = {
+  client: "3c:22:fb:1a:2b:3c",
+  printer: "00:1b:a9:52:7c:10",
+  gateway: "f4:92:bf:0c:11:2e",
+  dhcp: "f4:92:bf:0c:11:2e",
+  r1: "f4:92:bf:0c:11:2e",
+  broadcast: "ff:ff:ff:ff:ff:ff",
+};
+export const PUBLIC_IP = "203.0.113.7";
 
 // Small, fast, seedable PRNG so every run of a scenario is reproducible.
 function mulberry32(seed) {
@@ -76,9 +92,16 @@ export class Sim {
    *                              — the n-th packet matching every given field is lost.
    * @param {number}   [o.seed]
    * @param {number}   [o.maxTime] ms of simulated time before giving up
+   * @param {boolean}  [o.lan]   all nodes share one segment: one hop between any two, `to: "broadcast"` reaches all
+   * @param {object}   [o.nat]   { router, publicIp?, forward: [{ proto: "tcp"|"udp", port, toPort }] } —
+   *                             the router rewrites inside→outside packets to its public address and drops
+   *                             inbound packets that match no mapping or port-forward rule.
    */
-  constructor({ nodes = ["client", "server"], link = {}, drops = [], seed = 7, maxTime = 90000 } = {}) {
+  constructor({ nodes = ["client", "server"], link = {}, drops = [], seed = 7, maxTime = 90000, lan = false, nat = null } = {}) {
     this.nodes = nodes;
+    this.lan = lan;
+    this.nat = nat ? { publicIp: PUBLIC_IP, forward: [], ...nat } : null;
+    this.natMap = [];
     this.link = { ...DEFAULT_LINK, ...link };
     this.drops = drops.map((d) => ({ n: 1, ...d, seen: 0 }));
     this.rand = mulberry32(seed);
@@ -99,8 +122,11 @@ export class Sim {
   }
 
   addr(node) { return ADDRESSES[node] || "10.0.0." + (this.nodes.indexOf(node) + 1); }
-  isRouter(node) { return node !== this.nodes[0] && node !== this.nodes[this.nodes.length - 1]; }
-  hops() { return this.nodes.length - 1; }
+  mac(node) { return MACS[node] || "02:00:00:00:00:" + String(this.nodes.indexOf(node) + 1).padStart(2, "0"); }
+  isRouter(node) { return !this.lan && node !== this.nodes[0] && node !== this.nodes[this.nodes.length - 1]; }
+  hops() { return this.lan ? 1 : this.nodes.length - 1; }
+  /** NAT: is this node on the private side of the NAT router? */
+  inside(node) { return !!this.nat && this.nodes.indexOf(node) < this.nodes.indexOf(this.nat.router); }
 
   /** Register the packet handler for an endpoint: fn(pkt). */
   on(node, fn) { this.handlers.set(node, fn); }
@@ -147,13 +173,97 @@ export class Sim {
       t: this.now, hops: [], lost: false,
     };
     if (p.headers.ip) {
-      p.headers.ip = { ttl: 64, id: 0x1c46 + p.no, src: this.addr(p.from), dst: this.addr(p.to), ...p.headers.ip };
+      p.headers.ip = { ttl: 64, id: 0x1c46 + p.no, src: this.addr(p.from), dst: p.to === "broadcast" ? "255.255.255.255" : this.addr(p.to), ...p.headers.ip };
     }
+    // Seen from outside, an inside host only exists as the NAT's public address and mapped port.
+    if (this.nat && p.headers.ip && !this.inside(p.from) && this.inside(p.to) && p.from !== this.nat.router) this.natOutsideView(p);
     this.packets.push(p);
     if (this.packets.length > 4000) { this.truncated = true; return p; }
     const doomed = this.shouldDrop(p);
+    if (p.to === "broadcast") { this.broadcast(p, doomed); return p; }
     this.forward(p, p.from, doomed);
     return p;
+  }
+
+  // LAN broadcast: one frame, heard by every other node on the segment.
+  broadcast(p, doomed) {
+    p.broadcast = true;
+    const jitter = this.link.jitter > 0 ? this.rand() * this.link.jitter : 0;
+    const arrive = this.now + this.link.latency + jitter;
+    for (const node of this.nodes) {
+      if (node === p.from) continue;
+      if (doomed) {
+        p.lost = true;
+        p.hops.push({ from: p.from, to: node, t0: this.now, t1: this.now + this.link.latency / 2, lost: true });
+        continue;
+      }
+      p.hops.push({ from: p.from, to: node, t0: this.now, t1: arrive });
+      this.schedule(arrive, () => {
+        this.now = Math.max(this.now, arrive);
+        p.arrived ??= this.now;
+        const h = this.handlers.get(node);
+        if (h) h(p, node);
+      });
+    }
+  }
+
+  /* ── NAT ── */
+  l4(p) {
+    if (p.headers.tcp) return { key: "tcp", h: p.headers.tcp };
+    if (p.headers.udp) return { key: "udp", h: p.headers.udp };
+    return null;
+  }
+  natOutsideView(p) {
+    p.headers.ip = { ...p.headers.ip, dst: this.nat.publicIp };
+    const l = this.l4(p);
+    if (!l) return;
+    const m = this.natMap.find((e) => e.proto === l.key && e.privPort === l.h.dstPort && e.privIp === this.addr(p.to));
+    const rule = this.nat.forward.find((r) => (r.proto || "tcp") === l.key && r.toPort === l.h.dstPort);
+    const pub = m ? m.pubPort : rule ? rule.port : null;
+    if (pub != null) p.headers[l.key] = { ...l.h, dstPort: pub };
+  }
+  natTranslate(p, node) {
+    const l = this.l4(p);
+    const ip = p.headers.ip;
+    if (this.inside(p.from) && !this.inside(p.to)) {
+      // Outbound: rewrite the private source to the public address, creating a mapping if needed.
+      if (!l) { p.headers = { ...p.headers, ip: { ...ip, src: this.nat.publicIp } }; return true; }
+      let m = this.natMap.find((e) => e.proto === l.key && e.privIp === ip.src && e.privPort === l.h.srcPort);
+      // Replies from a port-forwarded service leave from the forwarded public port, not a new mapping.
+      const fwd = !m && this.nat.forward.find((r) => (r.proto || "tcp") === l.key && r.toPort === l.h.srcPort);
+      if (fwd) {
+        p.nat = { dir: "out", before: `${ip.src}:${l.h.srcPort}`, after: `${this.nat.publicIp}:${fwd.port}`, forwarded: true };
+        p.headers = { ...p.headers, ip: { ...ip, src: this.nat.publicIp }, [l.key]: { ...l.h, srcPort: fwd.port } };
+        return true;
+      }
+      if (!m) {
+        m = { proto: l.key, privIp: ip.src, privPort: l.h.srcPort, pubPort: 40001 + this.natMap.length, remoteIp: ip.dst };
+        this.natMap.push(m);
+        this.note(node, `NAT: ${ip.src}:${l.h.srcPort} → ${this.nat.publicIp}:${m.pubPort}`, "info");
+      }
+      p.nat = { dir: "out", before: `${ip.src}:${l.h.srcPort}`, after: `${this.nat.publicIp}:${m.pubPort}` };
+      p.headers = { ...p.headers, ip: { ...ip, src: this.nat.publicIp }, [l.key]: { ...l.h, srcPort: m.pubPort } };
+      return true;
+    }
+    if (!this.inside(p.from) && this.inside(p.to)) {
+      // Inbound: only traffic matching an existing mapping (or a port-forward rule) gets in.
+      const priv = this.addr(p.to);
+      if (!l) { p.headers = { ...p.headers, ip: { ...ip, dst: priv } }; return true; }
+      const m = this.natMap.find((e) => e.proto === l.key && e.pubPort === l.h.dstPort && e.remoteIp === ip.src);
+      const rule = this.nat.forward.find((r) => (r.proto || "tcp") === l.key && r.port === l.h.dstPort);
+      if (!m && !rule) {
+        p.lost = true;
+        p.blocked = node;
+        p.hops[p.hops.length - 1].blocked = true;
+        this.note(node, `Dropped: no NAT mapping for ${l.key.toUpperCase()} :${l.h.dstPort}`, "loss");
+        return false;
+      }
+      const privPort = m ? m.privPort : rule.toPort;
+      p.nat = { dir: "in", before: `${ip.dst}:${l.h.dstPort}`, after: `${priv}:${privPort}`, forwarded: !m };
+      p.headers = { ...p.headers, ip: { ...ip, dst: priv }, [l.key]: { ...l.h, dstPort: privPort } };
+      return true;
+    }
+    return true;
   }
 
   shouldDrop(p) {
@@ -176,7 +286,7 @@ export class Sim {
   // Move p one hop from `at` toward its destination.
   forward(p, at, doomed) {
     const i = this.nodes.indexOf(at), j = this.nodes.indexOf(p.to);
-    const next = this.nodes[i + Math.sign(j - i)];
+    const next = this.lan ? p.to : this.nodes[i + Math.sign(j - i)];
     const hopLatency = this.link.latency / this.hops();
     // Serialisation (bandwidth) applies at the first hop only: the access link is the bottleneck.
     let start = this.now;
@@ -214,6 +324,7 @@ export class Sim {
   arrive(p, node, doomed) {
     this.now = Math.max(this.now, p.hops[p.hops.length - 1].t1);
     if (node !== p.to) {
+      if (this.nat && node === this.nat.router && p.headers.ip && !this.natTranslate(p, node)) return;
       // Router: decrement TTL; at zero, discard and report back with ICMP Time Exceeded.
       if (p.headers.ip) {
         if (p.headers.ip.ttl <= 1) {
@@ -248,7 +359,7 @@ export class Sim {
     }
     const end = Math.max(this.now, ...this.packets.flatMap((p) => p.hops.map((h) => h.t1)), 0);
     return {
-      nodes: this.nodes, link: this.link, duration: end,
+      nodes: this.nodes, link: this.link, duration: end, lan: this.lan, nat: this.nat,
       packets: this.packets, notes: this.notes, deliveries: this.deliveries,
       series: this.series, marks: this.marks, truncated: this.truncated,
     };
@@ -258,9 +369,14 @@ export class Sim {
 /** Convenience: build a Sim, let a stack set it up, run it, attach the stack's summary. */
 export function simulate(stack, { link, drops, seed, options = {}, nodes } = {}) {
   const opts = { ...Object.fromEntries((stack.options || []).map((o) => [o.key, o.default])), ...options };
-  const sim = new Sim({ nodes: nodes || (stack.nodes ? stack.nodes(opts) : ["client", "server"]), link, drops, seed });
+  const pick = (v) => (typeof v === "function" ? v(opts) : v);
+  const sim = new Sim({
+    nodes: nodes || (stack.nodes ? stack.nodes(opts) : ["client", "server"]), link, drops, seed,
+    lan: !!pick(stack.lan), nat: pick(stack.nat) || null,
+  });
   const api = stack.setup(sim, opts) || {};
   const trace = sim.run();
+  trace.labels = pick(stack.labels) || {};
   trace.stack = stack.id;
   trace.options = opts;
   trace.summary = { ...baseSummary(trace), ...(api.summary ? api.summary(trace) : {}) };

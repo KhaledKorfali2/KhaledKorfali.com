@@ -12,14 +12,18 @@ const LAYER_TONE = { ipv4: "ip", ip: "ip", icmp: "icmp", udp: "l4", tcp: "l4", d
 export function renderInspector(host, pkt, trace) {
   if (!pkt) { host.innerHTML = `<p class="faint insp-empty">Select a packet on the diagram to inspect it.</p>`; return; }
   const cls = packetClass(pkt);
-  const status = pkt.lost
+  const status = pkt.blocked
+    ? `<span class="tag tag-bad">dropped by ${esc(nodeLabel(pkt.blocked, trace))}</span>`
+    : pkt.lost
     ? `<span class="tag tag-bad">lost${pkt.scripted ? " (staged)" : ""}</span>`
-    : pkt.expired ? `<span class="tag tag-bad">TTL expired at ${esc(nodeLabel(pkt.expired))}</span>`
+    : pkt.expired ? `<span class="tag tag-bad">TTL expired at ${esc(nodeLabel(pkt.expired, trace))}</span>`
     : pkt.arrived != null ? `<span class="tag">arrived ${fmtMs(pkt.arrived)}</span>` : "";
   host.innerHTML = `
     <div class="insp-head">
       <div class="insp-title"><i class="pk-swatch pk-${cls}"></i><b>${esc(pkt.label)}</b></div>
-      <div class="insp-meta">#${pkt.no} · ${esc(nodeLabel(pkt.from))} → ${esc(nodeLabel(pkt.to))} · ${pkt.size} B · sent ${fmtMs(pkt.t)} ${status} ${pkt.retx ? '<span class="tag tag-warn">retransmission</span>' : ""}</div>
+      <div class="insp-meta">#${pkt.no} · ${esc(nodeLabel(pkt.from, trace))} → ${pkt.broadcast ? "everyone (broadcast)" : esc(nodeLabel(pkt.to, trace))} · ${pkt.size} B · sent ${fmtMs(pkt.t)} ${status} ${pkt.retx ? '<span class="tag tag-warn">retransmission</span>' : ""}</div>
+      ${pkt.nat ? `<div class="insp-nat"><b>NAT ${pkt.nat.dir === "out" ? "rewrote the source" : pkt.nat.forwarded ? "port-forwarded" : "translated back"}</b> <code>${esc(pkt.nat.before)}</code> → <code>${esc(pkt.nat.after)}</code></div>` : ""}
+      ${pkt.blocked ? `<div class="insp-nat insp-bad">No NAT mapping matched this inbound packet, so the router discarded it.</div>` : ""}
       ${headers?.describePacket ? `<code class="insp-sum">${esc(safeCall(() => headers.describePacket(pkt), ""))}</code>` : ""}
     </div>
     <div class="insp-layers" data-layers><p class="faint">Decoding…</p></div>`;

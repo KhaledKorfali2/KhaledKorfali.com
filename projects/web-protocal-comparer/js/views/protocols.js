@@ -2,6 +2,10 @@ import PROTOCOLS from "../content/protocols.js";
 import { GLOSSARY } from "../content/lessons.js";
 import { headerDiagram, headersLoaded } from "../ui/charts.js";
 import { esc, safeHtml, ICON } from "../util.js";
+import { STACKS, GROUPS } from "../sim/stacks/index.js";
+
+// Same grouping as the Lab picker, so a protocol lives in one place across the app.
+const groupOf = (p) => STACKS.find((s) => s.id === p.lab)?.group || (["ipv4", "icmp"].includes(p.id) ? "Internet" : "Applications");
 
 const GUARANTEES = [
   ["connection", "Connection setup"], ["reliable", "Reliable delivery"], ["ordered", "In-order delivery"],
@@ -23,14 +27,22 @@ function list(el) {
       <div><div class="eyebrow">Reference</div><h1>Protocols</h1><p>What each protocol promises, what its header looks like, and when to reach for it.</p></div>
       <a class="btn" href="#/glossary">Glossary</a>
     </div>
-    <div class="proto-cards">${PROTOCOLS.map((p) => `<a class="pcard" href="#/protocols/${p.id}">
-      <div class="pcard-top"><span class="layer-chip">${esc(p.layer)}</span>${p.ports ? `<span class="faint mono" style="font-size:12px">${esc(p.ports)}</span>` : ""}</div>
-      <h3>${esc(p.name)}</h3><p>${esc(p.tagline)}</p></a>`).join("")}</div>
+    ${GROUPS.map((g) => {
+      const list = PROTOCOLS.filter((p) => groupOf(p) === g);
+      if (!list.length) return "";
+      return `<section class="proto-group"><div class="section-title">${esc(g)}</div><div class="proto-cards">${list.map((p) => `<a class="pcard" href="#/protocols/${p.id}">
+        <h3>${esc(p.name)}</h3>
+        <p>${esc(p.tagline)}</p></a>`).join("")}</div></section>`;
+    }).join("")}
 
     <div class="section-title">At a glance</div>
     <div class="table-wrap"><table class="tbl tbl-matrix">
       <thead><tr><th scope="col">Protocol</th>${GUARANTEES.map(([, l]) => `<th scope="col">${l}</th>`).join("")}</tr></thead>
-      <tbody>${PROTOCOLS.map((p) => `<tr><th scope="row"><a href="#/protocols/${p.id}">${esc(p.name)}</a></th>${GUARANTEES.map(([k]) => `<td>${mark(p.guarantees?.[k])}</td>`).join("")}</tr>`).join("")}</tbody>
+      <tbody>${GROUPS.map((g) => {
+        const list = PROTOCOLS.filter((p) => groupOf(p) === g);
+        return list.length ? `<tr class="tbl-group"><th colspan="${GUARANTEES.length + 1}" scope="rowgroup">${esc(g)}</th></tr>` + list.map((p) =>
+          `<tr><th scope="row"><a href="#/protocols/${p.id}">${esc(p.name)}</a></th>${GUARANTEES.map(([k]) => `<td>${mark(p.guarantees?.[k])}</td>`).join("")}</tr>`).join("") : "";
+      }).join("")}</tbody>
     </table></div>
   </div>`;
 }
@@ -41,8 +53,9 @@ function detail(el, id) {
   el.innerHTML = `<div class="page page-wide">
     <a class="back" href="#/protocols">${ICON.back} All protocols</a>
     <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">
-      <div><div class="eyebrow">${esc(p.layer)}${p.rfc ? " · " + esc(p.rfc) : ""}</div><h1>${esc(p.name)}</h1>
-        <p><b>${esc(p.full)}.</b> ${esc(p.tagline)}</p></div>
+      <div><div class="eyebrow">${esc(groupOf(p))}${p.rfc ? " · " + esc(p.rfc) : ""}</div><h1>${esc(p.name)}</h1>
+        <p><b>${esc(p.full)}.</b> ${esc(p.tagline)}</p>
+        ${p.ports ? `<p class="proto-ports"><span>Ports</span> ${esc(p.ports)}</p>` : ""}</div>
       ${p.lab ? `<button type="button" class="btn btn-primary" data-lab="${esc(p.lab)}">${ICON.lab} Try it in the lab</button>` : ""}
     </div>
     <div class="guarantees">${GUARANTEES.map(([k, l]) => `<div class="g ${p.guarantees?.[k] === true ? "g-yes" : p.guarantees?.[k] === false ? "g-no" : "g-part"}">${mark(p.guarantees?.[k])}<span>${l}</span></div>`).join("")}</div>

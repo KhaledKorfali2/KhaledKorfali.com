@@ -19,17 +19,19 @@ export const OVERHEAD = { "1.3": 22, "1.2": 29 };   // per record: 5 B header + 
 const MAX_RECORD = 16384;
 const CERT_CHAIN = 2890;  // leaf (RSA-2048, ~1.4 KB) + intermediate (~1.3 KB) in one Certificate record
 
-function flights(version, alpn, sni, ticket) {
-  const alpnList = "h2, http/1.1";
+function flights(version, alpn, sni, ticket, offer = "h2, http/1.1") {
+  // offer === null: no ALPN extension at all (e.g. SMTP STARTTLS); alpn is then ignored.
+  const alpnList = offer;
+  const alpnLine = (v) => (offer === null ? "" : `\n  ALPN: ${v}`);
   if (version === "1.3") {
     return {
       client1: { label: "ClientHello", msgs: [
-        ["ClientHello", "handshake", 517, `ClientHello\n  legacy_version: 0x0303 (TLS 1.2 — real version is in supported_versions)\n  random: 32 B\n  cipher_suites: TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256\n  server_name: ${sni}\n  supported_versions: TLS 1.3, TLS 1.2\n  key_share: x25519, 32 B public key  ← lets the server derive keys right away\n  signature_algorithms: ecdsa_secp256r1_sha256, rsa_pss_rsae_sha256, …\n  ALPN: ${alpnList}\n  padding to 512 B`],
+        ["ClientHello", "handshake", 517, `ClientHello\n  legacy_version: 0x0303 (TLS 1.2 — real version is in supported_versions)\n  random: 32 B\n  cipher_suites: TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256\n  server_name: ${sni}\n  supported_versions: TLS 1.3, TLS 1.2\n  key_share: x25519, 32 B public key  ← lets the server derive keys right away\n  signature_algorithms: ecdsa_secp256r1_sha256, rsa_pss_rsae_sha256, …${alpnLine(alpnList)}\n  padding to 512 B`],
       ] },
       server1: { label: "ServerHello … {Finished}", msgs: [
         ["ServerHello", "handshake", 127, `ServerHello\n  cipher_suite: TLS_AES_128_GCM_SHA256\n  supported_versions: TLS 1.3\n  key_share: x25519, 32 B public key\n  → both sides now derive handshake keys (ECDHE)`],
         ["ChangeCipherSpec (compat)", "change_cipher_spec", 6, "ChangeCipherSpec — dummy record for middlebox compatibility, ignored by TLS 1.3"],
-        ["{EncryptedExtensions}", "application_data", 38, `{EncryptedExtensions}\n  ALPN: ${alpn}`],
+        ["{EncryptedExtensions}", "application_data", 38, `{EncryptedExtensions}${alpnLine(alpn) || "\n  (no extensions to report)"}`],
         ["{Certificate}", "application_data", CERT_CHAIN, `{Certificate}\n  ${sni} (RSA-2048) + intermediate CA, ~2.9 KB`],
         ["{CertificateVerify}", "application_data", 286, "{CertificateVerify}\n  rsa_pss_rsae_sha256 signature over the transcript (proves the private key)"],
         ["{Finished}", "application_data", 58, "{Finished}\n  HMAC over the whole handshake transcript"],
@@ -45,10 +47,10 @@ function flights(version, alpn, sni, ticket) {
   }
   return {
     client1: { label: "ClientHello", msgs: [
-      ["ClientHello", "handshake", 517, `ClientHello\n  client_version: TLS 1.2\n  random: 32 B\n  cipher_suites: ECDHE-RSA-AES128-GCM-SHA256, ECDHE-ECDSA-AES128-GCM-SHA256, …\n  server_name: ${sni}\n  supported_groups: x25519, secp256r1\n  (no key_share: TLS 1.2 exchanges keys in a second round trip)\n  ALPN: ${alpnList}\n  session_ticket (empty), padding`],
+      ["ClientHello", "handshake", 517, `ClientHello\n  client_version: TLS 1.2\n  random: 32 B\n  cipher_suites: ECDHE-RSA-AES128-GCM-SHA256, ECDHE-ECDSA-AES128-GCM-SHA256, …\n  server_name: ${sni}\n  supported_groups: x25519, secp256r1\n  (no key_share: TLS 1.2 exchanges keys in a second round trip)${alpnLine(alpnList)}\n  session_ticket (empty), padding`],
     ] },
     server1: { label: "ServerHello … ServerHelloDone", msgs: [
-      ["ServerHello", "handshake", 90, `ServerHello\n  version: TLS 1.2\n  cipher_suite: ECDHE-RSA-AES128-GCM-SHA256\n  ALPN: ${alpn}`],
+      ["ServerHello", "handshake", 90, `ServerHello\n  version: TLS 1.2\n  cipher_suite: ECDHE-RSA-AES128-GCM-SHA256${alpnLine(alpn)}`],
       ["Certificate", "handshake", CERT_CHAIN, `Certificate (sent in the clear in TLS 1.2)\n  ${sni} (RSA-2048) + intermediate CA, ~2.9 KB`],
       ["ServerKeyExchange", "handshake", 305, "ServerKeyExchange\n  x25519 public key, signed with the certificate's RSA key"],
       ["ServerHelloDone", "handshake", 9, "ServerHelloDone — your turn"],
@@ -88,13 +90,14 @@ function flightMeta(id, f, version) {
 /**
  * Run a TLS handshake over conn = { client, server } (lib/tcp endpoints).
  * o: { version: "1.3" | "1.2", alpn: "h2" | "http/1.1", sni, ticket, tag, halfRtt: [name, record, bytes, detail],
+ *      alpnOffer: ALPN list in the ClientHello (default "h2, http/1.1"; null = no ALPN), readyNote: client note text,
  *      onClientReady(), onServerReady(), onClientData(d), onServerData(d) }
  * d (app data): { meta, len, appBytes, appOffset, i, n, last } — appBytes excludes TLS overhead.
  * Returns { clientWrite(bytes, meta), serverWrite(bytes, meta), clientReadyAt, ... }.
  */
 export function tlsSession(sim, conn, o) {
   const version = o.version === "1.2" ? "1.2" : "1.3";
-  const F = flights(version, o.alpn || "http/1.1", o.sni || "example.com", !!o.ticket);
+  const F = flights(version, o.alpn || "http/1.1", o.sni || "example.com", !!o.ticket, o.alpnOffer);
   // 0.5-RTT data: in TLS 1.3 the server may send application data right after its Finished.
   if (o.halfRtt && version === "1.3") F.server1.msgs.push(o.halfRtt);
   const { client, server } = conn;
@@ -112,7 +115,7 @@ export function tlsSession(sim, conn, o) {
   const clientReady = () => {
     s.clientReadyAt = sim.now;
     const rtts = version === "1.3" ? "1 RTT" : "2 RTTs";
-    sim.note("client", tagged(`TLS ${version} handshake done (${rtts} after TCP) — encrypted requests may go now`), "good");
+    sim.note("client", tagged(o.readyNote || `TLS ${version} handshake done (${rtts} after TCP) — encrypted requests may go now`), "good");
     if (o.onClientReady) o.onClientReady();
   };
   const serverReady = () => {
