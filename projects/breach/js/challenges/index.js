@@ -3,6 +3,7 @@
 // extract information rather than compromise systems.
 import basics from "./basics.js";
 import crypto from "./crypto.js";
+import pki from "./pki.js";
 import web from "./web.js";
 import iam from "./iam.js";
 import appsec from "./appsec.js";
@@ -16,6 +17,7 @@ import grc from "./grc.js";
 export const TRACKS = [
   { id: "basics", title: "First Steps", icon: "flag", blurb: "How a capture-the-flag works, and the first thing every analyst checks: what a page is already telling you.", list: basics },
   { id: "crypto", title: "Encoding & Cryptography", icon: "lock", blurb: "Encoding isn't encryption. Decode data, break classical ciphers, and see why weak password hashing matters.", list: crypto },
+  { id: "pki", title: "Keys, Certificates & PKI", icon: "shield", blurb: "Applied cryptography: symmetric vs asymmetric, AES modes, RSA key roles, digital signatures, certificates and key exchange.", list: pki },
   { id: "web", title: "Web Recon & Client Trust", icon: "globe", blurb: "Read what a website really sends you: source, cookies, tokens and the mistake of trusting the browser.", list: web },
   { id: "iam", title: "Identity & Access", icon: "lock", blurb: "How systems prove who you are and limit what you can do: factors and MFA, password storage, least privilege, sessions.", list: iam },
   { id: "appsec", title: "Secure Coding & Review", icon: "file", blurb: "Read code and config like a reviewer: find the hardcoded secret, the vulnerable dependency, the missing validation.", list: appsec },
