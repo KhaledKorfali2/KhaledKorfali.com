@@ -254,4 +254,56 @@ Open the access log (filter box available). One IP sprays many 404s, then gets a
 
 **On the exam:** access-log analysis and enumeration detection are central to CySA+, CEH and GSEC.`,
   },
+
+  {
+    id: "blue-correlate",
+    title: "Connect the Logs",
+    level: 4,
+    slug: "correlate_across_sources",
+    time: 13,
+    certs: ["CySA+", "GCIH", "GSEC"],
+    objective: "A VPN login and a server login share a user. Correlate the two logs to find the external IP the attacker logged in from, then submit it.",
+    lesson: `Real investigations join **multiple log sources**. One log rarely tells the whole story; the truth emerges when you line events up by **time** and a shared key (a username, a host, a session id).
+
+Here you have a **VPN log** (who connected from which external IP, and when) and a **server auth log** (which user logged into a sensitive server, and when). A compromised account shows up as: a VPN connection from an **unusual external IP**, immediately followed by that same user authenticating to a server they don't normally touch.
+
+### Your task
+Find the user who connected over VPN from a suspicious external address and then, seconds later, logged into the finance server in the auth log. Submit the **external IP** of that VPN session.`,
+    hints: ["Read both logs. Line them up by timestamp and username.", "Find a VPN session whose user then appears in the server auth log moments later.", "Submit the external IP from that VPN session (the public address, not the internal 10.x one)."],
+    workspace: { type: "files" },
+    setup(ctx) {
+      const user = ctx.pick(["rkhan", "amoreno", "tcole", "pvarga"]);
+      const badIP = ctx.int(80, 200) + "." + ctx.int(1, 254) + "." + ctx.int(1, 254) + "." + ctx.int(1, 254);
+      const users = ["jlee", "swilson", user, "dkaur", "mobrien"];
+      const vpn = [];
+      const ts = (base) => `08:${String(base).padStart(2, "0")}`;
+      users.forEach((u, i) => {
+        const ip = u === user ? badIP : "198.51.100." + ctx.int(2, 250);
+        vpn.push(`${ts(10 + i * 3)}  VPN connect  user=${u}  src=${ip}  assigned=10.8.0.${10 + i}`);
+      });
+      const auth = [
+        `${ts(9)}  finance-srv  login user=jlee  from=10.8.0.10  OK`,
+        `${ts(13 + users.indexOf(user) * 3)}  finance-srv  login user=${user}  from=10.8.0.${10 + users.indexOf(user)}  OK`,
+        `${ts(30)}  finance-srv  login user=dkaur  from=10.8.0.13  OK`,
+      ];
+      return {
+        _ip: badIP,
+        files: [
+          { name: "vpn.log", kind: "log", note: "VPN concentrator log: who connected from where.", data: vpn.join("\n") },
+          { name: "finance-auth.log", kind: "log", note: "Finance server authentication log.", data: auth.join("\n") },
+        ],
+      };
+    },
+    check(input, ctx, env) {
+      return norm.ip(input) === env._ip;
+    },
+    debrief: `Neither log was damning alone. Joined on **username and time**, they told the story: a user connected over VPN from an unfamiliar external IP, got an internal VPN address, and seconds later used that address to log into the finance server. That pivot is the attacker.
+
+### How defenders stop it
+- Centralise logs in a **SIEM** and write correlation rules that join sources (VPN + auth + endpoint).
+- Alert on VPN logins from new countries/IPs (impossible travel) and on access to sensitive systems right after.
+- Keep clocks in sync (NTP) so cross-source timestamps line up.
+
+**On the exam:** multi-source correlation and SIEM analysis are central to CySA+, GCIH and GSEC.`,
+  },
 ];

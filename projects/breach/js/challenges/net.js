@@ -213,4 +213,50 @@ Filter the capture to HTTP, find the POST to the login endpoint, and read the `+
 
 **On the exam:** reading HTTP POST credentials from a capture and the HTTP-vs-HTTPS distinction are core to Security+, Network+ and CySA+.`,
   },
+
+  {
+    id: "net-smtp",
+    title: "Mail in the Open",
+    level: 2,
+    slug: "smtp_is_plaintext",
+    time: 10,
+    certs: ["Security+", "CySA+", "Network+"],
+    objective: "An email was sent over plain SMTP. Read the message body in the capture and submit the flag it contains.",
+    lesson: `Email delivery runs on **SMTP**. Without encryption (STARTTLS/SMTPS) the entire conversation \u2014 sender, recipients, subject and the full message body \u2014 crosses the network as plain text. An eavesdropper reads it like a postcard.
+
+In a capture, an SMTP session is a readable dialogue: the client sends \`MAIL FROM\`, \`RCPT TO\`, then \`DATA\` followed by the headers and body, ending with a lone \`.\` on its own line.
+
+### Your task
+Filter to SMTP and read the session. Use **Follow stream** to see the whole email at once, and find the flag in the message body.`,
+    hints: ["Filter the capture to smtp and read the exchange in order.", "After the DATA command come the headers and the message body \u2014 the flag is in the body.", "Follow stream shows the entire email as one readable conversation."],
+    workspace: { type: "pcap" },
+    setup(ctx) {
+      const c = "10.0.7." + ctx.int(20, 90), s = "203.0.113." + ctx.int(5, 200);
+      const P = (t, src, dst, info, data) => ({ t, src, dst, proto: "SMTP", sport: src === c ? 52000 : 25, dport: src === c ? 25 : 52000, info, data });
+      return {
+        filter: "smtp",
+        packets: [
+          P(0.02, s, c, "Response: 220 mail.northwind.com ESMTP", "220 mail.northwind.com ESMTP Postfix\r\n"),
+          P(0.05, c, s, "Command: HELO workstation", "HELO workstation\r\n"),
+          P(0.07, s, c, "Response: 250 Hello", "250 mail.northwind.com\r\n"),
+          P(0.10, c, s, "Command: MAIL FROM", "MAIL FROM:<liam@northwind.com>\r\n"),
+          P(0.12, s, c, "Response: 250 OK", "250 2.1.0 Ok\r\n"),
+          P(0.14, c, s, "Command: RCPT TO", "RCPT TO:<cfo@northwind.com>\r\n"),
+          P(0.16, s, c, "Response: 250 OK", "250 2.1.5 Ok\r\n"),
+          P(0.18, c, s, "Command: DATA", "DATA\r\n"),
+          P(0.20, s, c, "Response: 354 End data with .", "354 End data with <CR><LF>.<CR><LF>\r\n"),
+          P(0.30, c, s, "DATA fragment: message body", `From: liam@northwind.com\r\nTo: cfo@northwind.com\r\nSubject: wire confirmation code\r\n\r\nThe approval code for today's transfer is ${ctx.flag}\r\n.\r\n`),
+          P(0.34, s, c, "Response: 250 Queued", "250 2.0.0 Ok: queued\r\n"),
+        ],
+      };
+    },
+    debrief: `The whole email \u2014 sender, recipient, subject and body with its secret code \u2014 travelled in cleartext SMTP, readable to anyone on the path.
+
+### How defenders stop it
+- Enforce **STARTTLS/SMTPS** so mail in transit is encrypted; require TLS between mail servers (MTA-STS).
+- Treat internal networks as untrusted; don't rely on "it's only internal".
+- For truly sensitive content, use end-to-end encryption (S/MIME, PGP).
+
+**On the exam:** SMTP cleartext and securing mail in transit are tested in Security+, Network+ and CySA+.`,
+  },
 ];

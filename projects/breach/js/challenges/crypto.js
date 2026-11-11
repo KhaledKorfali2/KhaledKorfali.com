@@ -275,4 +275,31 @@ You have a \`SHA256SUMS\` manifest and three files. Hash each file's contents wi
 
 **On the exam:** hashing for integrity, checksums and the integrity-vs-authenticity distinction are tested in Security+, CySA+ and GSEC.`,
   },
+
+  {
+    id: "crypto-atbash",
+    title: "Mirror Writing",
+    level: 2,
+    slug: "atbash_substitution",
+    time: 7,
+    certs: ["Security+", "CEH"],
+    objective: "This text uses the Atbash cipher. Decode it to reveal the flag.",
+    lesson: `**Atbash** is one of the oldest ciphers, originally for the Hebrew alphabet. It is a **fixed substitution**: the alphabet is reversed, so A becomes Z, B becomes Y, C becomes X, and so on. Applying it twice returns the original, like ROT13.
+
+Because the mapping is fixed (no key), Atbash offers no real security \u2014 but it still shows up in puzzles, CTFs and lightweight obfuscation, so recognising and reversing it is a useful reflex. A tell: the text is letters only, same word-lengths as English, but unreadable, and no single Caesar shift fixes it.
+
+### Your task
+Put the message through **Toolkit \u2192 Atbash** and read the flag.`,
+    hints: ["This is not a Caesar shift \u2014 try Toolkit \u2192 Atbash.", "Atbash is its own inverse: running it on the ciphertext gives the plaintext flag."],
+    workspace: { type: "files" },
+    setup(ctx) {
+      return { files: [{ name: "mirror.txt", kind: "text", note: "A letters-only message that no single shift decodes. Try reversing the alphabet.", data: C.atbash(`the flag is ${ctx.flag}`) }] };
+    },
+    debrief: `Atbash just mirrors the alphabet (A\u2194Z). With no key and one fixed mapping, it is trivially reversible \u2014 a historical curiosity, not security, but a common puzzle layer.
+
+### How defenders stop it
+Nothing to defend here \u2014 the lesson is recognition: classical substitution (Atbash, Caesar, ROT13) is obfuscation, never encryption. Real confidentiality needs a keyed modern cipher.
+
+**On the exam:** Atbash and fixed substitution ciphers appear alongside Caesar/ROT13 as examples of weak classical cryptography in Security+ and CEH.`,
+  },
 ];

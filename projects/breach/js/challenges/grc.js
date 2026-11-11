@@ -231,4 +231,53 @@ Read the control on the right and name its **function** (preventive, detective o
 
 **On the exam:** control functions and types are guaranteed Security+, SSCP and CISSP questions.`,
   },
+
+  {
+    id: "grc-classification",
+    title: "Label the Data",
+    level: 2,
+    slug: "data_classification_levels",
+    time: 8,
+    certs: ["Security+", "CISSP", "ISC2 CC"],
+    objective: "Read what the data is and assign the right classification level.",
+    answerLabel: "Classification",
+    answerPlaceholder: "public, internal, confidential, restricted",
+    lesson: `You cannot protect everything equally, so you **classify** data by how sensitive it is and apply controls to match. A common scheme:
+
+- **Public** \u2014 safe for anyone (marketing pages, press releases).
+- **Internal** \u2014 for employees; mild harm if leaked (org charts, internal memos).
+- **Confidential** \u2014 sensitive; real harm if leaked (customer PII, contracts, source code).
+- **Restricted / Highly Confidential** \u2014 severe harm; strictest controls (payment card data, health records, secrets, credentials).
+
+Classification drives everything downstream: encryption, access rules, retention, and how the data may be shared. The **data owner** sets the level.
+
+### Your task
+Read the description and answer with the correct **classification level**.`,
+    hints: ["Ask how much harm a leak would cause: none, mild, real, or severe?", "Payment-card or health data is restricted/highly confidential. A public webpage is public. Customer PII is confidential."],
+    workspace: { type: "files" },
+    setup(ctx) {
+      const cases = [
+        { a: "restricted", keys: ["restricted", "highly confidential"], text: "A database table of customers' full credit-card numbers, expiry dates and CVVs, stored to process payments." },
+        { a: "public", keys: ["public"], text: "The company's published marketing brochure and homepage copy, written specifically for public distribution." },
+        { a: "confidential", keys: ["confidential"], text: "A spreadsheet of customer names, emails and home addresses (personal data) used by the support team." },
+        { a: "internal", keys: ["internal"], text: "The internal office seating chart and the all-hands meeting agenda, meant for employees but not secret." },
+      ];
+      const pick = cases[ctx.int(0, cases.length - 1)];
+      return { _keys: pick.keys, files: [{ name: "data-description.txt", kind: "text", note: "Describe-then-classify. What level is this data?", data: pick.text + "\n\nAnswer: public, internal, confidential or restricted?" }] };
+    },
+    check(input, ctx, env) {
+      const v = norm.text(input);
+      // 'confidential' must not match when answer is 'restricted/highly confidential'; check restricted first
+      if (env._keys.includes("restricted")) return v.includes("restricted") || v.includes("highly");
+      if (env._keys.includes("confidential")) return v.includes("confidential") && !v.includes("highly");
+      return env._keys.some((k) => v.includes(k));
+    },
+    debrief: `You set the sensitivity level, which drives the controls: restricted data demands encryption, strict access and tight handling; public data needs none of that. Right-sizing protection to classification is how organisations spend security effort where it matters.
+
+### In practice
+- The **data owner** classifies; custodians apply the controls.
+- Over-classifying wastes resources; under-classifying causes breaches. Regulations (PCI DSS, HIPAA, GDPR) force the top tiers.
+
+**On the exam:** data classification, ownership roles and matching controls to sensitivity are tested in Security+, ISC2 CC and CISSP.`,
+  },
 ];

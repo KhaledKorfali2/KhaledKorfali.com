@@ -226,4 +226,51 @@ The site runs `+"`config.php`"+` (which executes, revealing nothing). But an edi
 
 **On the exam:** forced browsing for backup/source files is standard web enumeration in PenTest+ and CEH.`,
   },
+
+  {
+    id: "web-error-leak",
+    title: "The Helpful Error",
+    level: 2,
+    slug: "verbose_error_disclosure",
+    time: 9,
+    certs: ["Security+", "CySA+", "PenTest+"],
+    objective: "Break the app with unexpected input and read the secret its error message leaks.",
+    lesson: `Applications should fail **quietly**. In development, a crash prints a detailed **stack trace** \u2014 file paths, library versions, SQL, config values \u2014 to help the developer. Left on in production, that same verbose error hands an attacker a map of the internals, and sometimes secrets, every time something breaks.
+
+So attackers deliberately **send input the app does not expect** \u2014 a letter where a number goes, a missing parameter, a huge value \u2014 to *trigger* an error and read what spills out.
+
+### Your task
+The product page expects a numeric id. Give it something it cannot handle (try \`/product?id=abc\`) and read the detailed error. The flag is in the leaked diagnostic.`,
+    hints: ["The page loads a product by numeric id. What happens if the id is not a number?", "Edit the URL to pass a non-numeric id like ?id=abc and read the error page.", "The verbose stack trace leaks a config value \u2014 that is the flag."],
+    workspace: { type: "browser" },
+    setup(ctx) {
+      const flag = ctx.flag;
+      const render = (id) => {
+        if (!/^[0-9]+$/.test(id)) {
+          return { err: true, body: `<pre style="background:#fdf2f2;color:#7a1f1f;padding:16px;font:13px monospace">` +
+            `Traceback (most recent call last):\n` +
+            `  File "/srv/app/views.py", line 88, in product\n` +
+            `    pid = int(request.args["id"])\n` +
+            `ValueError: invalid literal for int() with base 10: '${esc(id)}'\n\n` +
+            `Local variables:\n  DB_DSN = "postgres://app:${esc(flag)}@db.internal:5432/shop"\n  DEBUG = True</pre>` };
+        }
+        return { err: false, body: `<h1>Product #${esc(id)}</h1><p>A fine product.</p>` };
+      };
+      return {
+        start: "http://shop.internal/product?id=1",
+        sites: { "shop.internal": { routes: [
+          ["GET", "/", (req, res) => res.html(`<h1>Shop</h1><p><a href="/product?id=1">View product 1</a></p>`)],
+          ["GET", "/product", (req, res) => { const r = render(req.query.id ?? ""); return res.html(`<!doctype html><title>Shop</title>${r.body}`, r.err ? 500 : 200); }],
+        ] } },
+      };
+    },
+    debrief: `A non-numeric id crashed the handler, and because **debug mode** was on in production the response included a full stack trace \u2014 file paths, and a database connection string with its **password** in plain view.
+
+### How defenders stop it
+- Turn **debug off** in production; show users a generic error page and log the detail server-side only.
+- Keep secrets out of code/config that can appear in traces; load them from a secrets manager.
+- Handle unexpected input gracefully instead of letting it throw.
+
+**On the exam:** verbose-error / information disclosure is an OWASP item tested in Security+, CySA+ and PenTest+.`,
+  },
 ];

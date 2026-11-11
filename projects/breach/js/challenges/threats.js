@@ -251,4 +251,55 @@ Review the autoruns list. Find the one persistence entry that is clearly malicio
 
 **On the exam:** persistence mechanisms and autoruns analysis are CySA+, CEH and GSEC topics (ATT&CK TA0003).`,
   },
+
+  {
+    id: "threats-ransomware",
+    title: "What Hit Us?",
+    level: 2,
+    slug: "ransomware_identification",
+    time: 9,
+    certs: ["Security+", "CySA+", "GCIH"],
+    objective: "A host was hit by ransomware. From the evidence, submit the encrypted-file extension the malware appended.",
+    answerLabel: "File extension",
+    answerPlaceholder: "e.g. .locked",
+    lesson: `**Ransomware** encrypts a victim's files and demands payment for the key. During response you first **identify** it: the family, and its indicators. Two quick tells sit right on the disk:
+
+- A **ransom note** \u2014 a text/HTML file dropped in every folder (names like \`README_RESTORE.txt\`, \`HOW_TO_DECRYPT.html\`).
+- A changed **file extension** \u2014 encrypted files get a new suffix appended (\`report.docx.locked\`, \`photo.jpg.crypt\`). That suffix often identifies the family and helps find a free decryptor (e.g., via No More Ransom).
+
+### Your task
+Read the incident evidence (a directory listing and the note). Submit the **extension** the ransomware appended to encrypted files (include the leading dot).`,
+    hints: ["Look at the directory listing: the original files now have an extra suffix on the end.", "Every encrypted file ends with the same new extension \u2014 that's the answer, including the leading dot."],
+    workspace: { type: "files" },
+    setup(ctx) {
+      const ext = "." + ctx.pick(["locked", "crypt", "vault", "enc", "hostage", "darkbit"]);
+      const listing = [
+        `Directory of C:\Users\mwells\Documents`,
+        ``,
+        `  budget.xlsx${ext}        2,004,992 bytes`,
+        `  proposal.docx${ext}        884,736 bytes`,
+        `  family.jpg${ext}         3,150,848 bytes`,
+        `  taxes_2025.pdf${ext}       612,352 bytes`,
+        `  !!!_HOW_TO_DECRYPT_!!!.txt     1,284 bytes`,
+        ``,
+        `--- !!!_HOW_TO_DECRYPT_!!!.txt ---`,
+        `Your files have been encrypted.`,
+        `To recover them, send 0.5 BTC to the wallet below within 72 hours.`,
+        `Do not rename or modify the encrypted files.`,
+      ].join("\n");
+      return { _ext: ext, files: [{ name: "evidence.txt", kind: "text", note: "Collected from the infected host. Identify the ransomware indicators.", data: listing }] };
+    },
+    check(input, ctx, env) {
+      const v = norm.text(input).replace(/^\*/, "");
+      return v === env._ext || v === env._ext.slice(1);
+    },
+    debrief: `Every document gained the same appended **extension**, and a ransom note was dropped alongside \u2014 two classic ransomware indicators. That extension helps identify the family and check whether a free decryptor exists before anyone considers paying.
+
+### How defenders stop it
+- Tested, **offline/immutable backups** are the real defence \u2014 restore instead of pay.
+- Contain fast (isolate the host) to stop encryption spreading over shares.
+- Prevent the initial access: phishing defence, patching, MFA, least privilege, and EDR that detects mass-file-encryption behaviour.
+
+**On the exam:** ransomware indicators, response and backup strategy are tested in Security+, CySA+ and GCIH.`,
+  },
 ];
