@@ -143,7 +143,7 @@ Read the access policy on the right and name the model (DAC, MAC, RBAC or ABAC).
     level: 2,
     slug: "nist_incident_lifecycle",
     time: 9,
-    certs: ["Security+", "CySA+", "CISSP"],
+    certs: ["Security+", "CySA+", "CISSP", "GSEC"],
     objective: "Read the situation and name the incident-response phase the team should move to next.",
     answerLabel: "Next phase",
     answerPlaceholder: "a phase name",

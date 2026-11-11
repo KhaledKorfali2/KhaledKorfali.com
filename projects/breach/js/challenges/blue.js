@@ -33,7 +33,7 @@ export default [
     level: 2,
     slug: "read_the_auth_log",
     time: 11,
-    certs: ["Security+", "CySA+"],
+    certs: ["Security+", "CySA+", "GSEC"],
     objective: "An attacker brute-forced an SSH login and eventually succeeded. Find the IP address that logged in successfully.",
     answerLabel: "Attacker IP",
     answerPlaceholder: "e.g. 203.0.113.9",

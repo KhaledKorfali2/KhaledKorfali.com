@@ -5,6 +5,7 @@ import basics from "./basics.js";
 import crypto from "./crypto.js";
 import web from "./web.js";
 import net from "./net.js";
+import threats from "./threats.js";
 import blue from "./blue.js";
 import grc from "./grc.js";
 
@@ -13,6 +14,7 @@ export const TRACKS = [
   { id: "crypto", title: "Encoding & Cryptography", icon: "lock", blurb: "Encoding isn't encryption. Decode data, break classical ciphers, and see why weak password hashing matters.", list: crypto },
   { id: "web", title: "Web Recon & Client Trust", icon: "globe", blurb: "Read what a website really sends you: source, cookies, tokens and the mistake of trusting the browser.", list: web },
   { id: "net", title: "Networks & Packet Analysis", icon: "wave", blurb: "Read packet captures like an analyst: follow a conversation, spot cleartext credentials, trace what happened.", list: net },
+  { id: "threats", title: "Threats & Detection", icon: "chip", blurb: "Spot the attacker in the noise: decode payloads, match indicators, catch C2 beaconing and map it to ATT&CK.", list: threats },
   { id: "blue", title: "Forensics & Defense", icon: "shield", blurb: "Investigate logs, phishing emails and hidden data to reconstruct an incident, the way a SOC analyst does.", list: blue },
   { id: "grc", title: "Governance & Risk", icon: "map", blurb: "The management side the big certifications test: risk maths, access-control models, policy and incident response.", list: grc },
 ];
@@ -24,8 +26,11 @@ export const trackOf = (c) => TRACKS.find((t) => t.id === c.track);
 
 export const CERTS = [
   { id: "Security+", org: "CompTIA", level: "Entry", about: "The baseline security certification: threats, cryptography, architecture, operations and governance. Widely required for government security roles." },
+  { id: "Network+", org: "CompTIA", level: "Entry", about: "Networking foundations: protocols, addressing, the OSI model, and reading traffic — the groundwork security builds on." },
   { id: "CySA+", org: "CompTIA", level: "Intermediate", about: "Blue-team analysis: log and packet investigation, threat hunting, vulnerability management and incident response." },
+  { id: "PenTest+", org: "CompTIA", level: "Intermediate", about: "The offensive counterpart to CySA+: planning engagements, reconnaissance, web and network testing, and reporting. Breach covers its recon and analysis groundwork, not live exploitation." },
   { id: "CEH", org: "EC-Council", level: "Intermediate", about: "Ethical-hacking methodology and the reconnaissance, analysis and reporting phases, with a broad survey of concepts." },
+  { id: "GSEC", org: "GIAC", level: "Intermediate", about: "GIAC Security Essentials: a broad, hands-on validation of defensive security across crypto, networking, incident handling and more." },
   { id: "CISSP", org: "ISC2", level: "Advanced", about: "Management-level breadth across 8 domains: risk, cryptography, architecture, identity and operations. Needs experience to certify." },
 ];
 

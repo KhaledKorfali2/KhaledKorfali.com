@@ -181,7 +181,7 @@ The file holds **hex** ciphertext. Feed it to the brute-force tool and find the 
     level: 4,
     slug: "weak_hash_weak_password",
     time: 12,
-    certs: ["Security+", "CySA+", "CEH"],
+    certs: ["Security+", "CySA+", "CEH", "GSEC"],
     objective: "You've recovered a password hash. Identify it, crack it against the wordlist, and submit the plaintext password.",
     answerLabel: "Password",
     answerPlaceholder: "the cracked password",

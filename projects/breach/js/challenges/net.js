@@ -8,7 +8,7 @@ export default [
     level: 2,
     slug: "ftp_sends_plaintext",
     time: 10,
-    certs: ["Security+", "CySA+", "CEH"],
+    certs: ["Security+", "CySA+", "CEH", "Network+", "GSEC"],
     objective: "This capture contains an FTP login. Read the password out of the packets and submit it.",
     answerLabel: "Password",
     answerPlaceholder: "the FTP password",
@@ -67,7 +67,7 @@ Anyone capturing the network — on shared Wi-Fi, a compromised switch, a tapped
     level: 3,
     slug: "spot_the_port_scan",
     time: 10,
-    certs: ["Security+", "CySA+", "CEH"],
+    certs: ["Security+", "CySA+", "CEH", "Network+"],
     objective: "One host is scanning another. Identify the attacker's IP address and submit it.",
     answerLabel: "Scanner IP",
     answerPlaceholder: "e.g. 10.0.0.5",
@@ -115,7 +115,7 @@ Scroll the packet list and watch the destination **ports** climb while the sourc
     level: 4,
     slug: "dns_tunnel_exfil",
     time: 13,
-    certs: ["CySA+", "CEH"],
+    certs: ["CySA+", "CEH", "Network+"],
     objective: "Data is being smuggled out over DNS. Reassemble it to recover the flag.",
     lesson: `When attackers can't send stolen data out directly (a firewall blocks it), they **tunnel** it through a protocol that *is* allowed. **DNS** is a favourite: almost every network lets DNS queries out so names can be resolved.
 

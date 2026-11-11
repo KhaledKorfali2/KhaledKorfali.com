@@ -17,7 +17,7 @@ export default [
     level: 1,
     slug: "headers_leak_info",
     time: 7,
-    certs: ["Security+", "CEH"],
+    certs: ["Security+", "CEH", "PenTest+", "GSEC"],
     objective: "A server reveals too much about itself. Read the response headers and submit the flag hidden in one of them.",
     lesson: `Every web response comes with **HTTP headers**: metadata the browser reads but doesn't usually show you. They sit above the page content:
 
@@ -63,7 +63,7 @@ Open **DevTools** (toolbar button), go to the **Network** tab, click the request
     level: 2,
     slug: "never_trust_the_client",
     time: 12,
-    certs: ["Security+", "CEH"],
+    certs: ["Security+", "CEH", "PenTest+"],
     objective: "You're logged in as a normal user. The admin page is blocked — but the server decides your role in a way you control. Reach the admin page and read its flag.",
     lesson: `The golden rule of web security: **never trust the client.** Anything stored in the browser — cookies, hidden form fields, local storage — can be changed by the person using it. If the server makes a *security decision* based on that data, the user can rewrite the decision.
 
@@ -109,7 +109,7 @@ Open **DevTools → Cookies**. You'll see the cookies for this site. You can cha
     level: 3,
     slug: "guessable_object_ids",
     time: 12,
-    certs: ["CEH", "CySA+"],
+    certs: ["CEH", "CySA+", "PenTest+"],
     objective: "You can see your own invoice. The flag is on someone else's. Access it.",
     lesson: `Web apps refer to data by **IDs** in the URL: \`/invoice/1005\`, \`/user/42/profile\`. That's fine — until the server shows you the data *without checking whether it's yours*. Then changing the number in the URL hands you other people's records. This is **IDOR** — Insecure Direct Object Reference — a form of broken access control.
 
@@ -153,7 +153,7 @@ Look at the ID in your own invoice's URL. Then try nearby IDs by editing the add
     level: 3,
     slug: "jwt_is_not_encrypted",
     time: 10,
-    certs: ["Security+", "CySA+"],
+    certs: ["Security+", "CySA+", "PenTest+"],
     objective: "Your session is a JWT. Decode it to read what the server put inside, and submit the flag from its payload.",
     lesson: `Modern apps often carry your session in a **JWT** (JSON Web Token). It looks like three chunks separated by dots:
 
