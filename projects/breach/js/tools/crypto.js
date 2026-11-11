@@ -224,6 +224,15 @@ export const sha1 = (s) => subtleHex("SHA-1", s);
 export const sha256 = (s) => subtleHex("SHA-256", s);
 export const sha512 = (s) => subtleHex("SHA-512", s);
 
+/** Keyed hash (message authentication code), hex output. Default SHA-256. */
+export async function hmac(message, key, hash = "SHA-256") {
+  const subtle = globalThis.crypto && globalThis.crypto.subtle;
+  if (!subtle) throw new Error("Web Crypto is unavailable (needs a secure context: https or localhost)");
+  const k = await subtle.importKey("raw", toBytes(key), { name: "HMAC", hash }, false, ["sign"]);
+  return hexEncode(new Uint8Array(await subtle.sign("HMAC", k, toBytes(message))));
+}
+export const hmacSha256 = (message, key) => hmac(message, key, "SHA-256");
+
 /**
  * Guess what a hash is from its format. Returns [{ name, note }] most likely first;
  * an empty array means "doesn't look like a known hash".

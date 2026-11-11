@@ -37,6 +37,7 @@ const OPS = [
     ["SHA-1", (s) => C.sha1(s)],
     ["SHA-256", (s) => C.sha256(s)],
     ["SHA-512", (s) => C.sha512(s)],
+    ["HMAC-SHA256 (key)", (s, k) => C.hmacSha256(s, k || ""), "Secret key"],
     ["Identify hash type", (s) => { const r = C.identifyHash(s.trim()); return r.length ? r.map((x) => `${x.name}${x.note ? `  (${x.note})` : ""}`).join("\n") : "Not a recognised hash format."; }],
   ] },
   { group: "Numbers", items: [

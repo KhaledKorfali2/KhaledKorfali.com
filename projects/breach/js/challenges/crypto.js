@@ -302,4 +302,159 @@ Nothing to defend here \u2014 the lesson is recognition: classical substitution 
 
 **On the exam:** Atbash and fixed substitution ciphers appear alongside Caesar/ROT13 as examples of weak classical cryptography in Security+ and CEH.`,
   },
+
+  {
+    id: "crypto-salt",
+    title: "No Salt, No Secret",
+    level: 3,
+    slug: "unsalted_hashes_reveal_reuse",
+    time: 12,
+    certs: ["Security+", "CySA+", "CISSP"],
+    objective: "A leaked table stored passwords as plain unsalted MD5. Several users share a password. Crack the shared hash and submit the password.",
+    answerLabel: "Shared password",
+    answerPlaceholder: "the reused password",
+    lesson: `Hashing a password protects it only if done right. Store it as a **plain, unsalted** hash and two problems appear:
+
+- **Identical passwords produce identical hashes.** If three users all pick \`123456\`, their stored hashes are byte-for-byte the same \u2014 so a leak instantly reveals *who shares a password*, and cracking it once cracks all of them.
+- **Rainbow tables.** Attackers precompute hashes of millions of common passwords. An unsalted hash is just a lookup away from its plaintext.
+
+A **salt** \u2014 a unique random value added to each password before hashing \u2014 fixes both: identical passwords get different hashes, and precomputed tables become useless.
+
+### Your task
+Open the leaked table. Notice that one MD5 hash repeats across several users \u2014 that is their shared password. Crack it with the wordlist (hash each candidate with **Toolkit \u2192 MD5** and match), and submit the **password**.`,
+    hints: ["Scan the hash column: one hash value appears on several rows. That is the reused password.", "Hash each wordlist entry with Toolkit \u2192 MD5 and compare to that repeated hash.", "When a candidate's MD5 matches the repeated hash, that word is the shared password."],
+    workspace: { type: "files" },
+    async setup(ctx) {
+      const words = ctx.shuffle(["summer2024", "letmein", "iloveyou", "princess", "football", ctx.word() + ctx.int(10, 99), "monkey", "qwerty"]);
+      const shared = ctx.pick(words);
+      const users = ["alice", "bob", "carol", "dave", "erin", "frank", "grace", "heidi"];
+      const rows = [];
+      for (let i = 0; i < users.length; i++) {
+        // three specific users share `shared`; the rest get a unique password
+        const pw = (i === 1 || i === 4 || i === 6) ? shared : ctx.pick(words.filter((w) => w !== shared)) + ctx.hex(1);
+        rows.push(`${users[i]}:${await C.md5(pw)}`);
+      }
+      return {
+        _pw: shared,
+        files: [
+          { name: "users.sql.dump", kind: "log", note: "Leaked user table: username:md5(password). No salt was used.", data: rows.join("\n") },
+          { name: "wordlist.txt", kind: "text", note: "Common passwords to try.", data: words.join("\n") },
+        ],
+      };
+    },
+    check(input, ctx, env) {
+      return norm.text(input) === norm.text(env._pw);
+    },
+    debrief: `Because the hashes were **unsalted**, three users with the same password shared an identical hash \u2014 visible at a glance, and crackable once for all three. A per-user **salt** would have made the three hashes different and defeated rainbow tables.
+
+### How defenders stop it
+- Add a unique random **salt** per password (modern password hashes do this automatically).
+- Use a **slow** password hash (bcrypt, scrypt, Argon2), never plain MD5/SHA.
+- Consider a secret **pepper** (a site-wide secret kept out of the database) on top of the salt.
+
+**On the exam:** salting, rainbow tables and why identical unsalted hashes leak reuse are tested in Security+, CySA+ and CISSP.`,
+  },
+
+  {
+    id: "crypto-hashid",
+    title: "Name That Algorithm",
+    level: 2,
+    slug: "identify_the_hash_algorithm",
+    time: 9,
+    certs: ["Security+", "CEH", "CySA+"],
+    objective: "You know the plaintext and have its hash. Work out which algorithm produced it and submit the algorithm name.",
+    answerLabel: "Algorithm",
+    answerPlaceholder: "MD5, SHA-1, SHA-256…",
+    lesson: `Different hash algorithms produce different-length digests, which is the quickest way to tell them apart:
+
+- **MD5** \u2014 128-bit, 32 hex characters. **Cryptographically broken** (collisions are easy); never use for new work.
+- **SHA-1** \u2014 160-bit, 40 hex. Also **broken** (practical collisions since 2017); deprecated.
+- **SHA-256** \u2014 256-bit, 64 hex. Part of SHA-2; currently strong.
+- **SHA-512** \u2014 512-bit, 128 hex. Also SHA-2; strong.
+
+When you have both a hash **and** the input that produced it, you can confirm the algorithm exactly: hash the known input with each candidate and see which output matches.
+
+### Your task
+The file gives a known plaintext and its hash. Hash the plaintext with each algorithm in the **Toolkit** until one matches, and submit the **algorithm's name**.`,
+    hints: ["First narrow it down by the hash length (32 hex = MD5, 40 = SHA-1, 64 = SHA-256, 128 = SHA-512).", "Hash the given plaintext with that algorithm in the Toolkit and confirm it matches.", "Submit the matching algorithm's name, e.g. SHA-1."],
+    workspace: { type: "files" },
+    async setup(ctx) {
+      const plain = ctx.word() + ctx.int(100, 999);
+      const algos = [
+        { name: "MD5", fn: (s) => C.md5(s), keys: ["md5"] },
+        { name: "SHA-1", fn: (s) => C.sha1(s), keys: ["sha-1", "sha1"] },
+        { name: "SHA-256", fn: (s) => C.sha256(s), keys: ["sha-256", "sha256"] },
+        { name: "SHA-512", fn: (s) => C.sha512(s), keys: ["sha-512", "sha512"] },
+      ];
+      const pick = algos[ctx.int(0, algos.length - 1)];
+      const digest = await pick.fn(plain);
+      return {
+        _keys: pick.keys,
+        files: [{ name: "unknown-hash.txt", kind: "text", note: "A hash and the text that produced it. Which algorithm made it?",
+          data: `plaintext : ${plain}\nhash      : ${digest}\n\nWhich algorithm produced this hash?` }],
+      };
+    },
+    check(input, ctx, env) {
+      const v = norm.text(input).replace(/\s+/g, "");
+      return env._keys.some((k) => v === k.replace(/\s+/g, "") || v === k.replace(/-/g, ""));
+    },
+    debrief: `The digest length pinned the family, and hashing the known plaintext confirmed the exact algorithm. Remember the security verdict, not just the length: **MD5 and SHA-1 are broken** (collisions) and must not be used for signatures or integrity; SHA-256/512 are the current safe choices \u2014 and *none* of these fast hashes is right for passwords (that needs bcrypt/Argon2).
+
+### How defenders stop it
+- Use SHA-256 or SHA-3 for integrity and signatures; retire MD5/SHA-1.
+- Use slow, salted hashes for passwords.
+- Identifying an unknown hash's algorithm is step one of both cracking (offense) and incident analysis (defense).
+
+**On the exam:** hash lengths, which algorithms are broken, and matching a hash to its algorithm are tested in Security+, CEH and CySA+.`,
+  },
+
+  {
+    id: "crypto-hmac",
+    title: "Signed With a Key",
+    level: 4,
+    slug: "hmac_integrity_and_auth",
+    time: 13,
+    certs: ["Security+", "CySA+", "CISSP"],
+    objective: "Two API messages arrive with HMAC signatures. One was tampered with in transit. Using the shared key, find the message whose HMAC does not verify and submit its filename.",
+    answerLabel: "Tampered message",
+    answerPlaceholder: "the filename that fails verification",
+    lesson: `A plain hash proves a message was not *accidentally* corrupted \u2014 but anyone can recompute it, so it does not prove *who* sent it. An **HMAC** (Hash-based Message Authentication Code) fixes that by mixing a **secret key** into the hash: \`HMAC(key, message)\`. Only someone who knows the key can produce or verify it, so a valid HMAC proves both **integrity** (unchanged) and **authenticity** (came from a key-holder).
+
+This is how APIs and webhooks sign requests: the server recomputes the HMAC of the received body with the shared key and rejects the request if it does not match the signature sent. Tamper with the body and the HMAC no longer verifies \u2014 and an attacker without the key cannot forge a new one.
+
+### Your task
+You have the **shared key** and two received messages, each with the HMAC the sender attached. Recompute each message's HMAC with **Toolkit \u2192 HMAC-SHA256** (enter the key) and compare. Submit the **filename** of the message whose HMAC does **not** match (the tampered one).`,
+    hints: ["Open the key file for the shared secret, and each message file for its body and attached HMAC.", "In the Toolkit, choose HMAC-SHA256, enter the shared key, and run it on each message body.", "The message whose computed HMAC differs from its attached signature was tampered with \u2014 submit that filename."],
+    workspace: { type: "files" },
+    async setup(ctx) {
+      const key = ctx.word() + "-" + ctx.hex(8);
+      const msgA = `{"action":"transfer","to":"acct-${ctx.int(1000, 9999)}","amount":${ctx.int(10, 90)}}`;
+      const msgB = `{"action":"transfer","to":"acct-${ctx.int(1000, 9999)}","amount":${ctx.int(10, 90)}}`;
+      const tamperedIsA = ctx.int(0, 1) === 0;
+      // The attacker changed the body but can't recompute the HMAC (no key), so the attached HMAC is stale.
+      const bodyA = tamperedIsA ? msgA.replace(/"amount":\d+/, '"amount":5000') : msgA;
+      const bodyB = tamperedIsA ? msgB : msgB.replace(/"amount":\d+/, '"amount":5000');
+      const hmacA = await C.hmacSha256(tamperedIsA ? msgA : bodyA, key); // original (pre-tamper) HMAC
+      const hmacB = await C.hmacSha256(tamperedIsA ? bodyB : msgB, key);
+      return {
+        _tampered: tamperedIsA ? "message_A.json" : "message_B.json",
+        files: [
+          { name: "shared.key", kind: "text", note: "The secret key shared between client and server.", data: key },
+          { name: "message_A.json", kind: "text", note: `Received body + attached HMAC-SHA256.\nHMAC: ${hmacA}`, data: bodyA },
+          { name: "message_B.json", kind: "text", note: `Received body + attached HMAC-SHA256.\nHMAC: ${hmacB}`, data: bodyB },
+        ],
+      };
+    },
+    check(input, ctx, env) {
+      return norm.text(input).replace(/\.json$/, "") === norm.text(env._tampered).replace(/\.json$/, "");
+    },
+    debrief: `One message body had been altered in transit, but the attacker could not regenerate its HMAC without the **secret key** \u2014 so the attached signature no longer matched the recomputed one, and the tampering was caught. A bare hash would not have helped: the attacker would simply recompute it. The key is what provides **authenticity**.
+
+### How defenders stop it
+- Authenticate API requests and webhooks with **HMAC** (or digital signatures), and reject on mismatch.
+- Compare HMACs in **constant time** to avoid timing side channels.
+- Protect the shared key; rotate it; never ship it to clients that shouldn't forge messages.
+
+**On the exam:** HMAC, the integrity-vs-authenticity distinction, and message authentication are tested in Security+, CySA+ and CISSP.`,
+  },
 ];
