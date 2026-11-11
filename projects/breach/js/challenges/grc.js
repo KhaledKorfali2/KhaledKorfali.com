@@ -183,4 +183,52 @@ Read where the team is now and name the **next** phase they should carry out.`,
 
 **On the exam:** the incident-response lifecycle and its ordering are core to Security+, CySA+ and CISSP.`,
   },
+
+  {
+    id: "grc-control-types",
+    title: "What Kind of Control?",
+    level: 2,
+    slug: "control_functions",
+    time: 9,
+    certs: ["Security+", "CISSP", "SSCP"],
+    objective: "Read the safeguard described and name its control function: preventive, detective or corrective.",
+    answerLabel: "Control function",
+    answerPlaceholder: "preventive, detective or corrective",
+    lesson: `Security **controls** are the safeguards that reduce risk. One key way to classify them is by **function** \u2014 *when* they act relative to an incident:
+
+- **Preventive** \u2014 stops it happening (a firewall, a lock, MFA, input validation).
+- **Detective** \u2014 notices it happening or after the fact (logs, IDS, CCTV, a SIEM alert).
+- **Corrective** \u2014 fixes or limits damage after (restoring from backup, patching, isolating a host).
+
+(Controls are also grouped by **type**: technical, administrative/managerial, physical \u2014 a separate axis from function.)
+
+Matching a safeguard to its function is how you reason about **defence in depth**: you want controls across all three, because prevention eventually fails and you need to detect and recover.
+
+### Your task
+Read the control on the right and name its **function** (preventive, detective or corrective).`,
+    hints: ["Ask when the control acts: before (stop it), during/after (notice it), or after (fix it)?", "A backup restoration is corrective. An IDS alert is detective. MFA is preventive."],
+    workspace: { type: "files" },
+    setup(ctx) {
+      const cases = [
+        { a: "preventive", keys: ["prevent"], text: "The company requires multi-factor authentication on every remote login, blocking access unless a second factor is provided." },
+        { a: "detective", keys: ["detect"], text: "A SIEM continuously analyses logs and raises an alert when it sees many failed logins followed by a success." },
+        { a: "corrective", keys: ["correct"], text: "After a ransomware incident, the team restores affected servers from clean offline backups to return to normal operation." },
+        { a: "preventive", keys: ["prevent"], text: "All web form input is validated against an allow-list before processing, so malformed data never reaches the application logic." },
+        { a: "detective", keys: ["detect"], text: "Security cameras and motion sensors record activity in the server room and flag after-hours entry." },
+      ];
+      const pick = cases[ctx.int(0, cases.length - 1)];
+      return { _keys: pick.keys, files: [{ name: "control.txt", kind: "text", note: "A security control. Which function is it?", data: pick.text + "\n\nAnswer: preventive, detective or corrective?" }] };
+    },
+    check(input, ctx, env) {
+      const v = norm.text(input);
+      return env._keys.some((k) => v.includes(k));
+    },
+    debrief: `You classified the safeguard by **function**. Good programs layer all three: preventive controls fail eventually, detective controls catch what slips through, and corrective controls limit and repair the damage \u2014 defence in depth.
+
+### In practice
+- The same goal often needs all three: prevent (MFA), detect (login alerts), correct (revoke and reset).
+- Don't confuse **function** (preventive/detective/corrective) with **type** (technical/administrative/physical) \u2014 exams test both axes.
+
+**On the exam:** control functions and types are guaranteed Security+, SSCP and CISSP questions.`,
+  },
 ];

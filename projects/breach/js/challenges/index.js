@@ -4,6 +4,8 @@
 import basics from "./basics.js";
 import crypto from "./crypto.js";
 import web from "./web.js";
+import iam from "./iam.js";
+import appsec from "./appsec.js";
 import net from "./net.js";
 import threats from "./threats.js";
 import blue from "./blue.js";
@@ -13,6 +15,8 @@ export const TRACKS = [
   { id: "basics", title: "First Steps", icon: "flag", blurb: "How a capture-the-flag works, and the first thing every analyst checks: what a page is already telling you.", list: basics },
   { id: "crypto", title: "Encoding & Cryptography", icon: "lock", blurb: "Encoding isn't encryption. Decode data, break classical ciphers, and see why weak password hashing matters.", list: crypto },
   { id: "web", title: "Web Recon & Client Trust", icon: "globe", blurb: "Read what a website really sends you: source, cookies, tokens and the mistake of trusting the browser.", list: web },
+  { id: "iam", title: "Identity & Access", icon: "lock", blurb: "How systems prove who you are and limit what you can do: factors and MFA, password storage, least privilege, sessions.", list: iam },
+  { id: "appsec", title: "Secure Coding & Review", icon: "file", blurb: "Read code and config like a reviewer: find the hardcoded secret, the vulnerable dependency, the missing validation.", list: appsec },
   { id: "net", title: "Networks & Packet Analysis", icon: "wave", blurb: "Read packet captures like an analyst: follow a conversation, spot cleartext credentials, trace what happened.", list: net },
   { id: "threats", title: "Threats & Detection", icon: "chip", blurb: "Spot the attacker in the noise: decode payloads, match indicators, catch C2 beaconing and map it to ATT&CK.", list: threats },
   { id: "blue", title: "Forensics & Defense", icon: "shield", blurb: "Investigate logs, phishing emails and hidden data to reconstruct an incident, the way a SOC analyst does.", list: blue },
@@ -28,6 +32,7 @@ export const CERTS = [
   { id: "Security+", org: "CompTIA", level: "Entry", about: "The baseline security certification: threats, cryptography, architecture, operations and governance. Widely required for government security roles." },
   { id: "Network+", org: "CompTIA", level: "Entry", about: "Networking foundations: protocols, addressing, the OSI model, and reading traffic — the groundwork security builds on." },
   { id: "CySA+", org: "CompTIA", level: "Intermediate", about: "Blue-team analysis: log and packet investigation, threat hunting, vulnerability management and incident response." },
+  { id: "SSCP", org: "ISC2", level: "Intermediate", about: "Systems Security Certified Practitioner: the hands-on operational counterpart to CISSP — access control, monitoring, cryptography and incident response." },
   { id: "PenTest+", org: "CompTIA", level: "Intermediate", about: "The offensive counterpart to CySA+: planning engagements, reconnaissance, web and network testing, and reporting. Breach covers its recon and analysis groundwork, not live exploitation." },
   { id: "CEH", org: "EC-Council", level: "Intermediate", about: "Ethical-hacking methodology and the reconnaissance, analysis and reporting phases, with a broad survey of concepts." },
   { id: "GSEC", org: "GIAC", level: "Intermediate", about: "GIAC Security Essentials: a broad, hands-on validation of defensive security across crypto, networking, incident handling and more." },

@@ -222,4 +222,57 @@ Fast hashes like MD5 make this cheap: a normal computer tries billions per secon
 
 **On the exam:** Security+, CySA+ and CEH all test password-hash cracking, salting, and why fast general-purpose hashes are wrong for passwords.`,
   },
+
+  {
+    id: "crypto-integrity",
+    title: "Has It Been Tampered With?",
+    level: 3,
+    slug: "hashes_detect_tampering",
+    time: 11,
+    certs: ["Security+", "CySA+", "GSEC"],
+    objective: "Three files were downloaded with a published checksum list. One was altered in transit. Hash each file and submit the name of the tampered one.",
+    answerLabel: "Tampered file",
+    answerPlaceholder: "the filename that fails its checksum",
+    lesson: `Hashes don't just store passwords — they prove **integrity**. Hash the same bytes and you always get the same digest; change a single byte and the digest changes completely. So software projects publish a **checksum** (often SHA-256) next to a download. You hash what you received and compare: match means intact, mismatch means it was corrupted or **tampered with**.
+
+This is how you catch a malicious mirror or a man-in-the-middle swapping a file for a backdoored one — the attacker can change the file, but can't make its hash match the real one the publisher signed.
+
+### Your task
+You have a \`SHA256SUMS\` manifest and three files. Hash each file's contents with **Toolkit → SHA-256** and compare to the manifest. Submit the name of the file whose hash **does not match**.`,
+    hints: ["Open SHA256SUMS: it lists the expected hash for each file.", "Copy each file's contents into Toolkit → SHA-256 and compare the result to the manifest.", "The file whose computed hash differs from the manifest is the tampered one."],
+    workspace: { type: "files" },
+    async setup(ctx) {
+      const names = ["installer.sh", "notes.txt", "update.bin"];
+      const contents = {
+        "installer.sh": `#!/bin/sh\necho "installing ${ctx.word()} v1.${ctx.int(1, 9)}"\n`,
+        "notes.txt": `Release notes for build ${ctx.hex(6)}\n- bug fixes\n- performance\n`,
+        "update.bin": `BINDATA:${ctx.hex(40)}`,
+      };
+      const tampered = names[ctx.int(0, 2)];
+      const manifest = [];
+      for (const n of names) {
+        // The manifest holds the ORIGINAL hash. For the tampered file, the real content differs,
+        // so we store a hash of a different (original) version than what we hand over.
+        const published = n === tampered ? await C.sha256(contents[n] + "ORIGINAL") : await C.sha256(contents[n]);
+        manifest.push(`${published}  ${n}`);
+      }
+      return {
+        _tampered: tampered,
+        files: [
+          { name: "SHA256SUMS", kind: "text", note: "Published checksums from the vendor. Trust these.", data: manifest.join("\n") },
+          ...names.map((n) => ({ name: n, kind: "text", note: "Downloaded file \u2014 verify it.", data: contents[n] })),
+        ],
+      };
+    },
+    check(input, ctx, env) {
+      return norm.text(input) === norm.text(env._tampered);
+    },
+    debrief: `One file's SHA-256 didn't match the published checksum \u2014 its bytes had been changed after the vendor signed them. The hash is what makes that undetectable change detectable.
+
+### How defenders stop it
+- Publish checksums over a **trusted channel** (HTTPS site, signed release notes) and verify downloads before running them.
+- Go further with **digital signatures** (GPG, code signing): they prove integrity *and* authenticity \u2014 that the real publisher produced it \u2014 which a bare hash alone does not.
+
+**On the exam:** hashing for integrity, checksums and the integrity-vs-authenticity distinction are tested in Security+, CySA+ and GSEC.`,
+  },
 ];

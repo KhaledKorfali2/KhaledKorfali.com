@@ -3,7 +3,7 @@
 const projects = [
   {
     name: "Breach",
-    description: "Learn cybersecurity by doing: capture flags from simulated websites, packet captures and log files, mapped to Security+, CySA+, CEH and CISSP.",
+    description: "Learn cybersecurity by doing: capture flags from simulated websites, packet captures, logs and code, across 9 tracks mapped to Security+, Network+, CySA+, PenTest+, CEH, SSCP, GSEC and CISSP.",
     image: "screenshots/breach.webp",
     path: "./projects/breach/index.html",
     category: "security"
