@@ -55,7 +55,7 @@ Open the alert, copy the Base64 after \`-enc\`, and decode it in the **Toolkit**
     level: 2,
     slug: "indicators_of_compromise",
     time: 10,
-    certs: ["Security+", "CySA+", "GSEC"],
+    certs: ["Security+", "CySA+", "GSEC", "ISC2 CC"],
     objective: "Threat intel gave you a watchlist of known-bad domains. One appears in the proxy log. Submit that domain.",
     answerLabel: "Malicious domain",
     answerPlaceholder: "e.g. bad.example.com",
@@ -202,5 +202,53 @@ Read the single observed action in the file and answer with the **tactic** it be
 - Threat-hunt proactively for high-impact techniques (credential dumping, persistence).
 
 **On the exam:** ATT&CK tactics and the cyber kill chain are tested in CySA+ and CEH, and feature in CISSP's security-operations domain.`,
+  },
+
+  {
+    id: "threats-persistence",
+    title: "It Keeps Coming Back",
+    level: 3,
+    slug: "find_the_persistence",
+    time: 11,
+    certs: ["CySA+", "CEH", "GSEC"],
+    objective: "Malware survives every reboot. Review the autoruns listing and submit the name of the malicious persistence entry.",
+    answerLabel: "Malicious entry name",
+    answerPlaceholder: "the suspicious autorun name",
+    lesson: `To survive reboots, malware establishes **persistence** — it hooks something the OS runs automatically at startup or login. On Windows the usual spots are **Run registry keys**, **Scheduled Tasks**, **Services**, and the **Startup folder**.
+
+An **autoruns** listing enumerates all of these so an analyst can review them. The malicious entry stands out from legitimate software:
+- a random or system-impersonating **name** (\`svch0st\`, \`WindowsUpdater\`),
+- a binary in an odd **path** (\`%TEMP%\`, \`%APPDATA%\`, a user folder) instead of \`Program Files\` or \`System32\`,
+- **unsigned**, where real system entries are signed by Microsoft.
+
+### Your task
+Review the autoruns list. Find the one persistence entry that is clearly malicious and submit its **name**.`,
+    hints: ["Legitimate entries live in Program Files or System32 and are signed. Look for the odd one out.", "A binary running from %TEMP% or %APPDATA%, unsigned, with a system-sounding name is the malware.", "Submit the Name of that entry."],
+    workspace: { type: "files" },
+    setup(ctx) {
+      const badName = ctx.pick(["WindowsUpdater", "svch0st", "AdobeUpdate", "SystemHealth", "OneDrveSync"]);
+      const badPath = `C:\\Users\\mwells\\AppData\\Local\\Temp\\${ctx.hex(4)}.exe`;
+      const rows = ctx.shuffle([
+        { loc: "HKLM\\...\\Run", name: "SecurityHealth", path: "C:\\Windows\\System32\\SecurityHealthSystray.exe", signer: "Microsoft (signed)" },
+        { loc: "HKCU\\...\\Run", name: "OneDrive", path: "C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe", signer: "Microsoft (signed)" },
+        { loc: "HKCU\\...\\Run", name: badName, path: badPath, signer: "UNSIGNED" },
+        { loc: "Scheduled Task", name: "GoogleUpdateTaskMachine", path: "C:\\Program Files\\Google\\Update\\GoogleUpdate.exe", signer: "Google LLC (signed)" },
+        { loc: "Service", name: "Spooler", path: "C:\\Windows\\System32\\spoolsv.exe", signer: "Microsoft (signed)" },
+      ]);
+      const text = "LOCATION           NAME                      IMAGE PATH                                              SIGNER\n" +
+        rows.map((r) => `${r.loc.padEnd(18)} ${r.name.padEnd(25)} ${r.path.padEnd(55)} ${r.signer}`).join("\n");
+      return { _name: badName, files: [{ name: "autoruns.txt", kind: "text", note: "Autoruns export from an infected host. Find the persistence.", data: text }] };
+    },
+    check(input, ctx, env) {
+      return norm.text(input) === norm.text(env._name);
+    },
+    debrief: `One Run-key entry launched an **unsigned** binary from a user's **%TEMP%** folder under a system-sounding name — a textbook persistence mechanism (ATT&CK T1547, Boot/Logon Autostart). The legitimate entries all ran signed binaries from standard locations.
+
+### How defenders stop it
+- Baseline autoruns and alert on new, unsigned, or odd-path startup entries (EDR does this).
+- Application control / allow-listing blocks unapproved binaries from executing.
+- Hunt the common persistence locations proactively.
+
+**On the exam:** persistence mechanisms and autoruns analysis are CySA+, CEH and GSEC topics (ATT&CK TA0003).`,
   },
 ];

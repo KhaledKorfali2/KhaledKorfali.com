@@ -6,6 +6,7 @@ import crypto from "./crypto.js";
 import web from "./web.js";
 import iam from "./iam.js";
 import appsec from "./appsec.js";
+import cloud from "./cloud.js";
 import net from "./net.js";
 import threats from "./threats.js";
 import blue from "./blue.js";
@@ -17,6 +18,7 @@ export const TRACKS = [
   { id: "web", title: "Web Recon & Client Trust", icon: "globe", blurb: "Read what a website really sends you: source, cookies, tokens and the mistake of trusting the browser.", list: web },
   { id: "iam", title: "Identity & Access", icon: "lock", blurb: "How systems prove who you are and limit what you can do: factors and MFA, password storage, least privilege, sessions.", list: iam },
   { id: "appsec", title: "Secure Coding & Review", icon: "file", blurb: "Read code and config like a reviewer: find the hardcoded secret, the vulnerable dependency, the missing validation.", list: appsec },
+  { id: "cloud", title: "Cloud & Hardening", icon: "shield", blurb: "The cloud's own failure modes: open buckets, over-broad IAM policies, posture findings and leaked-key abuse in audit logs.", list: cloud },
   { id: "net", title: "Networks & Packet Analysis", icon: "wave", blurb: "Read packet captures like an analyst: follow a conversation, spot cleartext credentials, trace what happened.", list: net },
   { id: "threats", title: "Threats & Detection", icon: "chip", blurb: "Spot the attacker in the noise: decode payloads, match indicators, catch C2 beaconing and map it to ATT&CK.", list: threats },
   { id: "blue", title: "Forensics & Defense", icon: "shield", blurb: "Investigate logs, phishing emails and hidden data to reconstruct an incident, the way a SOC analyst does.", list: blue },
@@ -29,6 +31,7 @@ export const byId = (id) => ALL.find((c) => c.id === id);
 export const trackOf = (c) => TRACKS.find((t) => t.id === c.track);
 
 export const CERTS = [
+  { id: "ISC2 CC", org: "ISC2", level: "Entry", about: "Certified in Cybersecurity: a free, beginner certification covering the five core domains — security principles, access control, network security, operations and incident response." },
   { id: "Security+", org: "CompTIA", level: "Entry", about: "The baseline security certification: threats, cryptography, architecture, operations and governance. Widely required for government security roles." },
   { id: "Network+", org: "CompTIA", level: "Entry", about: "Networking foundations: protocols, addressing, the OSI model, and reading traffic — the groundwork security builds on." },
   { id: "CySA+", org: "CompTIA", level: "Intermediate", about: "Blue-team analysis: log and packet investigation, threat hunting, vulnerability management and incident response." },

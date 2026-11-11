@@ -33,7 +33,7 @@ export default [
     level: 2,
     slug: "read_the_auth_log",
     time: 11,
-    certs: ["Security+", "CySA+", "GSEC"],
+    certs: ["Security+", "CySA+", "GSEC", "ISC2 CC"],
     objective: "An attacker brute-forced an SSH login and eventually succeeded. Find the IP address that logged in successfully.",
     answerLabel: "Attacker IP",
     answerPlaceholder: "e.g. 203.0.113.9",
@@ -202,5 +202,56 @@ The file opens as an **image** with a **Bit plane** tool and an **Extract LSB te
 - Watch for the *behaviour* around stego — odd uploads/downloads of media — more than the images themselves.
 
 **On the exam:** steganography and anti-forensics are named topics in CySA+ and CEH.`,
+  },
+
+  {
+    id: "blue-weblog",
+    title: "Needle in the Access Log",
+    level: 3,
+    slug: "find_the_attacker_requests",
+    time: 12,
+    certs: ["CySA+", "CEH", "GSEC"],
+    objective: "An attacker probed this web server before getting a hit. In the access log, find the path that returned 200 after a run of 404s and submit it.",
+    answerLabel: "The successful path",
+    answerPlaceholder: "e.g. /admin/config.bak",
+    lesson: `A web server's **access log** records every request: the client IP, the time, the method and path, and the **status code** the server returned.
+
+\`\`\`
+203.0.113.9 - - [14/Jun/2026:03:11:02] "GET /admin HTTP/1.1" 404
+\`\`\`
+
+An attacker **enumerating** hidden paths generates a burst of **404s** (not found) as they guess — then a **200** (or **403**) when they hit something real. That one success among the misses is the find. Spotting the pattern — many 404s from one IP, then a 200 — is bread-and-butter log analysis.
+
+### Your task
+Open the access log (filter box available). One IP sprays many 404s, then gets a single **200** on a sensitive path. Submit that **path** (the one that returned 200).`,
+    hints: ["Find the IP making lots of requests. Most return 404.", "Filter for that activity and look for the one request that returned 200 instead of 404.", "Submit the URL path of that 200 response."],
+    workspace: { type: "files" },
+    setup(ctx) {
+      const ip = `203.0.113.${ctx.int(2, 250)}`;
+      const hitPath = ctx.pick([`/backup/db.sql`, `/.git/config`, `/admin/config.bak`, `/old/.env`, `/wp-config.php.save`]);
+      const misses = ["/admin", "/login.bak", "/phpinfo.php", "/.env", "/config.php~", "/backup.zip", "/server-status", "/.htpasswd", "/test.php", "/api/debug"];
+      const lines = [];
+      let s = 2;
+      const ts = () => { s += ctx.int(0, 1); return `14/Jun/2026:03:11:${String(s).padStart(2, "0")}`; };
+      // normal traffic
+      for (let i = 0; i < 4; i++) lines.push(`10.0.0.${ctx.int(2, 50)} - - [${ts()}] "GET / HTTP/1.1" 200`);
+      // attacker scan
+      for (const p of ctx.shuffle(misses)) lines.push(`${ip} - - [${ts()}] "GET ${p} HTTP/1.1" 404`);
+      // the hit, inserted mid-scan
+      lines.splice(ctx.int(6, 12), 0, `${ip} - - [${ts()}] "GET ${hitPath} HTTP/1.1" 200`);
+      for (let i = 0; i < 3; i++) lines.push(`10.0.0.${ctx.int(2, 50)} - - [${ts()}] "GET /about HTTP/1.1" 200`);
+      return { _path: hitPath, files: [{ name: "access.log", kind: "log", note: "Apache access log. Find the attacker's one successful hit.", data: lines.join("\n") }] };
+    },
+    check(input, ctx, env) {
+      return norm.text(input).replace(/^https?:\/\/[^/]+/, "") === norm.text(env._path);
+    },
+    debrief: `One IP requested a dozen guessable paths — almost all **404** — then landed a **200** on an exposed backup/config path. The scan pattern (many misses, one hit, from a single IP in seconds) is exactly what to hunt for.
+
+### How defenders stop it
+- Alert on bursts of 404s from one source, and on 200s for sensitive paths.
+- Remove the files attackers look for, and block dotfiles/backups at the server.
+- Rate-limit and block scanning IPs; feed web logs into the SIEM.
+
+**On the exam:** access-log analysis and enumeration detection are central to CySA+, CEH and GSEC.`,
   },
 ];

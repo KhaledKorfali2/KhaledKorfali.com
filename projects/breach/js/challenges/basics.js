@@ -13,7 +13,7 @@ export default [
     level: 1,
     slug: "welcome_operator",
     time: 2,
-    certs: ["Security+"],
+    certs: ["Security+", "ISC2 CC"],
     objective: "Find the flag on the page and submit it.",
     lesson: `Welcome to **Breach**. Every challenge here works the same way. You get a **target**: a website, a terminal, a packet capture or something else. Somewhere in it is a **flag**, a secret string that looks like this:
 
@@ -56,7 +56,7 @@ Here, nothing needed stopping. In real systems, though, secrets end up on public
     level: 1,
     slug: "comments_are_public",
     time: 5,
-    certs: ["Security+", "CySA+", "CEH", "PenTest+"],
+    certs: ["Security+", "CySA+", "CEH", "PenTest+", "ISC2 CC"],
     objective: "The login page hides something its developer left behind. Find the flag.",
     lesson: `A web page is just a text file of **HTML** that your browser downloads and draws. Everything in that file reaches your computer, including the parts that aren't drawn on screen.
 
@@ -105,7 +105,7 @@ Reading the source is the first step of **reconnaissance**: gathering informatio
     level: 1,
     slug: "robots_txt_is_a_map",
     time: 5,
-    certs: ["CySA+", "CEH", "PenTest+", "Network+"],
+    certs: ["CySA+", "CEH", "PenTest+", "Network+", "ISC2 CC"],
     objective: "This site asks search engines to stay away from one place. Go there and get the flag.",
     lesson: `Sites tell search engines what not to index with a plain-text file at a fixed address: **/robots.txt**.
 

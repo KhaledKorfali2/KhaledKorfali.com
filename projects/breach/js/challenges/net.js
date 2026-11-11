@@ -8,7 +8,7 @@ export default [
     level: 2,
     slug: "ftp_sends_plaintext",
     time: 10,
-    certs: ["Security+", "CySA+", "CEH", "Network+", "GSEC"],
+    certs: ["Security+", "CySA+", "CEH", "Network+", "GSEC", "ISC2 CC"],
     objective: "This capture contains an FTP login. Read the password out of the packets and submit it.",
     answerLabel: "Password",
     answerPlaceholder: "the FTP password",
@@ -155,5 +155,62 @@ Filter to \`dns\`. Read the queried names in order. Pull out the **leftmost labe
 - DNS-security and DLP tools flag tunnelling patterns.
 
 **On the exam:** DNS tunnelling/exfiltration is a named technique in CySA+ and CEH (and MITRE ATT&CK T1048/T1071).`,
+  },
+
+  {
+    id: "net-http-creds",
+    title: "Login Over HTTP",
+    level: 2,
+    slug: "http_post_is_plaintext",
+    time: 10,
+    certs: ["Security+", "CySA+", "Network+"],
+    objective: "A user logged into a website over plain HTTP. Recover the password they submitted.",
+    answerLabel: "Password",
+    answerPlaceholder: "the submitted password",
+    lesson: `When a site uses plain **HTTP** instead of HTTPS, the whole request — including anything you type into a form — crosses the network unencrypted. A login form sends your username and password in a **POST body**:
+
+\`\`\`
+POST /login HTTP/1.1
+Host: example.com
+Content-Type: application/x-www-form-urlencoded
+
+username=alice&password=s3cr3t
+\`\`\`
+
+Anyone capturing the traffic reads that body directly. This is why the padlock (HTTPS) matters: it encrypts the request so the POST body can't be read in transit.
+
+### Your task
+Filter the capture to HTTP, find the POST to the login endpoint, and read the `+"`password=`"+` value from its body. **Follow stream** shows the whole request at once.`,
+    hints: ["Filter to http and look for the POST request to a login path.", "The form body contains username= and password=. Read the password value.", "Follow stream on that packet shows the full request body."],
+    workspace: { type: "pcap" },
+    setup(ctx) {
+      const user = ctx.word(), pass = ctx.word() + ctx.int(10, 99) + "!";
+      const c = "10.0.5." + ctx.int(20, 90), s = "192.0.2." + ctx.int(5, 200);
+      const body = `username=${user}&password=${pass}`;
+      return {
+        _pass: pass,
+        filter: "http",
+        packets: [
+          { t: 0.01, src: c, dst: s, proto: "TCP", sport: 51020, dport: 80, info: "SYN", flags: "S" },
+          { t: 0.02, src: s, dst: c, proto: "TCP", sport: 80, dport: 51020, info: "SYN, ACK", flags: "SA" },
+          { t: 0.03, src: c, dst: s, proto: "TCP", sport: 51020, dport: 80, info: "ACK", flags: "A" },
+          { t: 0.05, src: c, dst: s, proto: "HTTP", sport: 51020, dport: 80, info: "GET /login HTTP/1.1", data: "GET /login HTTP/1.1\r\nHost: portal.example\r\n\r\n" },
+          { t: 0.07, src: s, dst: c, proto: "HTTP", sport: 80, dport: 51020, info: "HTTP/1.1 200 OK (text/html)", data: "HTTP/1.1 200 OK\r\n\r\n<form method=post action=/login>...</form>" },
+          { t: 0.20, src: c, dst: s, proto: "HTTP", sport: 51020, dport: 80, info: "POST /login HTTP/1.1 (application/x-www-form-urlencoded)", data: `POST /login HTTP/1.1\r\nHost: portal.example\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: ${body.length}\r\n\r\n${body}` },
+          { t: 0.24, src: s, dst: c, proto: "HTTP", sport: 80, dport: 51020, info: "HTTP/1.1 302 Found (Location: /dashboard)", data: "HTTP/1.1 302 Found\r\nLocation: /dashboard\r\n\r\n" },
+        ],
+      };
+    },
+    check(input, ctx, env) {
+      return norm.text(input) === norm.text(env._pass);
+    },
+    debrief: `The login POST crossed the wire over plain HTTP, so its body — `+"`username=...&password=...`"+` — was fully readable in the capture. HTTPS would have encrypted the entire request.
+
+### How defenders stop it
+- Serve **everything** over HTTPS and add **HSTS** so browsers refuse plain HTTP.
+- Redirect HTTP to HTTPS, and never post credentials to an http:// endpoint.
+- On shared networks, assume unencrypted traffic is being captured.
+
+**On the exam:** reading HTTP POST credentials from a capture and the HTTP-vs-HTTPS distinction are core to Security+, Network+ and CySA+.`,
   },
 ];

@@ -10,7 +10,7 @@ export default [
     level: 1,
     slug: "encoding_is_not_encryption",
     time: 6,
-    certs: ["Security+", "CEH"],
+    certs: ["Security+", "CEH", "ISC2 CC"],
     objective: "The note holds a Base64 string. Decode it to reveal the flag.",
     lesson: `The single most common thing you'll decode in security work is **Base64**. It turns raw bytes into 64 safe characters (A–Z, a–z, 0–9, \`+\`, \`/\`), so binary data can travel through things built for text: email, JSON, URLs, cookies, config files.
 

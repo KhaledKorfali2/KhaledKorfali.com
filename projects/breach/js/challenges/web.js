@@ -188,4 +188,42 @@ Find the token (DevTools → Cookies). Copy the **middle** part (between the two
 
 **On the exam:** Security+ and PenTest+ expect you to know a JWT is signed-but-readable, and the difference between integrity (signature) and confidentiality (encryption).`,
   },
+
+  {
+    id: "web-backup",
+    title: "The Forgotten Backup",
+    level: 2,
+    slug: "exposed_source_backup",
+    time: 9,
+    certs: ["Security+", "PenTest+", "CEH"],
+    objective: "A developer's editor left a backup of a server file on the web server. Download it and read the secret inside.",
+    lesson: `Editors and deploy scripts leave litter on web servers: `+"`config.php~`"+` (editor backup), `+"`index.php.bak`"+`, `+"`.env`"+`, `+"`.git/`"+` folders, `+"`settings.py.save`"+`. These often contain **source code or secrets** that the live site would never reveal, because the server sends the *backup* as plain text instead of executing it.
+
+Attackers and pentesters guess these filenames directly (and tools like `+"`gobuster`"+` automate it). Finding one can hand over database passwords, API keys, or the whole application source.
+
+### Your task
+The site runs `+"`config.php`"+` (which executes, revealing nothing). But an editor left a backup copy with a telltale suffix. Guess its name in the address bar and read it.`,
+    hints: ["The live config.php executes and hides its contents. Editors often save a backup with a ~ or .bak suffix.", "Try http://.../config.php~ or http://.../config.php.bak in the address bar.", "The backup is served as plain text — the secret flag is inside it."],
+    workspace: { type: "browser" },
+    setup(ctx) {
+      const flag = ctx.flag;
+      return {
+        start: "http://shop.vendor.local/",
+        sites: { "shop.vendor.local": { routes: [
+          ["GET", "/", (req, res) => res.html(`<h1>VendorShop</h1><p>Welcome. Our site is fully patched and secure.</p>`)],
+          ["GET", "/config.php", (req, res) => res.html(`<!-- config loaded -->`)],
+          ["GET", "/config.php~", (req, res) => res.text(`<?php\n// DB + API config\n$DB_PASS = "hunter2";\n$API_SECRET = "${flag}";\n?>`)],
+          ["GET", "/config.php.bak", (req, res) => res.text(`<?php\n$DB_PASS = "hunter2";\n$API_SECRET = "${flag}";\n?>`)],
+        ] } },
+      };
+    },
+    debrief: `The live `+"`config.php`"+` executed server-side and showed nothing, but `+"`config.php~`"+` — an editor backup — was served as **plain text**, spilling the source and its secrets. The server had no handler for the `+"`~`"+` extension, so it just handed the file over.
+
+### How defenders stop it
+- Keep backups and source out of the web root entirely; deploy only built artefacts.
+- Block dotfiles and backup suffixes (`+"`~`"+`, `+"`.bak`"+`, `+"`.save`"+`, `+"`.git`"+`) at the web server.
+- Scan your own site for these files before attackers do.
+
+**On the exam:** forced browsing for backup/source files is standard web enumeration in PenTest+ and CEH.`,
+  },
 ];
