@@ -1,0 +1,37 @@
+// The course: tracks in recommended order, each a list of challenges (easy → hard).
+// Scope: analysis and defense. Every target is simulated and read-only; learners
+// extract information rather than compromise systems.
+import basics from "./basics.js";
+import crypto from "./crypto.js";
+import web from "./web.js";
+import net from "./net.js";
+import blue from "./blue.js";
+import grc from "./grc.js";
+
+export const TRACKS = [
+  { id: "basics", title: "First Steps", icon: "flag", blurb: "How a capture-the-flag works, and the first thing every analyst checks: what a page is already telling you.", list: basics },
+  { id: "crypto", title: "Encoding & Cryptography", icon: "lock", blurb: "Encoding isn't encryption. Decode data, break classical ciphers, and see why weak password hashing matters.", list: crypto },
+  { id: "web", title: "Web Recon & Client Trust", icon: "globe", blurb: "Read what a website really sends you: source, cookies, tokens and the mistake of trusting the browser.", list: web },
+  { id: "net", title: "Networks & Packet Analysis", icon: "wave", blurb: "Read packet captures like an analyst: follow a conversation, spot cleartext credentials, trace what happened.", list: net },
+  { id: "blue", title: "Forensics & Defense", icon: "shield", blurb: "Investigate logs, phishing emails and hidden data to reconstruct an incident, the way a SOC analyst does.", list: blue },
+  { id: "grc", title: "Governance & Risk", icon: "map", blurb: "The management side the big certifications test: risk maths, access-control models, policy and incident response.", list: grc },
+];
+
+for (const t of TRACKS) for (const c of t.list) c.track = t.id;
+export const ALL = TRACKS.flatMap((t) => t.list);
+export const byId = (id) => ALL.find((c) => c.id === id);
+export const trackOf = (c) => TRACKS.find((t) => t.id === c.track);
+
+export const CERTS = [
+  { id: "Security+", org: "CompTIA", level: "Entry", about: "The baseline security certification: threats, cryptography, architecture, operations and governance. Widely required for government security roles." },
+  { id: "CySA+", org: "CompTIA", level: "Intermediate", about: "Blue-team analysis: log and packet investigation, threat hunting, vulnerability management and incident response." },
+  { id: "CEH", org: "EC-Council", level: "Intermediate", about: "Ethical-hacking methodology and the reconnaissance, analysis and reporting phases, with a broad survey of concepts." },
+  { id: "CISSP", org: "ISC2", level: "Advanced", about: "Management-level breadth across 8 domains: risk, cryptography, architecture, identity and operations. Needs experience to certify." },
+];
+
+/** Linear within a track: a challenge unlocks once the previous one in its track is solved. */
+export function isUnlocked(c, isSolved) {
+  const t = trackOf(c);
+  const i = t.list.indexOf(c);
+  return i === 0 || isSolved(t.list[i - 1].id);
+}

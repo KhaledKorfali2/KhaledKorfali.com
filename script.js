@@ -2,6 +2,13 @@
 // shown as "Featured" on the home page.
 const projects = [
   {
+    name: "Breach",
+    description: "Learn cybersecurity by doing: capture flags from simulated websites, packet captures and log files, mapped to Security+, CySA+, CEH and CISSP.",
+    image: "screenshots/breach.webp",
+    path: "./projects/breach/index.html",
+    category: "security"
+  },
+  {
     name: "Pattern Trace",
     description: "Spot the pattern in 150+ LeetCode problems, with spaced repetition and step-through visualisations.",
     image: "screenshots/interview-prep.webp",
@@ -137,6 +144,7 @@ const projects = [
 ];
 
 const CATEGORY_LABELS = {
+  security: "Security",
   simulation: "Simulation",
   arabic: "Arabic Learning",
   programming: "Programming"
