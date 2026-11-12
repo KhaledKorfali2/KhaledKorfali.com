@@ -491,7 +491,7 @@ header.light nav a.active {
 .project-teaser {
   position: relative;
   z-index: 1;
-  max-width: 1000px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 80px 48px 100px;
 }
@@ -525,75 +525,15 @@ header.light nav a.active {
 
 .teaser-see-all:hover { gap: 10px; }
 
-/* Teaser grid — 2-col asymmetric */
-.teaser-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  /* Dividers are drawn per card (box-shadow) so a short last row
-     doesn't leave a grey block in the empty slots. */
-  background: var(--surface-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
 
-.teaser-item {
-  background: var(--surface-card);
-  padding: 22px 26px;
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  text-decoration: none;
-  color: var(--ink);
-  transition: background 0.2s;
-  cursor: pointer;
-}
 
-.teaser-item:hover,
-.teaser-item:focus-visible { background: var(--surface-hover); }
-.teaser-item:focus-visible { outline-offset: -2px; border-radius: 0; }
 
-.teaser-num {
-  font-family: 'DM Serif Display', serif;
-  font-size: 1.4rem;
-  color: var(--ink-faint);
-  min-width: 28px;
-}
 
-.teaser-info { flex: 1; }
 
-.teaser-name {
-  font-size: 0.9rem;
-  font-weight: 500;
-  margin-bottom: 3px;
-}
 
-.teaser-desc {
-  font-size: 0.8rem;
-  line-height: 1.5;
-  color: var(--ink-muted);
-  margin-bottom: 6px;
-}
 
-.teaser-cat {
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
 
-.teaser-arrow {
-  color: var(--ink-faint);
-  font-size: 0.85rem;
-  transition: transform 0.2s, color 0.2s;
-}
 
-.teaser-item:hover .teaser-arrow,
-.teaser-item:focus-visible .teaser-arrow {
-  transform: translateX(3px);
-  color: var(--accent);
-}
 
 /* ── Projects section ── */
 #projects-section {
@@ -798,7 +738,6 @@ footer p {
 
   .project-teaser { padding: 56px 20px 80px; }
 
-  .teaser-grid { grid-template-columns: 1fr; }
 
   #projects-section { padding: 40px 20px 80px; }
 
@@ -834,4 +773,39 @@ footer p {
     transition-delay: 0s !important;
   }
   .scroll-reveal { opacity: 1; transform: none; }
+}
+
+/* ── About (index page) ── */
+.about {
+  margin-top: 88px;
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 3fr;
+  gap: 24px 48px;
+  scroll-margin-top: 90px;
+}
+.about h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.about-body { max-width: 62ch; }
+.about-body p { color: var(--ink-muted); line-height: 1.75; }
+.about-body p + p { margin-top: 14px; }
+.about-links { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 22px; margin-top: 26px !important; }
+.about-link { color: var(--accent-strong); font-weight: 500; font-size: 0.9rem; text-decoration: none; }
+.about-link:hover { text-decoration: underline; }
+footer p a + a { margin-left: 0; }
+
+/* ── 404 ── */
+.notfound { min-height: 100vh; display: grid; place-content: center; justify-items: start; gap: 18px; padding: 120px 48px 80px; max-width: 760px; margin: 0 auto; }
+.notfound h1 { font-family: 'DM Serif Display', serif; font-size: clamp(2.4rem, 7vw, 4.2rem); line-height: 1.05; letter-spacing: -0.02em; color: var(--ink); }
+.notfound h1 em { color: var(--accent-strong); }
+.notfound p { color: var(--ink-muted); line-height: 1.7; max-width: 52ch; }
+.notfound .hero-actions { margin-top: 10px; }
+
+@media (max-width: 768px) {
+  .about { grid-template-columns: 1fr; margin-top: 64px; }
+  .notfound { padding: 110px 20px 60px; }
+  nav a[href^="https://github.com"] { display: none; }   /* the footer and About section still link to it */
 }

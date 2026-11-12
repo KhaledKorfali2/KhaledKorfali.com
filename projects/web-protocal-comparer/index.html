@@ -2,66 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Wire — Learn How the Internet Moves Data</title>
-<meta name="description" content="An interactive course on networking: watch real packets move on sequence diagrams as you learn IP, UDP, TCP, TLS, DNS, HTTP/1.1, HTTP/2, HTTP/3 (QUIC) and WebSockets — then experiment in a network lab.">
-<meta name="theme-color" content="#0c0a14" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f7f6fb" media="(prefers-color-scheme: light)">
-<meta name="color-scheme" content="dark light">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c0a14'/%3E%3Cpath d='M9 7v18M23 7v18' stroke='%233a3057' stroke-width='2'/%3E%3Cpath d='M9 10l14 5M23 17L9 22' stroke='%23a78bfa' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css">
-<link rel="stylesheet" href="css/wire.css">
-<script>
-  try {
-    var t = (JSON.parse(localStorage.getItem("wire.v2") || "{}").settings || {}).theme;
-    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
-    else if (window.matchMedia("(prefers-color-scheme: light)").matches) document.documentElement.dataset.theme = "light";
-  } catch (e) {}
-</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wire has moved</title>
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://khaledkorfali.com/projects/web-protocol-comparer/">
+<!-- This folder name was a typo. Old links land here and are sent on, keeping any #/lesson path. -->
+<script>location.replace("../web-protocol-comparer/" + location.search + location.hash);</script>
+<meta http-equiv="refresh" content="0; url=../web-protocol-comparer/">
 </head>
 <body>
-<a class="skip-link" href="#main">Skip to content</a>
-
-<div class="app">
-  <aside class="sidebar" aria-label="Sidebar">
-    <a class="brand" href="#/">
-      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--panel-3)"/><path d="M9 7v18M23 7v18" stroke="var(--line-2)" stroke-width="2"/><path d="M9 10l14 5M23 17L9 22" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/></svg>
-      <span><span class="brand-name">WIRE</span><span class="brand-sub" style="display:block">how the internet moves data</span></span>
-    </a>
-    <nav class="nav" aria-label="Main" data-nav></nav>
-    <div class="side-foot">
-      <div class="streak-card" data-course></div>
-      <div class="side-links">
-        <a href="/projects.html">
-          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          All projects</a>
-        <button type="button" data-theme-toggle aria-label="Switch theme"></button>
-      </div>
-    </div>
-  </aside>
-
-  <div class="main">
-    <header class="topbar">
-      <a class="brand" href="#/">
-        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" style="width:26px;height:26px"><rect width="32" height="32" rx="8" fill="var(--panel-3)"/><path d="M9 7v18M23 7v18" stroke="var(--line-2)" stroke-width="2"/><path d="M9 10l14 5M23 17L9 22" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/></svg>
-        <span class="brand-name">WIRE</span>
-      </a>
-      <div class="topbar-actions">
-        <a class="icon-btn" href="/projects.html" aria-label="All projects"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-        <button type="button" class="icon-btn" data-theme-toggle aria-label="Switch theme"></button>
-      </div>
-    </header>
-    <main id="main" tabindex="-1"></main>
-  </div>
-</div>
-
-<nav class="tabbar" aria-label="Main" data-nav></nav>
-<div class="toast" role="status" aria-live="polite"></div>
-
-<noscript><p style="padding:24px">Wire needs JavaScript enabled.</p></noscript>
-<script type="module" src="js/main.js"></script>
+<p><a href="../web-protocol-comparer/">Wire has moved to a new address.</a></p>
 </body>
 </html>

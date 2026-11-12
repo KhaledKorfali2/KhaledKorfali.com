@@ -3,9 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Projects — folio.</title>
+  <title>Projects — Khaled Korfali</title>
   <meta name="description" content="Every project in the collection: physics simulations, algorithm visualisers, developer courses and Quranic Arabic learning tools.">
   <meta name="theme-color" content="#0c0c0c">
+  <link rel="canonical" href="https://khaledkorfali.com/projects.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Khaled Korfali">
+  <meta property="og:title" content="Projects — Khaled Korfali">
+  <meta property="og:description" content="Every project in the collection: physics simulations, algorithm visualisers, developer courses and Quranic Arabic learning tools.">
+  <meta property="og:url" content="https://khaledkorfali.com/projects.html">
+  <meta property="og:image" content="https://khaledkorfali.com/screenshots/breach.webp">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c0c0c'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23e8541a'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,10 +25,12 @@
   <a href="#projects-section" class="skip-link">Skip to projects</a>
 
   <header id="site-header" class="scrolled">
-    <a href="index.html" class="header-logo">folio<span>.</span></a>
+    <a href="index.html" class="header-logo">Khaled Korfali<span>.</span></a>
     <nav>
       <a href="index.html">Home</a>
       <a href="projects.html" class="active" aria-current="page">Projects</a>
+      <a href="index.html#about">About</a>
+      <a href="https://github.com/KhaledKorfali2" rel="noopener">GitHub</a>
     </nav>
   </header>
 
@@ -52,8 +62,8 @@
   </main>
 
   <footer>
-    <p>Built with vanilla JS &amp; curiosity.</p>
-    <p><a href="index.html" class="footer-link">Back to home</a></p>
+    <p>&copy; Khaled Korfali. Built with JavaScript, WebAssembly &amp; curiosity.</p>
+    <p><a href="index.html" class="footer-link">Home</a> &middot; <a href="https://github.com/KhaledKorfali2" class="footer-link" rel="noopener">GitHub</a></p>
   </footer>
 
   <script src="script.js"></script>
@@ -101,33 +111,7 @@
       }
 
       filtered.forEach(function(project, i) {
-        var li = document.createElement('li');
-        li.className = 'grid-item scroll-reveal';
-        li.style.transitionDelay = Math.min(i * 0.055, 0.4) + 's';
-        li.innerHTML =
-          '<a>' +
-            '<div class="card-image-wrap">' +
-              '<img alt="" loading="lazy" decoding="async" width="640" height="360">' +
-              '<div class="card-image-overlay"></div>' +
-              '<div class="card-arrow" aria-hidden="true">' +
-                '<svg width="14" height="14" viewBox="0 0 14 14" fill="none">' +
-                  '<path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-                '</svg>' +
-              '</div>' +
-            '</div>' +
-            '<div class="card-body">' +
-              '<span class="card-tag"></span>' +
-              '<span class="card-name"></span>' +
-              '<span class="card-desc"></span>' +
-            '</div>' +
-          '</a>';
-        li.querySelector('a').href = project.path;
-        li.querySelector('img').src = project.image;
-        var tag = li.querySelector('.card-tag');
-        tag.classList.add(project.category);
-        tag.textContent = categoryLabel(project.category);
-        li.querySelector('.card-name').textContent = project.name;
-        li.querySelector('.card-desc').textContent = project.description;
+        var li = projectCard(project, i, i < 3);
         grid.appendChild(li);
         reveal(li);
       });
@@ -169,4 +153,4 @@
   })();
   </script>
 </body>
-</html>
+</html>

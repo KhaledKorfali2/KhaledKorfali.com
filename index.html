@@ -3,11 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>folio. — Personal Projects</title>
-  <meta name="description" content="Interactive simulations, algorithm visualisers, developer courses and Arabic learning tools, built in vanilla JavaScript.">
+  <title>Khaled Korfali — Personal Projects</title>
+  <meta name="description" content="Interactive simulations, algorithm visualisers, developer courses and Arabic learning tools that run entirely in your browser.">
   <meta name="theme-color" content="#0c0c0c">
-  <meta property="og:title" content="folio. — Personal Projects">
-  <meta property="og:description" content="Interactive simulations, algorithm visualisers, developer courses and Arabic learning tools, built in vanilla JavaScript.">
+  <link rel="canonical" href="https://khaledkorfali.com/">
+  <meta name="author" content="Khaled Korfali">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Khaled Korfali">
+  <meta property="og:url" content="https://khaledkorfali.com/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:title" content="Khaled Korfali — Personal Projects">
+  <meta property="og:description" content="Interactive simulations, algorithm visualisers, developer courses and Arabic learning tools that run entirely in your browser.">
   <meta property="og:image" content="https://khaledkorfali.com/screenshots/interview-prep.png">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c0c0c'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23e8541a'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,10 +26,12 @@
   <a href="#featured" class="skip-link">Skip to content</a>
 
   <header id="site-header">
-    <a href="index.html" class="header-logo">folio<span>.</span></a>
+    <a href="index.html" class="header-logo">Khaled Korfali<span>.</span></a>
     <nav>
       <a href="index.html" class="active" aria-current="page">Home</a>
       <a href="projects.html">Projects</a>
+      <a href="#about">About</a>
+      <a href="https://github.com/KhaledKorfali2" rel="noopener">GitHub</a>
     </nav>
   </header>
 
@@ -31,7 +39,7 @@
     <canvas id="particle-canvas" aria-hidden="true"></canvas>
 
     <div class="hero-dark-inner">
-      <p class="hero-eyebrow fade-up fade-up-1">Personal Projects</p>
+      <p class="hero-eyebrow fade-up fade-up-1">Khaled Korfali &middot; Personal Projects</p>
       <h1 class="fade-up fade-up-2" aria-label="Building things just to see what happens.">
         Building things<br><em id="scramble-em">just to see</em><br>what happens.
       </h1>
@@ -75,12 +83,24 @@
       <h2>Featured</h2>
       <a href="projects.html" class="teaser-see-all">All projects</a>
     </div>
-    <div class="teaser-grid" id="teaserGrid"></div>
+    <ul class="grid-container" id="teaserGrid"></ul>
+
+    <section class="about" id="about" aria-labelledby="about-title">
+      <h2 id="about-title">About</h2>
+      <div class="about-body">
+        <p>I'm Khaled Korfali. I build interactive tools for the things I want to understand properly: security, databases, CAD, networking, algorithms and Arabic. Each one started as a question and turned into something you can click through and learn from.</p>
+        <p>Everything here runs in your browser, built with JavaScript and WebAssembly. No accounts, nothing to install.</p>
+        <p class="about-links">
+          <a href="https://github.com/KhaledKorfali2" class="btn-primary" rel="noopener">GitHub profile</a>
+          <a href="https://github.com/KhaledKorfali2/KhaledKorfali.com" class="about-link" rel="noopener">Source for this site</a>
+        </p>
+      </div>
+    </section>
   </main>
 
   <footer>
-    <p>Built with vanilla JS &amp; curiosity.</p>
-    <p><a href="projects.html" class="footer-link">View all projects</a></p>
+    <p>&copy; Khaled Korfali. Built with JavaScript, WebAssembly &amp; curiosity.</p>
+    <p><a href="projects.html" class="footer-link">All projects</a> &middot; <a href="https://github.com/KhaledKorfali2" class="footer-link" rel="noopener">GitHub</a></p>
   </footer>
 
   <script src="script.js"></script>
@@ -157,26 +177,11 @@
     /* ── Populate teaser ── */
     var reveal = makeRevealer(0.12);
     var grid = document.getElementById('teaserGrid');
-    var featured = projects.slice(0, 4);
+    var featured = projects.slice(0, FEATURED_COUNT);
     for (var i=0; i<featured.length; i++) {
-      var p  = featured[i];
-      var el = document.createElement('a');
-      el.className = 'teaser-item scroll-reveal';
-      el.href = p.path;
-      el.style.transitionDelay = (i*0.07)+'s';
-      el.innerHTML =
-        '<span class="teaser-num" aria-hidden="true">' + String(i+1).padStart(2,'0') + '</span>' +
-        '<div class="teaser-info">' +
-          '<div class="teaser-name"></div>' +
-          '<div class="teaser-desc"></div>' +
-          '<div class="teaser-cat"></div>' +
-        '</div>' +
-        '<span class="teaser-arrow" aria-hidden="true">&#8594;</span>';
-      el.querySelector('.teaser-name').textContent = p.name;
-      el.querySelector('.teaser-desc').textContent = p.description;
-      el.querySelector('.teaser-cat').textContent  = categoryLabel(p.category);
-      grid.appendChild(el);
-      reveal(el);
+      var card = projectCard(featured[i], i, false);
+      grid.appendChild(card);
+      reveal(card);
     }
 
   })();

@@ -1,103 +1,156 @@
 // ================================================================
 //  GAME OF LIFE — script.js
 //
-//  Bug fixes in this version:
-//  1. Canvas height correctly accounts for mobile bar height so
-//     the grid never renders under the bar.
-//  2. born/survive closure bug fixed — buildBitRow now reads the
-//     live arrays by reference via getter functions, not captures.
-//  3. population count is incremental (not a full reduce per draw).
-//  4. Tooltip mouseout uses relatedTarget so moving between child
-//     elements doesn't flicker the tip.
-//  5. Touch events on the sheet/bar are fully isolated from the
-//     canvas draw handler — no more accidental cell painting when
-//     tapping UI elements.
-//  6. applyRuleString called AFTER buildBitRow so updateBitUI()
-//     has buttons to update.
-//  7. Stats DOM writes are guarded — only write when values change.
-//  8. Consistent z-index stacking matches CSS definitions.
+//  A calm take on Life-like cellular automata: soft palettes, cells
+//  that fade in and out instead of blinking, and controls kept to a
+//  small dock plus a settings drawer.
+//
+//  Rendering: every cell is copied from a small sprite atlas (one
+//  sprite per fade level × age shade), and only cells whose sprite
+//  changed are redrawn. Nothing is drawn while the board is still.
 // ================================================================
 
-// ── Constants ────────────────────────────────────────────────
-const CELL   = 10;
-const BAR_H  = 68; // mobile bottom-bar height in px — keep in sync with CSS --bar-h
+const $ = (id) => document.getElementById(id);
+const mq = (q) => window.matchMedia && window.matchMedia(q).matches;
+const reducedMotion = mq("(prefers-reduced-motion: reduce)");
+const coarsePointer = mq("(pointer: coarse)");
+
+// ── Palettes ─────────────────────────────────────────────────
+// bg: board colour · tile: empty cell · young → old: live cell shade
+// as it ages · accent / ink: the UI's highlight colour and text on it.
+const PALETTES = {
+  ink:   { name: "Ink",   light: false, bg: "#111317", tile: "#171a1f", young: "#e4ddce", old: "#958e80", accent: "#d6c8a4", ink: "#1a1813" },
+  sage:  { name: "Sage",  light: false, bg: "#0f1411", tile: "#151b17", young: "#c6ddcc", old: "#6f9079", accent: "#a3c9ab", ink: "#0f1a12" },
+  dusk:  { name: "Dusk",  light: false, bg: "#121320", tile: "#181a28", young: "#d2d3f3", old: "#7b7fb3", accent: "#b3b6ef", ink: "#14152b" },
+  paper: { name: "Paper", light: true,  bg: "#efece4", tile: "#e8e4db", young: "#2c313b", old: "#878b93", accent: "#384050", ink: "#f8f6f0" },
+};
+
+const SPEEDS = [2, 5, 10, 20, 60];          // generations per second; 60 = one per frame
+const LEVELS = 12;                          // fade steps between empty and fully alive
+const SHADES = 6;                           // age shades, young → old
+const AGE_PER_SHADE = 6;                    // generations per shade step
+
+// ── Saved preferences (palette, speed, edges) ────────────────
+const PREFS_KEY = "gol.prefs.v1";
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch { return {}; }
+}
+function savePrefs() {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify({ palette: paletteKey, speed: targetFps, edge: edgeMode })); } catch { /* private mode */ }
+}
+const prefs = loadPrefs();
+
+let paletteKey = PALETTES[prefs.palette] ? prefs.palette : "ink";
+let targetFps  = SPEEDS.includes(prefs.speed) ? prefs.speed : 10;
+let edgeMode   = prefs.edge === "dead" ? "dead" : "wrap";
 
 // ── Grid ─────────────────────────────────────────────────────
-let cols, rows;
-let alive   = null;   // Uint8Array  — 0/1
-let age     = null;   // Uint16Array — gens this cell has been alive
-let ghost   = null;   // Float32Array — fade value for death trails
-let scratch = null;   // Uint8Array  — next-gen staging buffer
+let CELL = 14;          // CSS px per cell
+let CPX  = 14;          // device px per cell
+let cols = 0, rows = 0;
+let alive, scratch;     // Uint8Array 0/1, current and next generation
+let age;                // Uint16Array: generations a cell has been alive
+let level;              // Float32Array 0..1: how visible the cell is (fades)
+let shade;              // Uint8Array: age shade a cell is drawn with
+let shown;              // Int32Array: sprite last drawn per cell (-1 = none)
 
 let generation = 0;
 let population = 0;
 
-function allocGrids(c, r) {
-  cols = c; rows = r;
-  alive   = new Uint8Array(c * r);
-  age     = new Uint16Array(c * r);
-  ghost   = new Float32Array(c * r);
-  scratch = new Uint8Array(c * r);
-}
-
 const idx = (c, r) => c + r * cols;
 
-// ── Canvas / ImageData ────────────────────────────────────────
-const canvas = document.getElementById("canvas");
+// ── Canvas ───────────────────────────────────────────────────
+const canvas = $("canvas");
 const ctx    = canvas.getContext("2d", { alpha: false });
-let imgData, pixels;
+let atlas    = null;
 
-// Redraw bookkeeping. `shown` holds the packed RGB last painted for each cell
-// (-1 = unknown) so render() only rewrites cells whose colour changed.
-// `needsRender` is set by anything that can change what the grid looks like;
-// `ghostsFading` is set while death trails may still be visible.
-let shown        = null;
-let needsRender  = true;
-let ghostsFading = false;
-
-function isMobile() { return window.innerWidth <= 768; }
+let needsRender   = true;   // something changed what the board looks like
+let transitioning = false;  // cells are mid-fade
 
 function resizeCanvas() {
+  CELL = window.innerWidth <= 640 ? 12 : 14;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  CPX = Math.max(1, Math.round(CELL * dpr));
+  const scale = CPX / CELL;   // actual device px per CSS px after rounding
+
   const vw = window.innerWidth;
-  // On mobile, canvas must not extend under the bottom bar.
-  // We set the canvas to fill the area above the bar.
-  const rawVh = window.visualViewport
-    ? window.visualViewport.height
-    : window.innerHeight;
-  const canvasH = isMobile() ? rawVh - BAR_H : rawVh;
+  const vh = Math.max(window.innerHeight, document.documentElement.clientHeight);
+  cols = Math.ceil(vw / CELL);
+  rows = Math.ceil(vh / CELL);
 
-  const c = Math.floor(vw     / CELL);
-  const r = Math.floor(canvasH / CELL);
+  canvas.width  = cols * CPX;
+  canvas.height = rows * CPX;
+  canvas.style.width  = (canvas.width  / scale) + "px";
+  canvas.style.height = (canvas.height / scale) + "px";
 
-  canvas.width        = c * CELL;
-  canvas.height       = r * CELL;
-  // Exact CSS size = backing size: stretching the bitmap by a few px made the
-  // whole grid blurry. Any sub-cell remainder just shows the page background.
-  canvas.style.width  = canvas.width  + "px";
-  canvas.style.height = canvas.height + "px";
-  // Always anchored to top-left; the bar sits below it naturally.
-  canvas.style.top    = "0";
-  canvas.style.left   = "0";
+  const n = cols * rows;
+  alive   = new Uint8Array(n);
+  scratch = new Uint8Array(n);
+  age     = new Uint16Array(n);
+  level   = new Float32Array(n);
+  shade   = new Uint8Array(n);
+  shown   = new Int32Array(n).fill(-1);
 
-  allocGrids(c, r);
-  rebuildImageData();
+  buildAtlas();
 }
 
-function rebuildImageData() {
-  imgData = ctx.createImageData(canvas.width, canvas.height);
-  pixels  = imgData.data;
-  // Alpha channel is always 255 — set once here.
-  for (let i = 3; i < pixels.length; i += 4) pixels[i] = 255;
-  // A resized canvas is blank, so force every cell to be repainted.
-  shown = new Int32Array(cols * rows).fill(-1);
+// ── Colour helpers ───────────────────────────────────────────
+function hexRgb(h) {
+  const v = parseInt(h.slice(1), 16);
+  return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+}
+function mix(a, b, t) {
+  const A = hexRgb(a), B = hexRgb(b);
+  return `rgb(${Math.round(A[0] + (B[0] - A[0]) * t)},${Math.round(A[1] + (B[1] - A[1]) * t)},${Math.round(A[2] + (B[2] - A[2]) * t)})`;
+}
+function roundedRect(g, x, y, w, h, r) {
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y,     x + w, y + h, r);
+  g.arcTo(x + w, y + h, x,     y + h, r);
+  g.arcTo(x,     y + h, x,     y,     r);
+  g.arcTo(x,     y,     x + w, y,     r);
+  g.closePath();
+}
+
+// One sprite per (fade level, age shade). Column 0 is the empty tile.
+function buildAtlas() {
+  const p = PALETTES[paletteKey];
+  atlas = document.createElement("canvas");
+  atlas.width  = CPX * LEVELS;
+  atlas.height = CPX * SHADES;
+  const g = atlas.getContext("2d");
+  const inset  = Math.max(1, Math.round(CPX * 0.08));
+  const size   = CPX - inset * 2;
+  const radius = size * 0.24;
+
+  for (let s = 0; s < SHADES; s++) {
+    const live = mix(p.young, p.old, s / (SHADES - 1));
+    for (let l = 0; l < LEVELS; l++) {
+      const x = l * CPX, y = s * CPX;
+      g.fillStyle = p.bg;
+      g.fillRect(x, y, CPX, CPX);
+      const t = l / (LEVELS - 1);
+      const eased = t * t * (3 - 2 * t);
+      // mix() wants hex input, so blend tile → live colour by drawing twice.
+      g.fillStyle = p.tile;
+      roundedRect(g, x + inset, y + inset, size, size, radius);
+      g.fill();
+      if (l > 0) {
+        g.globalAlpha = eased;
+        g.fillStyle = live;
+        g.fill();
+        g.globalAlpha = 1;
+      }
+    }
+  }
+  shown && shown.fill(-1);
   needsRender = true;
 }
 
-// ── Rule state ───────────────────────────────────────────────
-// born[n]    = true → dead cell with n live neighbours is born
-// survive[n] = true → live cell with n live neighbours survives
-// IMPORTANT: these arrays are mutated in-place; never replace them
-// with new arrays, so closures that reference them stay correct.
+// ── Rules ────────────────────────────────────────────────────
+// born[n] / survive[n]: true when a dead / live cell with n live
+// neighbours is alive next generation. Mutated in place, never replaced.
 const born    = new Array(9).fill(false);
 const survive = new Array(9).fill(false);
 
@@ -110,7 +163,6 @@ function applyRuleString(str) {
   for (const ch of m[2]) survive[+ch] = true;
   updateBitUI();
   updateRuleDisplay();
-  syncRulePresetHighlight(str);
 }
 
 function ruleString() {
@@ -121,689 +173,477 @@ function ruleString() {
 
 function updateRuleDisplay() {
   const str = ruleString();
-  setText("ruleDisplay",       str);
-  setText("mobileRuleDisplay", str);
-}
-
-function syncRulePresetHighlight(str) {
-  document.querySelectorAll("#ruleSeg .seg-btn").forEach(b =>
-    b.classList.toggle("active", b.dataset.rule === str));
-  document.querySelectorAll("#ruleSegMobile .sheet-btn").forEach(b =>
-    b.classList.toggle("active", b.dataset.rule === str));
+  $("ruleDisplay").textContent = str;
+  document.querySelectorAll("#rulePresets .preset").forEach(b => {
+    const on = b.dataset.rule === str;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", String(on));
+  });
 }
 
 // ── Simulation ───────────────────────────────────────────────
-const GHOST_DECAY = 0.18;
-let edgeMode = "wrap";
-
 function step() {
-  scratch.fill(0);
   population = 0;
-
+  const wrap = edgeMode === "wrap";
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       let n = 0;
       for (let dr = -1; dr <= 1; dr++) {
+        let nr = r + dr;
+        if (nr < 0 || nr >= rows) { if (!wrap) continue; nr = (nr + rows) % rows; }
         for (let dc = -1; dc <= 1; dc++) {
           if (dr === 0 && dc === 0) continue;
-          let nr = r + dr, nc = c + dc;
-          if (edgeMode === "wrap") {
-            nr = (nr + rows) % rows;
-            nc = (nc + cols) % cols;
-          } else {
-            if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-          }
-          n += alive[idx(nc, nr)];
+          let nc = c + dc;
+          if (nc < 0 || nc >= cols) { if (!wrap) continue; nc = (nc + cols) % cols; }
+          n += alive[nc + nr * cols];
         }
       }
-
-      const i        = idx(c, r);
-      const wasAlive = alive[i];
-      scratch[i]     = wasAlive ? (survive[n] ? 1 : 0) : (born[n] ? 1 : 0);
-      if (wasAlive && !scratch[i]) ghost[i] = 1.0;
-      if (scratch[i]) population++;
+      const i = c + r * cols;
+      const next = alive[i] ? (survive[n] ? 1 : 0) : (born[n] ? 1 : 0);
+      scratch[i] = next;
+      if (next) { age[i] = alive[i] ? Math.min(age[i] + 1, 60000) : 0; population++; }
+      else age[i] = 0;
     }
   }
-
-  // Update age and decay ghosts
-  for (let i = 0; i < alive.length; i++) {
-    if (scratch[i]) {
-      age[i] = alive[i] ? Math.min(age[i] + 1, 32000) : 0;
-    } else {
-      age[i]   = 0;
-      ghost[i] = Math.max(0, ghost[i] - GHOST_DECAY);
-    }
-  }
-
-  // Swap buffers
-  const tmp = alive; alive = scratch; scratch = tmp;
+  const t = alive; alive = scratch; scratch = t;
   generation++;
-  needsRender  = true;
-  ghostsFading = true;
-}
-
-// ── Colour modes ─────────────────────────────────────────────
-let colourMode = "phosphor";
-
-function cellColor(cellAge, isNewBorn) {
-  if (colourMode === "mono") return [57, 255, 126];
-
-  if (colourMode === "heat") {
-    const t = Math.min(1, cellAge / 120);
-    return [120 + (t * 135) | 0, (t * t * 220) | 0, 0];
-  }
-
-  // phosphor
-  if (isNewBorn) return [200, 255, 220];
-  const t = Math.min(1, cellAge / 200);
-  if (t < 0.3) {
-    const u = t / 0.3;
-    return [(75 - 18 * u) | 0, (180 + 75 * u) | 0, (255 - 129 * u) | 0];
-  }
-  const u = (t - 0.3) / 0.7;
-  return [(57 + 198 * u) | 0, (255 - 84 * u) | 0, (126 - 126 * u) | 0];
-}
-
-function ghostColor(g) {
-  const v = (g * g * 180) | 0;
-  const r = (g * g * 30)  | 0;
-  return [r, v >> 1, r + (v >> 2)];
+  needsRender = true;
 }
 
 // ── Render ───────────────────────────────────────────────────
-const BG_R = 7, BG_G = 11, BG_B = 9;
+// Fades scale with speed so a generation finishes fading before the
+// next one starts; deaths linger a little longer as a soft trail.
+const stepMs    = () => 1000 / Math.min(targetFps, 60);
+const fadeInMs  = () => Math.min(160, stepMs() * 0.8);
+const fadeOutMs = () => Math.min(420, stepMs() * 1.7);
 
-// Repaints only the cells whose colour changed since the last call and pushes
-// just the band of rows that contains them to the canvas.
-function render() {
-  let minR = rows, maxR = -1;
+function render(dt) {
+  const inStep  = dt / fadeInMs();
+  const outStep = dt / fadeOutMs();
+  let moving = false;
+
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const i  = idx(c, r);
-      const px = c * CELL, py = r * CELL;
-      let rr, gg, bb;
-
+      const i = c + r * cols;
+      let L = level[i];
       if (alive[i]) {
-        [rr, gg, bb] = cellColor(age[i], age[i] === 0);
-      } else if (ghost[i] > 0.005) {
-        [rr, gg, bb] = ghostColor(ghost[i]);
-      } else {
-        rr = BG_R; gg = BG_G; bb = BG_B;
+        shade[i] = Math.min(SHADES - 1, (age[i] / AGE_PER_SHADE) | 0);
+        if (L < 1) { L = Math.min(1, L + inStep); level[i] = L; if (L < 1) moving = true; }
+      } else if (L > 0) {
+        L = Math.max(0, L - outStep); level[i] = L; if (L > 0) moving = true;
       }
-
-      const packed = (rr << 16) | (gg << 8) | bb;
-      if (shown[i] === packed) continue;
-      shown[i] = packed;
-      if (r < minR) minR = r;
-      maxR = r;
-
-      for (let dy = 0; dy < CELL; dy++) {
-        let pi = ((py + dy) * canvas.width + px) * 4;
-        for (let dx = 0; dx < CELL; dx++, pi += 4) {
-          pixels[pi]   = rr;
-          pixels[pi+1] = gg;
-          pixels[pi+2] = bb;
-        }
-      }
+      const q   = Math.round(L * (LEVELS - 1));
+      const s   = q === 0 ? 0 : shade[i];
+      const key = q * SHADES + s;
+      if (shown[i] === key) continue;
+      shown[i] = key;
+      ctx.drawImage(atlas, q * CPX, s * CPX, CPX, CPX, c * CPX, r * CPX, CPX, CPX);
     }
   }
-  if (maxR >= 0) {
-    ctx.putImageData(imgData, 0, 0,
-      0, minR * CELL, canvas.width, (maxR - minR + 1) * CELL);
-  }
+  return moving;
 }
 
-// ── Game loop ─────────────────────────────────────────────────
+// ── Game loop ────────────────────────────────────────────────
 let running    = false;
-let targetFps  = 30;
 let lastStepTs = 0;
-let lastFpsTs  = performance.now();
-let fpsFrames  = 0;
-
-// Cache last-written stat values to avoid unnecessary DOM writes
-let lastGen = -1, lastPop = -1, lastFpsVal = -1;
+let lastFrame  = 0;
+let lastGen = -1, lastPop = -1;
 
 function tick(ts) {
   requestAnimationFrame(tick);
-  fpsFrames++;
+  const dt = lastFrame ? Math.min(ts - lastFrame, 250) : 16;
+  lastFrame = ts;
 
-  if (running) {
-    const interval = targetFps >= 60 ? 0 : 1000 / targetFps;
-    if (ts - lastStepTs >= interval) {
-      step();
-      lastStepTs = ts;
-    }
-  } else if (ghostsFading) {
-    // Decay ghosts while paused so trails still fade out
-    ghostsFading = false;
-    for (let i = 0; i < ghost.length; i++) {
-      if (ghost[i] > 0) {
-        ghost[i] = Math.max(0, ghost[i] - 0.04);
-        if (ghost[i] > 0) ghostsFading = true;
-      }
-    }
-    needsRender = true;
+  if (running && (targetFps >= 60 || ts - lastStepTs >= 1000 / targetFps)) {
+    step();
+    lastStepTs = ts;
   }
 
-  // Paused with no trails left, or running but between generations: the canvas
-  // is already up to date, so skip the redraw.
-  if (needsRender) {
-    render();
-    needsRender = false;
+  if (needsRender || transitioning) {
+    needsRender   = false;
+    transitioning = render(dt);
   }
 
-  // Stats — only update DOM when values change
-  if (fpsFrames >= 30) {
-    const fps = Math.round(30000 / (ts - lastFpsTs));
-    if (fps !== lastFpsVal) { setText("statFps", fps); lastFpsVal = fps; }
-    lastFpsTs  = ts;
-    fpsFrames  = 0;
-  }
-
-  if (generation !== lastGen) { setText("statGen", generation.toLocaleString()); lastGen = generation; }
-  if (population !== lastPop) { setText("statPop", population.toLocaleString()); lastPop = population; }
+  if (generation !== lastGen) { $("statGen").textContent = generation.toLocaleString(); lastGen = generation; }
+  if (population !== lastPop) { $("statPop").textContent = population.toLocaleString(); lastPop = population; }
 }
 
-// ── Utility ───────────────────────────────────────────────────
-function setText(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = val;
-}
-
-// ── Play / Pause ─────────────────────────────────────────────
+// ── Actions ──────────────────────────────────────────────────
 function setPlaying(v) {
   running = v;
-
-  // Desktop
-  const playBtn   = document.getElementById("playBtn");
-  const playIcon  = document.getElementById("playIcon");
-  const pauseIcon = document.getElementById("pauseIcon");
-  const playLabel = document.getElementById("playLabel");
-  if (playBtn)   playBtn.classList.toggle("active", v);
-  if (playIcon)  playIcon.style.display  = v ? "none" : "";
-  if (pauseIcon) pauseIcon.style.display = v ? ""     : "none";
-  if (playLabel) playLabel.textContent   = v ? "Pause" : "Play";
-  if (playBtn)   playBtn.setAttribute("aria-pressed", String(v));
-
-  // Mobile
-  const mPlayBtn   = document.getElementById("mobilePlayBtn");
-  const mPlayIcon  = document.getElementById("mobilePlayIcon");
-  const mPauseIcon = document.getElementById("mobilePauseIcon");
-  if (mPlayBtn)   mPlayBtn.classList.toggle("playing", v);
-  if (mPlayBtn)   mPlayBtn.setAttribute("aria-label", v ? "Pause" : "Play");
-  if (mPlayIcon)  mPlayIcon.style.display  = v ? "none" : "";
-  if (mPauseIcon) mPauseIcon.style.display = v ? ""     : "none";
+  if (v) lastStepTs = performance.now();
+  $("playBtn").setAttribute("aria-pressed", String(v));
+  $("playIcon").style.display  = v ? "none" : "";   // SVG elements ignore .hidden
+  $("pauseIcon").style.display = v ? "" : "none";
+  $("playLabel").textContent = v ? "Pause" : "Play";
+  $("playBtn").setAttribute("aria-label", v ? "Pause" : "Play");
 }
 
-// ── Shared actions ───────────────────────────────────────────
+function wipe() {
+  alive.fill(0);
+  age.fill(0);
+  generation = 0;
+  population = 0;
+  needsRender = true;
+}
+
 function doClear() {
   setPlaying(false);
-  alive.fill(0); age.fill(0); ghost.fill(0);
-  generation = 0; population = 0;
-  lastGen = lastPop = -1; // force stat DOM refresh
-  needsRender = true;
+  wipe();
 }
 
+// A soft-edged patch of random cells in the middle of the board, rather
+// than a screen full of noise.
 function doRandom() {
-  population = 0;
-  for (let i = 0; i < alive.length; i++) {
-    alive[i] = Math.random() < 0.3 ? 1 : 0;
-    age[i]   = alive[i] ? (Math.random() * 50 | 0) : 0;
-    ghost[i] = 0;
-    population += alive[i];
+  wipe();
+  const cx = (cols - 1) / 2, cy = (rows - 1) / 2;
+  const rx = Math.max(10, cols * 0.38), ry = Math.max(10, rows * 0.38);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const dx = (c - cx) / rx, dy = (r - cy) / ry;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d >= 1) continue;
+      const falloff = 1 - d * d * (3 - 2 * d);
+      if (Math.random() < 0.36 * falloff) { alive[idx(c, r)] = 1; population++; }
+    }
   }
-  lastPop = -1;
-  needsRender = true;
 }
 
 function setSpeed(fps) {
   targetFps = fps;
-  document.querySelectorAll("#speedSeg .seg-btn").forEach(b =>
-    b.classList.toggle("active",
-      b.dataset.fps === String(fps) || (fps >= 60 && b.dataset.fps === "60")));
-  document.querySelectorAll("#mobileSpeedSeg .sdot").forEach(b =>
-    b.classList.toggle("active",
-      b.dataset.fps === String(fps) || (fps >= 60 && b.dataset.fps === "60")));
-}
-
-function setColour(mode) {
-  colourMode = mode;
-  needsRender = true;
-  document.querySelectorAll("#colourSeg .seg-btn").forEach(b =>
-    b.classList.toggle("active", b.dataset.mode === mode));
-  document.querySelectorAll("#colourSegMobile .seg-btn").forEach(b =>
-    b.classList.toggle("active", b.dataset.mode === mode));
+  document.querySelectorAll("#speedSeg button").forEach(b => {
+    const on = +b.dataset.fps === fps;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", String(on));
+  });
+  const label = fps >= 60 ? "Max" : `${fps}/s`;
+  $("speedCycle").textContent = label;
+  $("speedCycle").setAttribute("aria-label", fps >= 60 ? "Speed: maximum" : `Speed: ${fps} generations per second`);
+  savePrefs();
 }
 
 function setEdge(mode) {
   edgeMode = mode;
-  document.querySelectorAll("#edgeSeg .seg-btn").forEach(b =>
-    b.classList.toggle("active", b.dataset.edge === mode));
-  document.querySelectorAll("#edgeSegMobile .seg-btn").forEach(b =>
-    b.classList.toggle("active", b.dataset.edge === mode));
-}
-
-// ── Desktop bindings ─────────────────────────────────────────
-document.getElementById("playBtn") ?.addEventListener("click", () => setPlaying(!running));
-document.getElementById("stepBtn") ?.addEventListener("click", () => { setPlaying(false); step(); });
-document.getElementById("clearBtn")?.addEventListener("click", doClear);
-document.getElementById("randomBtn")?.addEventListener("click", doRandom);
-
-document.querySelectorAll("#speedSeg .seg-btn").forEach(btn =>
-  btn.addEventListener("click", () => setSpeed(parseInt(btn.dataset.fps) || 60)));
-document.querySelectorAll("#colourSeg .seg-btn").forEach(btn =>
-  btn.addEventListener("click", () => setColour(btn.dataset.mode)));
-document.querySelectorAll("#edgeSeg .seg-btn").forEach(btn =>
-  btn.addEventListener("click", () => setEdge(btn.dataset.edge)));
-document.querySelectorAll("#ruleSeg .seg-btn").forEach(btn =>
-  btn.addEventListener("click", () => applyRuleString(btn.dataset.rule)));
-document.querySelectorAll("#patternSeg .seg-btn").forEach(btn =>
-  btn.addEventListener("click", () => { setPlaying(false); stampPattern(btn.dataset.pattern); }));
-
-// ── Mobile bar bindings ───────────────────────────────────────
-document.getElementById("mobilePlayBtn") ?.addEventListener("click", () => setPlaying(!running));
-document.getElementById("mobileStepBtn") ?.addEventListener("click", () => { setPlaying(false); step(); });
-document.getElementById("mobileClearBtn")?.addEventListener("click", doClear);
-document.getElementById("mobileRandomBtn")?.addEventListener("click", doRandom);
-
-document.querySelectorAll("#mobileSpeedSeg .sdot").forEach(btn =>
-  btn.addEventListener("click", () => setSpeed(parseInt(btn.dataset.fps) || 60)));
-
-// ── Mobile sheet bindings ────────────────────────────────────
-document.querySelectorAll("#colourSegMobile .seg-btn").forEach(btn =>
-  btn.addEventListener("click", () => setColour(btn.dataset.mode)));
-document.querySelectorAll("#edgeSegMobile .seg-btn").forEach(btn =>
-  btn.addEventListener("click", () => setEdge(btn.dataset.edge)));
-document.querySelectorAll("#ruleSegMobile .sheet-btn").forEach(btn =>
-  btn.addEventListener("click", () => applyRuleString(btn.dataset.rule)));
-document.querySelectorAll("#patternSegMobile .sheet-btn").forEach(btn =>
-  btn.addEventListener("click", () => { setPlaying(false); stampPattern(btn.dataset.pattern); closeSheet(); }));
-
-// ── Mobile sheet open/close ───────────────────────────────────
-const sheet         = document.getElementById("sheet");
-const sheetBackdrop = document.getElementById("sheetBackdrop");
-const settingsBtn   = document.getElementById("settingsBtn");
-let sheetOpen = false;
-
-function openSheet() {
-  sheetOpen = true;
-  sheet?.classList.add("open");
-  sheetBackdrop?.classList.add("visible");
-  settingsBtn?.classList.add("open");
-  settingsBtn?.setAttribute("aria-expanded", "true");
-}
-
-function closeSheet() {
-  sheetOpen = false;
-  sheet?.classList.remove("open");
-  sheetBackdrop?.classList.remove("visible");
-  settingsBtn?.classList.remove("open");
-  settingsBtn?.setAttribute("aria-expanded", "false");
-}
-
-settingsBtn?.addEventListener("click", () => sheetOpen ? closeSheet() : openSheet());
-sheetBackdrop?.addEventListener("click", closeSheet);
-
-// Swipe down on the handle to close
-let swipeTouchStartY = 0;
-document.getElementById("sheetHandle")?.addEventListener("touchstart", e => {
-  swipeTouchStartY = e.touches[0].clientY;
-}, { passive: true });
-document.getElementById("sheetHandle")?.addEventListener("touchend", e => {
-  if (e.changedTouches[0].clientY - swipeTouchStartY > 40) closeSheet();
-}, { passive: true });
-
-// ── Rule bit toggles ─────────────────────────────────────────
-// FIX: born/survive are mutated in-place (never reassigned), so
-// the click handler that reads born[n] / survive[n] always gets
-// the live value. buildBitRow takes a getter so we don't need to
-// capture the array reference at build time.
-function buildBitRow(containerId, getArr, large = false) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  el.innerHTML = "";
-  if (large) el.classList.add("large");
-
-  for (let n = 0; n <= 8; n++) {
-    const btn = document.createElement("button");
-    btn.type        = "button";
-    btn.className   = "bit-btn";
-    btn.textContent = n;
-    btn.dataset.n   = n;
-    const kind = containerId.startsWith("born") ? "Born" : "Survive";
-    btn.setAttribute("aria-label", `${kind} with ${n} neighbour${n === 1 ? "" : "s"}`);
-    btn.setAttribute("aria-pressed", "false");
-    btn.addEventListener("click", () => {
-      const arr = getArr();
-      arr[n] = !arr[n];
-      // Keep desktop + mobile rows in sync
-      updateBitUI();
-      // Deselect named-rule highlights since we've diverged
-      document.querySelectorAll("#ruleSeg .seg-btn, #ruleSegMobile .sheet-btn")
-        .forEach(b => b.classList.remove("active"));
-      updateRuleDisplay();
-    });
-    el.appendChild(btn);
-  }
-}
-
-function updateBitUI() {
-  ["bornBits", "bornBitsMobile"].forEach(id => {
-    document.getElementById(id)?.querySelectorAll(".bit-btn").forEach((btn, n) => {
-      btn.classList.toggle("on", born[n]);
-      btn.setAttribute("aria-pressed", String(born[n]));
-    });
+  document.querySelectorAll("#edgeSeg button").forEach(b => {
+    const on = b.dataset.edge === mode;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", String(on));
   });
-  ["surviveBits", "surviveBitsMobile"].forEach(id => {
-    document.getElementById(id)?.querySelectorAll(".bit-btn").forEach((btn, n) => {
-      btn.classList.toggle("on", survive[n]);
-      btn.setAttribute("aria-pressed", String(survive[n]));
-    });
-  });
+  savePrefs();
 }
 
-// Build bit rows first, THEN apply rule (so updateBitUI finds the buttons)
-buildBitRow("bornBits",          () => born,    false);
-buildBitRow("surviveBits",       () => survive, false);
-buildBitRow("bornBitsMobile",    () => born,    true);
-buildBitRow("surviveBitsMobile", () => survive, true);
+function setPalette(key) {
+  paletteKey = key;
+  const p = PALETTES[key];
+  const root = document.documentElement;
+  root.style.setProperty("--bg", p.bg);
+  root.style.setProperty("--accent", p.accent);
+  root.style.setProperty("--accent-ink", p.ink);
+  if (p.light) root.dataset.theme = "light"; else delete root.dataset.theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", p.bg);
+  document.querySelectorAll("#paletteSeg .swatch").forEach(b => {
+    const on = b.dataset.palette === key;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", String(on));
+  });
+  if (atlas) buildAtlas();
+  savePrefs();
+}
 
 // ── Patterns ─────────────────────────────────────────────────
 const PATTERNS = {
   glider: [[0,-1],[1,0],[-1,1],[0,1],[1,1]],
-
   pulsar: (() => {
     const cells = [];
-    const arm   = [[2,1],[3,1],[4,1],[1,2],[1,3],[1,4],[5,2],[5,3],[5,4],[2,5],[3,5],[4,5]];
-    for (const [c, r] of arm)
-      for (const sc of [1,-1]) for (const sr of [1,-1])
-        cells.push([c*sc, r*sr]);
+    const arm = [[2,1],[3,1],[4,1],[1,2],[1,3],[1,4],[6,2],[6,3],[6,4],[2,6],[3,6],[4,6]];
+    for (const [c, r] of arm) for (const sc of [1,-1]) for (const sr of [1,-1]) cells.push([c*sc, r*sr]);
     return cells;
   })(),
-
-  gun: (() => {
-    const rle = [
-      [0,4],[1,4],[0,5],[1,5],
-      [10,4],[10,5],[10,6],[11,3],[11,7],[12,2],[12,8],[13,2],[13,8],
-      [14,5],[15,3],[15,7],[16,4],[16,5],[16,6],[17,5],
-      [20,2],[20,3],[20,4],[21,2],[21,3],[21,4],[22,1],[22,5],
-      [24,0],[24,1],[24,5],[24,6],
-      [34,2],[34,3],[35,2],[35,3]
-    ];
-    return rle.map(([c, r]) => [c - 17, r - 4]);
-  })(),
-
+  gun: [
+    [0,4],[1,4],[0,5],[1,5],
+    [10,4],[10,5],[10,6],[11,3],[11,7],[12,2],[12,8],[13,2],[13,8],
+    [14,5],[15,3],[15,7],[16,4],[16,5],[16,6],[17,5],
+    [20,2],[20,3],[20,4],[21,2],[21,3],[21,4],[22,1],[22,5],
+    [24,0],[24,1],[24,5],[24,6],
+    [34,2],[34,3],[35,2],[35,3],
+  ].map(([c, r]) => [c - 17, r - 4]),
+  acorn:   [[1,0],[3,1],[0,2],[1,2],[4,2],[5,2],[6,2]].map(([c, r]) => [c - 3, r - 1]),
   rpent:   [[0,-1],[1,-1],[-1,0],[0,0],[0,1]],
-  diehard: [[6,-1],[0,0],[1,0],[1,1],[5,1],[6,1],[7,1]],
+  diehard: [[6,-1],[0,0],[1,0],[1,1],[5,1],[6,1],[7,1]].map(([c, r]) => [c - 4, r]),
 };
 
 function stampPattern(name) {
   const cells = PATTERNS[name];
   if (!cells) return;
+  setPlaying(false);
+  wipe();
   const mc = cols >> 1, mr = rows >> 1;
   for (const [dc, dr] of cells) {
     const c = mc + dc, r = mr + dr;
-    if (c >= 0 && c < cols && r >= 0 && r < rows) {
-      if (!alive[idx(c, r)]) population++;
-      alive[idx(c, r)] = 1;
-      age  [idx(c, r)] = 0;
-    }
+    if (c < 0 || c >= cols || r < 0 || r >= rows) continue;
+    if (!alive[idx(c, r)]) population++;
+    alive[idx(c, r)] = 1;
   }
-  lastPop = -1;
-  needsRender = true;
 }
 
-// ── Drawing ───────────────────────────────────────────────────
-let drawing      = false;
-let drawValue    = 1;
-let lastDrawCell = null;
+// ── Drawing on the board ─────────────────────────────────────
+let drawing = false, drawValue = 1, lastCell = null;
 
-function getCanvasCell(e) {
+function cellAt(e) {
   const rect = canvas.getBoundingClientRect();
-  const pt   = e.touches ? e.touches[0] : e;
-  const x    = (pt.clientX - rect.left) * (canvas.width  / rect.width);
-  const y    = (pt.clientY - rect.top ) * (canvas.height / rect.height);
-  const c    = Math.floor(x / CELL);
-  const r    = Math.floor(y / CELL);
-  return (c >= 0 && c < cols && r >= 0 && r < rows) ? { c, r } : null;
+  const pt = e.touches ? e.touches[0] : e;
+  const c = Math.floor((pt.clientX - rect.left) * (canvas.width  / rect.width)  / CPX);
+  const r = Math.floor((pt.clientY - rect.top)  * (canvas.height / rect.height) / CPX);
+  return c >= 0 && c < cols && r >= 0 && r < rows ? { c, r } : null;
 }
 
-// Bresenham line — incremental population update (no full reduce)
-function drawLine(c0, r0, c1, r1) {
-  let dc = Math.abs(c1-c0), dr = Math.abs(r1-r0);
-  let sc = c0 < c1 ? 1 : -1, sr = r0 < r1 ? 1 : -1;
+function paintLine(c0, r0, c1, r1) {
+  const dc = Math.abs(c1 - c0), dr = Math.abs(r1 - r0);
+  const sc = c0 < c1 ? 1 : -1, sr = r0 < r1 ? 1 : -1;
   let err = dc - dr, c = c0, r = r0;
-
-  for (let s = 0; s < Math.max(dc, dr) + 1; s++) {
+  for (;;) {
     const i = idx(c, r);
-    const was = alive[i];
-    alive[i] = drawValue;
-
-    // Incremental population delta
-    if (!was &&  drawValue) population++;
-    if ( was && !drawValue) population--;
-
-    if (drawValue === 0) { age[i] = 0; ghost[i] = 0.6; }
-    else                 { age[i] = 0; ghost[i] = 0;   }
-
+    if (alive[i] !== drawValue) {
+      population += drawValue ? 1 : -1;
+      alive[i] = drawValue;
+      age[i] = 0;
+      if (drawValue) { level[i] = 1; shade[i] = 0; }   // drawn cells appear at once
+    }
     if (c === c1 && r === r1) break;
     const e2 = 2 * err;
     if (e2 > -dr) { err -= dr; c += sc; }
     if (e2 <  dc) { err += dc; r += sr; }
   }
-  lastPop = -1; // force stat refresh
-  needsRender  = true;
-  ghostsFading = true;
-}
-
-// FIX: check if the touch target is inside any UI element —
-// done before calling preventDefault so we don't block UI taps.
-function isUITouch(e) {
-  const pt = e.touches ? e.touches[0] : e;
-  const el = document.elementFromPoint(pt.clientX, pt.clientY);
-  return el && (el.closest("#mobileBar") || el.closest("#sheet") || el.closest("#panel"));
+  needsRender = true;
 }
 
 function onDrawStart(e) {
-  if (isUITouch(e)) return;
-  e.preventDefault();
-  const cell = getCanvasCell(e);
+  if (e.button !== undefined && e.button !== 0) return;
+  const cell = cellAt(e);
   if (!cell) return;
+  e.preventDefault();
   drawing   = true;
   drawValue = alive[idx(cell.c, cell.r)] ? 0 : 1;
-  drawLine(cell.c, cell.r, cell.c, cell.r);
-  lastDrawCell = cell;
-  document.getElementById("drawHint")?.classList.add("hidden");
+  paintLine(cell.c, cell.r, cell.c, cell.r);
+  lastCell = cell;
+  hideHint();
 }
-
 function onDrawMove(e) {
   if (!drawing) return;
   e.preventDefault();
-  const cell = getCanvasCell(e);
+  const cell = cellAt(e);
   if (!cell) return;
-  if (lastDrawCell) drawLine(lastDrawCell.c, lastDrawCell.r, cell.c, cell.r);
-  else              drawLine(cell.c, cell.r, cell.c, cell.r);
-  lastDrawCell = cell;
+  paintLine(lastCell ? lastCell.c : cell.c, lastCell ? lastCell.r : cell.r, cell.c, cell.r);
+  lastCell = cell;
 }
-
-function onDrawEnd() { drawing = false; lastDrawCell = null; }
+function onDrawEnd() { drawing = false; lastCell = null; }
 
 canvas.addEventListener("mousedown",  onDrawStart);
-window.addEventListener("mouseup",    onDrawEnd);
 canvas.addEventListener("mousemove",  onDrawMove);
+window.addEventListener("mouseup",    onDrawEnd);
 canvas.addEventListener("touchstart", onDrawStart, { passive: false });
+canvas.addEventListener("touchmove",  onDrawMove,  { passive: false });
 window.addEventListener("touchend",   onDrawEnd);
 window.addEventListener("touchcancel",onDrawEnd);
 window.addEventListener("blur",       onDrawEnd);
-canvas.addEventListener("touchmove",  onDrawMove,  { passive: false });
 
-// ── Keyboard shortcuts ───────────────────────────────────────
+const hint = $("drawHint");
+if (coarsePointer) hint.textContent = "Tap or drag to draw";
+function hideHint() { hint.classList.add("hidden"); }
+setTimeout(hideHint, 8000);
+
+// ── Controls ─────────────────────────────────────────────────
+$("playBtn").addEventListener("click", () => setPlaying(!running));
+$("stepBtn").addEventListener("click", () => { setPlaying(false); step(); });
+$("clearBtn").addEventListener("click", doClear);
+$("randomBtn").addEventListener("click", doRandom);
+$("speedCycle").addEventListener("click", () => setSpeed(SPEEDS[(SPEEDS.indexOf(targetFps) + 1) % SPEEDS.length]));
+document.querySelectorAll("#speedSeg button").forEach(b => b.addEventListener("click", () => setSpeed(+b.dataset.fps)));
+document.querySelectorAll("#edgeSeg button").forEach(b => b.addEventListener("click", () => setEdge(b.dataset.edge)));
+document.querySelectorAll("#rulePresets .preset").forEach(b => b.addEventListener("click", () => applyRuleString(b.dataset.rule)));
+document.querySelectorAll("#patternGrid .preset").forEach(b => b.addEventListener("click", () => {
+  stampPattern(b.dataset.pattern);
+  if (isNarrow()) closeDrawer(false);   // the sheet covers the board on phones
+}));
+
+// Born / survive toggles
+function buildBitRow(id, arr, kind) {
+  const row = $(id);
+  for (let n = 0; n <= 8; n++) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "bit-btn";
+    b.textContent = n;
+    b.setAttribute("aria-label", `${kind} with ${n} neighbour${n === 1 ? "" : "s"}`);
+    b.addEventListener("click", () => { arr[n] = !arr[n]; updateBitUI(); updateRuleDisplay(); });
+    row.appendChild(b);
+  }
+}
+function updateBitUI() {
+  for (const [id, arr] of [["bornBits", born], ["surviveBits", survive]]) {
+    $(id).querySelectorAll(".bit-btn").forEach((b, n) => {
+      b.classList.toggle("on", arr[n]);
+      b.setAttribute("aria-pressed", String(arr[n]));
+    });
+  }
+}
+buildBitRow("bornBits", born, "Born");
+buildBitRow("surviveBits", survive, "Survive");
+
+// Palette swatches, each with a tiny preview of the board
+(function buildSwatches() {
+  const host = $("paletteSeg");
+  const sample = [1,0,0,1, 0,1,1,0, 0,1,0,0];
+  for (const [key, p] of Object.entries(PALETTES)) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "swatch";
+    b.dataset.palette = key;
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.setAttribute("aria-hidden", "true");
+    chip.style.background = p.bg;
+    sample.forEach((on, k) => {
+      const i = document.createElement("i");
+      i.style.background = on ? (k % 3 ? p.young : p.old) : p.tile;
+      chip.appendChild(i);
+    });
+    b.append(chip, p.name);
+    b.addEventListener("click", () => setPalette(key));
+    host.appendChild(b);
+  }
+})();
+
+// ── Settings drawer ──────────────────────────────────────────
+const drawer = $("drawer"), backdrop = $("backdrop"), settingsBtn = $("settingsBtn");
+let drawerOpen = false;
+const isNarrow = () => window.innerWidth <= 900;   // drawer is a bottom sheet here
+
+function openDrawer() {
+  drawerOpen = true;
+  drawer.inert = false;
+  drawer.classList.add("open");
+  document.body.classList.add("drawer-open");
+  backdrop.classList.add("visible");
+  settingsBtn.setAttribute("aria-expanded", "true");
+  setTimeout(() => $("drawerClose").focus({ preventScroll: true }), 60);
+}
+function closeDrawer(returnFocus = true) {
+  if (!drawerOpen) return;
+  drawerOpen = false;
+  drawer.classList.remove("open");
+  document.body.classList.remove("drawer-open");
+  backdrop.classList.remove("visible");
+  settingsBtn.setAttribute("aria-expanded", "false");
+  drawer.inert = true;
+  if (returnFocus) settingsBtn.focus({ preventScroll: true });
+}
+settingsBtn.addEventListener("click", () => drawerOpen ? closeDrawer() : openDrawer());
+$("drawerClose").addEventListener("click", () => closeDrawer());
+backdrop.addEventListener("click", () => closeDrawer(false));
+
+// ── Keyboard ─────────────────────────────────────────────────
 document.addEventListener("keydown", e => {
-  if (e.ctrlKey || e.metaKey || e.altKey) return;   // don't hijack Ctrl+R / Ctrl+C
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
   const t = e.target;
   if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-  if (e.key === "Escape") { if (sheetOpen) { closeSheet(); settingsBtn?.focus(); } hideTip(); return; }
-  // Shortcuts used to work only when nothing was focused, so they silently
-  // stopped after clicking any button. Now they work everywhere except text
-  // fields — but Space/Enter still activate a keyboard-focused button.
+  if (e.key === "Escape") { hideTip(); closeDrawer(); return; }
   const onButton = t && t.tagName === "BUTTON" && t.matches(":focus-visible");
   switch (e.key) {
-    case " ": if (onButton) return; e.preventDefault(); setPlaying(!running); break;
-    case ".": case "ArrowRight": setPlaying(false); step(); break;
+    case " ":          if (onButton) return; e.preventDefault(); setPlaying(!running); break;
+    case ".":
+    case "ArrowRight": setPlaying(false); step(); break;
     case "c": case "C": doClear(); break;
     case "r": case "R": doRandom(); break;
   }
 });
 
-// ── Keyboard hints (desktop) ─────────────────────────────────
-const hints = document.createElement("div");
-hints.id = "keyhints";
-hints.setAttribute("aria-hidden", "true"); // same info is in each button's tooltip
-hints.innerHTML = "Space &nbsp;Play/Pause<br>. / → &nbsp;&nbsp;Step<br>C &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Clear<br>R &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Random";
-document.body.appendChild(hints);
+// ── Tooltips ─────────────────────────────────────────────────
+const tooltip = $("tooltip");
+let tipTimeout = null, tipHideTimeout = null;
 
-// ══════════════════════════════════════════════════════════════
-//  TOOLTIP SYSTEM
-// ══════════════════════════════════════════════════════════════
-const tooltip = document.getElementById("tooltip");
-let tipTimeout     = null;
-let tipHideTimeout = null;
-
-function showTip(text, anchorRect) {
+function showTip(text, rect) {
   clearTimeout(tipTimeout);
   clearTimeout(tipHideTimeout);
-
   tooltip.textContent = text;
   tooltip.classList.remove("visible", "tip-below");
-
-  // Measure without flashing: position off-screen, make visible briefly
-  tooltip.style.left       = "-9999px";
-  tooltip.style.top        = "-9999px";
-  tooltip.style.visibility = "hidden";
-  tooltip.style.display    = "block";
-
-  const tw = tooltip.offsetWidth;
-  const th = tooltip.offsetHeight;
-
-  tooltip.style.visibility = "";
-  tooltip.style.display    = "";
-
-  const MARGIN = 10, GAP = 8;
-  const vw     = window.innerWidth;
-
-  let top   = anchorRect.top - th - GAP;
-  let below = top < MARGIN;
-  if (below) top = anchorRect.bottom + GAP;
-
-  let left        = anchorRect.left + anchorRect.width / 2 - tw / 2;
-  left            = Math.max(MARGIN, Math.min(left, vw - tw - MARGIN));
-
-  const arrowX    = (anchorRect.left + anchorRect.width / 2) - left;
-  const arrowClamp = Math.max(10, Math.min(arrowX, tw - 10));
-
+  tooltip.style.left = "-9999px";
+  tooltip.style.top  = "-9999px";
+  const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+  const MARGIN = 10, GAP = 9;
+  let top = rect.top - th - GAP;
+  const below = top < MARGIN;
+  if (below) top = rect.bottom + GAP;
+  let left = rect.left + rect.width / 2 - tw / 2;
+  left = Math.max(MARGIN, Math.min(left, window.innerWidth - tw - MARGIN));
+  const arrowX = Math.max(10, Math.min(rect.left + rect.width / 2 - left, tw - 10));
   tooltip.style.left = left + "px";
-  tooltip.style.top  = top  + "px";
-  tooltip.style.setProperty("--arrow-x", arrowClamp + "px");
-  if (below) tooltip.classList.add("tip-below");
-
-  void tooltip.offsetWidth; // force reflow
+  tooltip.style.top  = top + "px";
+  tooltip.style.setProperty("--arrow-x", arrowX + "px");
+  tooltip.classList.toggle("tip-below", below);
+  void tooltip.offsetWidth;
   tooltip.classList.add("visible");
 }
-
 function hideTip() {
   clearTimeout(tipTimeout);
   clearTimeout(tipHideTimeout);
   tooltip.classList.remove("visible");
 }
+const tipTarget = (el) => el && el.closest ? el.closest("[data-tip]") : null;
 
-function findTipTarget(el) {
-  let cur = el;
-  while (cur && cur !== document.body) {
-    if (cur.dataset?.tip) return cur;
-    cur = cur.parentElement;
-  }
-  return null;
-}
-
-// Keyboard: show the tip when a control receives keyboard focus
-document.addEventListener("focusin", e => {
-  const target = findTipTarget(e.target);
-  if (!target || !e.target.matches(":focus-visible")) return;
-  clearTimeout(tipTimeout);
-  showTip(target.dataset.tip, target.getBoundingClientRect());
-});
-document.addEventListener("focusout", hideTip);
-
-// Desktop: hover with 300 ms delay
-// FIX: use relatedTarget so moving mouse between child elements
-// doesn't cause flicker — only hide when leaving the tip target.
 document.addEventListener("mouseover", e => {
-  const target = findTipTarget(e.target);
+  const target = tipTarget(e.target);
   if (!target) { hideTip(); return; }
   clearTimeout(tipTimeout);
-  tipTimeout = setTimeout(() =>
-    showTip(target.dataset.tip, target.getBoundingClientRect()), 300);
+  tipTimeout = setTimeout(() => showTip(target.dataset.tip, target.getBoundingClientRect()), 400);
 });
-
 document.addEventListener("mouseout", e => {
-  const target = findTipTarget(e.target);
-  if (!target) return;
-  // Don't hide if the mouse moved into a child of the same target
-  if (target.contains(e.relatedTarget)) return;
-  clearTimeout(tipTimeout);
+  const target = tipTarget(e.target);
+  if (!target || target.contains(e.relatedTarget)) return;
   hideTip();
 });
-
-// Touch: show tip on icon-only mobile bar buttons / speed dots
+document.addEventListener("focusin", e => {
+  const target = tipTarget(e.target);
+  if (target && e.target.matches(":focus-visible")) showTip(target.dataset.tip, target.getBoundingClientRect());
+});
+document.addEventListener("focusout", hideTip);
+// Icon-only dock buttons on touch screens: show the label briefly.
 document.addEventListener("touchstart", e => {
-  const target = findTipTarget(e.target);
-  if (!target?.dataset.tip) return;
-  // Only show for compact icon buttons (mbar-btn and sdot have no text)
-  if (!target.classList.contains("mbar-btn") &&
-      !target.classList.contains("sdot")) return;
-  clearTimeout(tipHideTimeout);
+  const target = tipTarget(e.target);
+  if (!target || !target.classList.contains("dock-btn") || !isNarrow()) return;
   showTip(target.dataset.tip, target.getBoundingClientRect());
-  tipHideTimeout = setTimeout(hideTip, 1800);
+  tipHideTimeout = setTimeout(hideTip, 1600);
 }, { passive: true });
 
 // ── Resize ───────────────────────────────────────────────────
 function handleResize() {
-  // Preserve existing cells (and their ages) across resize
-  const oldAlive = alive;
-  const oldAge   = age;
-  const oldCols  = cols;
-  const oldRows  = rows;
-
+  const old = { alive, age, cols, rows };
   resizeCanvas();
-
-  if (oldAlive && oldCols && oldRows) {
-    population = 0;
-    const mc = Math.min(cols, oldCols);
-    const mr = Math.min(rows, oldRows);
-    for (let r = 0; r < mr; r++) {
-      for (let c = 0; c < mc; c++) {
-        const oi = c + r * oldCols;
-        const v  = oldAlive[oi];
-        alive[idx(c, r)] = v;
-        age  [idx(c, r)] = v ? oldAge[oi] : 0;
-        population += v;
-      }
+  population = 0;
+  const mc = Math.min(cols, old.cols), mr = Math.min(rows, old.rows);
+  for (let r = 0; r < mr; r++) {
+    for (let c = 0; c < mc; c++) {
+      const oi = c + r * old.cols, i = idx(c, r);
+      if (!old.alive[oi]) continue;
+      alive[i] = 1;
+      age[i]   = old.age[oi];
+      level[i] = 1;
+      population++;
     }
-    lastPop = -1;
   }
-  needsRender = true;
 }
-
-// Debounced — mobile URL-bar show/hide fires many resize events.
 let resizeTimer = 0;
-window.addEventListener("resize", () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(handleResize, 100);
-});
+const queueResize = () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(handleResize, 120); };
+window.addEventListener("resize", queueResize);
+window.visualViewport?.addEventListener("resize", queueResize);
 
 // ── Init ─────────────────────────────────────────────────────
 resizeCanvas();
-// Build bit rows FIRST, then apply rule so updateBitUI() finds the buttons
+drawer.inert = true;
+setPalette(paletteKey);
+setSpeed(targetFps);
+setEdge(edgeMode);
 applyRuleString("B3/S23");
 doRandom();
+setPlaying(!reducedMotion);   // with reduced motion, wait for Play
 requestAnimationFrame(tick);

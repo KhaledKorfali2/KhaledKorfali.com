@@ -1,5 +1,6 @@
-// Project list with category metadata. Order matters: the first four are
+// Project list with category metadata. Order matters: the first FEATURED_COUNT are
 // shown as "Featured" on the home page.
+const FEATURED_COUNT = 6;
 const projects = [
   {
     name: "Breach",
@@ -7,6 +8,20 @@ const projects = [
     image: "screenshots/breach.webp",
     path: "./projects/breach/index.html",
     category: "security"
+  },
+  {
+    name: "Quarry",
+    description: "Learn databases by doing: write real queries in live consoles and capture a flag for every skill. A full MySQL course from your first SELECT to production data fixes, plus PostgreSQL, SQLite, pandas, document databases and vector search.",
+    image: "screenshots/quarry.webp",
+    path: "./projects/quarry/index.html",
+    category: "programming"
+  },
+  {
+    name: "Datum",
+    description: "Learn CAD by building the part: sketch, extrude, cut, fillet and shell on a real CAD kernel until your solid matches the target, then export it for 3D printing.",
+    image: "screenshots/datum.webp",
+    path: "./projects/datum/index.html",
+    category: "programming"
   },
   {
     name: "Pattern Trace",
@@ -28,20 +43,6 @@ const projects = [
     image: "screenshots/boid-simulator.webp",
     path: "./projects/boid-simulator/index.html",
     category: "simulation"
-  },
-  {
-    name: "Quarry",
-    description: "Learn databases by doing: write real queries in live consoles and capture a flag for every skill. A full MySQL course from your first SELECT to production data fixes, plus PostgreSQL, SQLite, pandas, document databases and vector search.",
-    image: "screenshots/quarry.webp",
-    path: "./projects/quarry/index.html",
-    category: "programming"
-  },
-  {
-    name: "Datum",
-    description: "Learn CAD by building the part: sketch, extrude, cut, fillet and shell on a real CAD kernel until your solid matches the target, then export it for 3D printing.",
-    image: "screenshots/datum.webp",
-    path: "./projects/datum/index.html",
-    category: "programming"
   },
   {
     name: "Vim System",
@@ -123,8 +124,8 @@ const projects = [
   {
     name: "Wire: How Networks Work",
     description: "An interactive networking course: watch real packets as you learn TCP, TLS, HTTP/2, HTTP/3 and more.",
-    image: "screenshots/web-protocal-comparer.webp",
-    path: "./projects/web-protocal-comparer/index.html",
+    image: "screenshots/web-protocol-comparer.webp",
+    path: "./projects/web-protocol-comparer/index.html",
     category: "programming"
   },
   {
@@ -166,6 +167,40 @@ const CATEGORY_LABELS = {
 
 function categoryLabel(c) {
   return CATEGORY_LABELS[c] || "Programming";
+}
+
+/* ── One project card (image, category, name, description), used by both pages ── */
+function projectCard(project, i, eager) {
+  const li = document.createElement("li");
+  li.className = "grid-item scroll-reveal";
+  li.style.transitionDelay = Math.min(i * 0.055, 0.4) + "s";
+  li.innerHTML =
+    '<a>' +
+      '<div class="card-image-wrap">' +
+        '<img alt="" decoding="async" width="640" height="360">' +
+        '<div class="card-image-overlay"></div>' +
+        '<div class="card-arrow" aria-hidden="true">' +
+          '<svg width="14" height="14" viewBox="0 0 14 14" fill="none">' +
+            '<path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+          '</svg>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card-body">' +
+        '<span class="card-tag"></span>' +
+        '<span class="card-name"></span>' +
+        '<span class="card-desc"></span>' +
+      '</div>' +
+    '</a>';
+  li.querySelector("a").href = project.path;
+  const img = li.querySelector("img");
+  if (!eager) img.loading = "lazy";
+  img.src = project.image;
+  const tag = li.querySelector(".card-tag");
+  tag.classList.add(project.category);
+  tag.textContent = categoryLabel(project.category);
+  li.querySelector(".card-name").textContent = project.name;
+  li.querySelector(".card-desc").textContent = project.description;
+  return li;
 }
 
 const prefersReducedMotion =

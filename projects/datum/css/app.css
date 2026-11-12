@@ -93,13 +93,13 @@ code, pre, kbd, .mono { font-family: var(--mono); }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ── prose (lessons) ── */
-.prose { color: var(--text); font-size: 15.5px; line-height: 1.68; }
+.prose { color: var(--text); font-size: calc(15.5px * var(--lesson-scale, 1)); line-height: 1.68; }
 .prose > * + * { margin-top: 12px; }
-.prose h4 { font-size: 15px; margin-top: 22px; color: var(--accent); font-weight: 600; }
+.prose h4 { font-size: calc(15px * var(--lesson-scale, 1)); margin-top: 22px; color: var(--accent); font-weight: 600; }
 .prose ul, .prose ol { padding-left: 22px; margin-bottom: 0; }
 .prose li + li { margin-top: 4px; }
 .prose code { font-size: .88em; background: var(--panel-3); border: 1px solid var(--line); padding: 1px 5px; border-radius: 5px; color: var(--accent-2); word-break: break-word; }
-.prose pre.code { background: #05070a; border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; overflow-x: auto; font-size: 13px; line-height: 1.55; }
+.prose pre.code { background: #05070a; border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; overflow-x: auto; font-size: calc(13px * var(--lesson-scale, 1)); line-height: 1.55; }
 .prose pre.code code { background: none; border: 0; padding: 0; color: var(--text); word-break: normal; }
 .prose .callout { margin: 14px 0; }
 .prose strong { color: #fff; }
@@ -157,7 +157,7 @@ a.node:hover { border-color: var(--line-2); background: var(--panel-3); text-dec
 .objective { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r); background: var(--accent-soft); border: 1px solid var(--accent-line); font-weight: 500; }
 .objective .ico { color: var(--accent); margin-top: 3px; }
 .hints { display: grid; gap: 10px; padding-top: 6px; }
-.hint { background: var(--amber-soft); border: 1px solid rgba(245, 177, 76, .3); border-radius: var(--r); padding: 10px 14px; font-size: 14.5px; }
+.hint { background: var(--amber-soft); border: 1px solid rgba(245, 177, 76, .3); border-radius: var(--r); padding: 10px 14px; font-size: calc(14.5px * var(--lesson-scale, 1)); }
 .hint b { color: var(--amber); font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 2px; }
 .hint code { font-size: .9em; background: rgba(0,0,0,.25); padding: 1px 5px; border-radius: 4px; }
 .submit { position: sticky; bottom: -48px; background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--r-lg); padding: 14px; margin-top: 22px !important; }

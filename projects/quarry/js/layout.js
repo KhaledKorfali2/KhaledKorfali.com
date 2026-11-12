@@ -89,6 +89,8 @@ export function initLayout({ split, brief, workspace, key, workLabel = "Workspac
     split.dataset.collapsed = s.collapsed;
     split.style.setProperty("--lay-size", `${s.size}%`);
     brief.style.fontSize = s.text ? `${15 + s.text * 1.5}px` : "";
+    // The lesson body, code samples and hints have their own sizes; they read this multiplier.
+    if (s.text) brief.style.setProperty("--lesson-scale", String((15 + s.text * 1.5) / 15)); else brief.style.removeProperty("--lesson-scale");
     gutter.setAttribute("aria-orientation", horizontal() ? "vertical" : "horizontal");
     gutter.setAttribute("aria-valuenow", String(Math.round(s.size)));
     restore.hidden = s.collapsed === "none";
