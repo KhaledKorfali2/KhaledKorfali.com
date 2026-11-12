@@ -3,6 +3,17 @@
 import { el, icon, ICONS, copy } from "../ui.js";
 import { createSession, compareResult } from "./mysql.js";
 import { buildShop } from "../data/shop.js";
+import { drag, loadPrefs, savePrefs } from "../layout.js";
+
+// Console preferences (panel sizes), unsaved queries per challenge, and run history.
+const PREFS_KEY = "quarry.console", DRAFTS_KEY = "quarry.drafts";
+const PREF_DEFAULTS = { schemaW: 210, editorH: 132, schema: true };
+const history = [];
+function saveDraft(id, text, starter) {
+  const d = loadPrefs(DRAFTS_KEY, {});
+  if (text === (starter || "") || !text.trim()) delete d[id]; else d[id] = text.slice(0, 8000);
+  savePrefs(DRAFTS_KEY, d);
+}
 
 let sqlPromise = null;
 /** Load the SQLite WebAssembly module once (vendor/sql-wasm.js defines initSqlJs). */
@@ -31,7 +42,7 @@ export async function mount(host, { challenge: c, ctx, seed }, api) {
   if (c.mode === "verify") checks = sess.resolve(c.checks);
 
   const editor = el("textarea", { class: "sq-editor", spellcheck: "false", autocapitalize: "off", autocomplete: "off", autocorrect: "off", rows: "6",
-    "aria-label": "SQL editor", placeholder: "Type SQL here, then press Run (Ctrl+Enter)", value: c.starter || "" });
+    "aria-label": "SQL editor", placeholder: "Type SQL here, then press Run (Ctrl+Enter)", value: loadPrefs(DRAFTS_KEY, {})[c.id] || c.starter || "" });
   const output = el("div", { class: "sq-result", "aria-live": "polite" });
   const goal = el("div", { class: "sq-goal" });
   const schema = el("div", { class: "sq-schema", "aria-label": "Schema" });
@@ -43,7 +54,7 @@ export async function mount(host, { challenge: c, ctx, seed }, api) {
       ...tables.map((t) => el("details", { class: "sq-table" },
         el("summary", {}, el("b", { text: t.name }), el("span", { class: "sq-dim", text: t.type === "view" ? " view" : ` ${t.rows}` })),
         el("ul", {}, t.cols.map((col) => el("li", {}, el("span", { text: col.name }), el("span", { class: "sq-dim", text: `${col.type}${col.key ? " · " + col.key : ""}` })))),
-        el("button", { class: "sq-btn sq-mini", type: "button", on: { click: () => { editor.value = `SELECT *\nFROM ${t.name}\nLIMIT 10;`; run(); } } }, "Preview"))));
+        el("button", { class: "sq-btn sq-mini", type: "button", on: { click: () => { setEditor(`SELECT *\nFROM ${t.name}\nLIMIT 10;`); editor.setSelectionRange(0, 0); run(); } } }, "Preview"))));
   }
 
   function cell(v) {
@@ -96,8 +107,12 @@ export async function mount(host, { challenge: c, ctx, seed }, api) {
   }
 
   function run() {
-    const text = editor.value;
+    // With text selected, run only the selection (handy for trying one statement of several).
+    const sel = editor.value.slice(editor.selectionStart, editor.selectionEnd);
+    const text = sel.trim() ? sel : editor.value;
     if (!text.trim()) return;
+    if (history[history.length - 1] !== editor.value) { history.push(editor.value); if (history.length > 50) history.shift(); }
+    histAt = history.length;
     let results;
     try { results = sess.run(text); }
     catch (e) { results = [{ kind: "error", stmt: text, message: `ERROR: ${e.message}` }]; }
@@ -108,8 +123,19 @@ export async function mount(host, { challenge: c, ctx, seed }, api) {
     renderGoal(results);
   }
 
+  let histAt = history.length, draftTimer = 0;
+  const setEditor = (text) => { editor.value = text; saveDraft(c.id, text, c.starter); syncRunLabel(); };
+  const syncRunLabel = () => { runBtn.textContent = editor.selectionStart !== editor.selectionEnd && document.activeElement === editor ? "Run selection" : "Run"; };
+  editor.addEventListener("input", () => { clearTimeout(draftTimer); draftTimer = setTimeout(() => saveDraft(c.id, editor.value, c.starter), 400); });
+  for (const ev of ["select", "keyup", "mouseup", "blur", "focus"]) editor.addEventListener(ev, syncRunLabel);
   editor.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(); }
+    else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      // Alt+Up / Alt+Down walk back and forth through queries you've run.
+      e.preventDefault();
+      const to = histAt + (e.key === "ArrowUp" ? -1 : 1);
+      if (to >= 0 && to < history.length) { histAt = to; setEditor(history[to]); }
+    }
     else if (e.key === "Tab" && !e.shiftKey && !e.altKey) {
       e.preventDefault();
       const s = editor.selectionStart;
@@ -117,17 +143,36 @@ export async function mount(host, { challenge: c, ctx, seed }, api) {
     }
   });
 
-  const root = el("div", { class: "sq" }, schema,
+  // ── resizable panels: schema width, editor height (remembered) ──
+  const prefs = loadPrefs(PREFS_KEY, PREF_DEFAULTS);
+  const runBtn = el("button", { class: "sq-btn sq-primary", type: "button", on: { mousedown: (e) => e.preventDefault(), click: run } }, "Run");
+  const schemaBtn = el("button", { class: "sq-btn", type: "button", title: "Show or hide the table list", on: { click: () => { prefs.schema = !prefs.schema; applyPrefs(); savePrefs(PREFS_KEY, prefs); } } }, "Schema");
+  const gutterX = el("div", { class: "sq-gutter sq-gutter-x", role: "separator", "aria-orientation": "vertical", title: "Drag to resize the table list; double-click to reset" });
+  const gutterY = el("div", { class: "sq-gutter sq-gutter-y", role: "separator", "aria-orientation": "horizontal", title: "Drag to resize the editor; double-click to reset" });
+  function applyPrefs() {
+    schema.hidden = gutterX.hidden = !prefs.schema;
+    schemaBtn.setAttribute("aria-pressed", String(!!prefs.schema));
+    schema.style.flexBasis = `${prefs.schemaW}px`;
+    editor.style.height = `${prefs.editorH}px`;
+  }
+  let box = null;
+  drag(gutterX, { start: () => { box = root.getBoundingClientRect(); }, move: (e) => { prefs.schemaW = Math.round(Math.min(Math.max(e.clientX - box.left, 120), Math.max(140, box.width - 260))); applyPrefs(); }, end: () => savePrefs(PREFS_KEY, prefs) });
+  drag(gutterY, { start: () => { box = editor.getBoundingClientRect(); box.max = root.getBoundingClientRect().height - 170; }, move: (e) => { prefs.editorH = Math.round(Math.min(Math.max(e.clientY - box.top - 4, 56), Math.max(80, box.max))); applyPrefs(); }, end: () => savePrefs(PREFS_KEY, prefs) });
+  gutterX.addEventListener("dblclick", () => { prefs.schemaW = PREF_DEFAULTS.schemaW; applyPrefs(); savePrefs(PREFS_KEY, prefs); });
+  gutterY.addEventListener("dblclick", () => { prefs.editorH = PREF_DEFAULTS.editorH; applyPrefs(); savePrefs(PREFS_KEY, prefs); });
+
+  const root = el("div", { class: "sq" }, schema, gutterX,
     el("div", { class: "sq-main" },
       el("div", { class: "sq-top" }, editor,
-        el("div", { class: "sq-bar" },
-          el("button", { class: "sq-btn sq-primary", type: "button", on: { click: run } }, "Run"),
-          el("span", { class: "sq-dim", text: "Ctrl+Enter · root@shop · MySQL-compatible sandbox" }))),
-      goal, output));
+        el("div", { class: "sq-bar" }, runBtn, schemaBtn,
+          c.starter ? el("button", { class: "sq-btn", type: "button", title: "Put the starter query back in the editor", on: { click: () => { setEditor(c.starter); editor.focus(); } } }, "Starter query") : null,
+          el("span", { class: "sq-dim sq-keys", text: "Ctrl+Enter runs · select text to run part · Alt+↑/↓ history" }))),
+      gutterY, goal, output));
   host.append(root);
+  applyPrefs();
   renderSchema();
   renderGoal(null);
   output.append(el("p", { class: "sq-empty", text: "Results appear here. Each statement ends with a semicolon; you can run several at once." }));
-  root._console = { run: (s) => { editor.value = s; run(); }, sess };
-  return () => { sess.close(); root.remove(); };
+  root._console = { run: (s) => { editor.value = s; editor.setSelectionRange(s.length, s.length); run(); }, sess };
+  return () => { clearTimeout(draftTimer); saveDraft(c.id, editor.value, c.starter); sess.close(); root.remove(); };
 }

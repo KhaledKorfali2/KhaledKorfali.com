@@ -1,0 +1,91 @@
+// Browser test for the workspace layout (shared by Breach and Quarry). Run like
+// e2e.js: copy index.html to e2e.html with this script added after main.js, pass ?c=<challenge id>.
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { const v = fn(); if (v) return v; await sleep(20); } return null; };
+const log = [], errors = [];
+const ok = (name, cond, extra = "") => log.push(`${cond ? "ok  " : "FAIL"} ${name} ${extra}`);
+window.addEventListener("error", (e) => errors.push(e.message));
+window.addEventListener("unhandledrejection", (e) => errors.push(String(e.reason)));
+const app = location.pathname.includes("quarry") ? "quarry" : "breach";
+if (!sessionStorage.getItem("lay")) { sessionStorage.setItem("lay", "1"); localStorage.clear(); location.reload(); await sleep(60000); }
+const id = new URLSearchParams(location.search).get("c");
+location.hash = `#/c/${id}`;
+const $ = (q) => document.querySelector(q);
+const gutter = await until(() => $(".lay-gutter"));
+ok("gutter mounted", !!gutter);
+const R = (q) => $(q).getBoundingClientRect();
+const shown = (q) => getComputedStyle($(q)).display !== "none";
+const pe = (type, x, y) => new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, pointerId: 1 });
+const dragTo = (h, x, y) => { const r = h.getBoundingClientRect(); h.dispatchEvent(pe("pointerdown", r.left + 2, r.top + 2)); h.dispatchEvent(pe("pointermove", x, y)); h.dispatchEvent(pe("pointerup", x, y)); };
+const W = innerWidth, split = $(".split");
+const w0 = R(".brief").width;
+ok("default ~39%", Math.abs(w0 / R(".split").width - 0.39) < 0.02, `(${Math.round(w0)}px of ${W})`);
+dragTo(gutter, 700, 300);
+ok("drag resizes lesson", Math.abs(R(".brief").width - 700) < 12, `(${Math.round(R(".brief").width)}px)`);
+dragTo(gutter, 10, 300);
+ok("drag to edge hides lesson", !shown(".brief") && split.dataset.collapsed === "lesson");
+$(".lay-restore").click();
+ok("rail restores lesson", shown(".brief") && shown(".workspace"));
+$(".lay-toggle").click();
+ok("menu opens", !$(".lay-panel").hidden);
+const pick = (text) => [...document.querySelectorAll(".lay-seg button")].find((b) => b.textContent === text).click();
+pick("Right"); ok("lesson right", R(".brief").left > R(".workspace").left);
+pick("Top"); ok("lesson top", R(".brief").bottom <= R(".workspace").top + 1 && Math.abs(R(".brief").width - R(".split").width) < 2);
+pick("Bottom"); ok("lesson bottom", R(".brief").top >= R(".workspace").bottom - 1);
+dragTo(gutter, 400, R(".split").top + R(".split").height * 0.5);
+ok("vertical drag resizes", Math.abs(R(".brief").height / R(".split").height - 0.5) < 0.03, `(${Math.round(R(".brief").height)}px)`);
+pick("Left");
+pick("Lesson only"); ok("lesson only", !shown(".workspace") && shown(".brief"));
+pick("Both");
+const fs0 = parseFloat(getComputedStyle($(".brief")).fontSize); pick("A+"); pick("A+");
+ok("text size grows", parseFloat(getComputedStyle($(".brief")).fontSize) === fs0 + 3);
+document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+ok("escape closes menu", $(".lay-panel").hidden);
+document.dispatchEvent(new KeyboardEvent("keydown", { code: "Backslash", key: "\\", ctrlKey: true, bubbles: true }));
+ok("Ctrl+\\ hides lesson", !shown(".brief"));
+document.dispatchEvent(new KeyboardEvent("keydown", { code: "Backslash", key: "\\", ctrlKey: true, bubbles: true }));
+ok("Ctrl+\\ shows lesson", shown(".brief"));
+gutter.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+ok("saved to localStorage", /"text":2/.test(localStorage.getItem(`${app}.layout`) || ""), localStorage.getItem(`${app}.layout`));
+$(".brief .lay-min").click(); ok("pane hide button (lesson)", !shown(".brief")); $(".lay-restore").click();
+$(".ws-actions .lay-min").click(); ok("pane hide button (workspace)", !shown(".workspace")); $(".lay-restore").click();
+// survives navigation, then reset
+location.hash = "#/"; await sleep(150); ok("menu removed off-challenge", !$(".lay-menu"));
+location.hash = `#/c/${id}`; await until(() => $(".lay-gutter") && $(".brief h1"));
+ok("layout restored after navigation", parseFloat(getComputedStyle($(".brief")).fontSize) === fs0 + 3 && document.querySelectorAll(".lay-menu").length === 1);
+ok("prev/next links", !!$(".crumbs-nav"), `"${$(".crumbs-nav").textContent}"`);
+$(".lay-toggle").click(); $(".lay-reset").click();
+ok("reset layout", Math.abs(R(".brief").width / R(".split").width - 0.39) < 0.02 && parseFloat(getComputedStyle($(".brief")).fontSize) === fs0);
+
+if (app === "quarry") {
+  const sq = await until(() => $(".sq"));
+  const ed = $(".sq-editor"), sw = R(".sq-schema").width;
+  dragTo($(".sq-gutter-x"), R(".sq").left + 320, 400);
+  ok("schema resizes", Math.abs(R(".sq-schema").width - 320) < 8, `(${Math.round(sw)} → ${Math.round(R(".sq-schema").width)})`);
+  dragTo($(".sq-gutter-y"), 900, R(".sq-editor").top + 260);
+  ok("editor resizes", Math.abs(R(".sq-editor").height - 256) < 12, `(${Math.round(R(".sq-editor").height)}px)`);
+  const schemaBtn = [...document.querySelectorAll(".sq-btn")].find((b) => b.textContent === "Schema");
+  schemaBtn.click(); ok("schema hides", $(".sq-schema").hidden); schemaBtn.click(); ok("schema shows", !$(".sq-schema").hidden);
+  ed.value = "SELECT 1 AS one;\nSELECT 2 AS two;"; ed.focus(); ed.setSelectionRange(0, 16); ed.dispatchEvent(new Event("select"));
+  const runBtn = $(".sq-primary");
+  ok("button says Run selection", runBtn.textContent === "Run selection");
+  runBtn.click(); ok("runs only the selection", document.querySelectorAll(".sq-block").length === 1 && /one/.test($(".sq-result").textContent));
+  ed.setSelectionRange(0, 0); runBtn.click(); ok("runs everything without a selection", document.querySelectorAll(".sq-block").length === 2);
+  ed.value = "SELECT 'draft kept';"; ed.dispatchEvent(new Event("input")); await sleep(500);
+  ed.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", altKey: true, bubbles: true }));
+  ok("Alt+Up recalls history", ed.value.startsWith("SELECT 1 AS one"));
+  ed.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", altKey: true, bubbles: true }));
+  ed.value = "SELECT 'draft kept';"; ed.dispatchEvent(new Event("input")); await sleep(500);
+  location.hash = "#/"; await sleep(150); location.hash = `#/c/${id}`; await until(() => $(".sq-editor"));
+  ok("draft restored after navigation", $(".sq-editor").value === "SELECT 'draft kept';", `"${$(".sq-editor").value.slice(0, 30)}"`);
+  ok("panel sizes remembered", Math.abs(R(".sq-schema").width - 320) < 8 && Math.abs(R(".sq-editor").height - 256) < 12);
+  [...document.querySelectorAll(".sq-btn")].find((b) => b.textContent === "Starter query").click();
+  ok("starter query restores", $(".sq-editor").value.startsWith("SHOW TABLES"));
+} else {
+  const tk = [...document.querySelectorAll(".ws-actions button")].find((b) => /Toolkit/.test(b.textContent));
+  tk.click(); const grip = await until(() => $(".drawer-grip"));
+  const d0 = R(".drawer").width; dragTo(grip, R(".drawer").right - 600, 300);
+  ok("toolkit drawer resizes", Math.abs(R(".drawer").width - 600) < 12, `(${Math.round(d0)} → ${Math.round(R(".drawer").width)})`);
+}
+log.push(`errors=${JSON.stringify(errors)}`);
+const pre = document.createElement("pre"); pre.id = "e2e"; pre.textContent = "E2E-BEGIN\n" + log.join("\n") + "\nE2E-END"; document.body.append(pre);

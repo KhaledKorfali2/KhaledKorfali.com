@@ -69,3 +69,20 @@
 .soon-card h3 .ico { color: var(--text-3); }
 .soon-card p { margin-top: 8px; color: var(--text-2); font-size: 14px; }
 .soon-tag { margin-left: auto; font: 500 11px var(--mono); color: var(--text-3); border: 1px solid var(--line-2); border-radius: 5px; padding: 1px 6px; text-transform: uppercase; letter-spacing: .06em; }
+
+/* ── resizable console panels ── */
+.sq-schema { flex: 0 0 210px; min-width: 0; }
+.sq-editor { resize: none; }
+.sq-gutter { flex: 0 0 5px; background: var(--line); touch-action: none; transition: background .12s; }
+.sq-gutter-x { cursor: col-resize; }
+.sq-gutter-y { cursor: row-resize; }
+.sq-gutter:hover, .sq-gutter.is-dragging { background: var(--accent-line); }
+.sq-top { border-bottom: 0; }
+.sq-bar { flex-wrap: wrap; row-gap: 6px; }
+.sq-btn[aria-pressed="true"] { color: var(--text); border-color: var(--text-3); }
+.sq-keys { margin-left: auto; text-align: right; }
+@container (max-width: 620px) {
+  .sq-gutter-x { display: none; }
+  .sq-schema { flex: none !important; }
+  .sq-keys { display: none; }
+}

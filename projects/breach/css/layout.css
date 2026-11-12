@@ -1,0 +1,61 @@
+/* Workspace layout (js/layout.js): resizable, collapsible, rearrangeable panes.
+   Shared verbatim by Breach and Quarry. Narrow screens keep the tabbed layout. */
+.lay-menu, .lay-gutter, .lay-min { display: none; }
+body.is-resizing { user-select: none; -webkit-user-select: none; }
+body.is-resizing iframe { pointer-events: none; }
+.crumbs-nav { display: inline-flex; gap: 10px; margin-left: auto; }
+.crumbs-nav a { color: var(--text-2); }
+.crumbs-nav span { color: var(--text-3); opacity: .5; }
+
+@media (min-width: 901px) {
+  .split.lay { display: flex; }
+  .split.lay[data-pos="left"] { flex-direction: row; }
+  .split.lay[data-pos="right"] { flex-direction: row-reverse; }
+  .split.lay[data-pos="top"] { flex-direction: column; }
+  .split.lay[data-pos="bottom"] { flex-direction: column-reverse; }
+  .split.lay > .brief { flex: 0 0 var(--lay-size, 39%); min-width: 0; min-height: 0; border-right: 0; }
+  .split.lay > .workspace { flex: 1 1 0; }
+  .split.lay[data-collapsed="lesson"] > .brief, .split.lay[data-collapsed="work"] > .workspace { display: none; }
+  .split.lay[data-collapsed="work"] > .brief { flex: 1 1 0; }
+  .split.lay[data-collapsed="work"] > .brief > * { max-width: 860px; margin-left: auto; margin-right: auto; }
+
+  /* a short lesson pane (top/bottom) has no room for a pinned flag box */
+  .split.lay[data-pos="top"] .submit, .split.lay[data-pos="bottom"] .submit { position: static; }
+
+  .lay-gutter { display: flex; align-items: center; justify-content: center; flex: 0 0 7px; position: relative; background: var(--line); cursor: col-resize; touch-action: none; transition: background .12s; }
+  .split.lay[data-pos="top"] > .lay-gutter, .split.lay[data-pos="bottom"] > .lay-gutter { cursor: row-resize; }
+  .lay-gutter::before { content: ""; width: 3px; height: 34px; border-radius: 2px; background: var(--line-2); }
+  .split.lay[data-pos="top"] > .lay-gutter::before, .split.lay[data-pos="bottom"] > .lay-gutter::before { width: 34px; height: 3px; }
+  .lay-gutter:hover, .lay-gutter.is-dragging, .lay-gutter:focus-visible { background: var(--accent-line); outline: none; border-radius: 0; }
+  .lay-gutter:hover::before, .lay-gutter.is-dragging::before, .lay-gutter:focus-visible::before { background: var(--accent); }
+  /* a hidden pane leaves a rail you can click (or drag) to bring it back */
+  .split.lay:not([data-collapsed="none"]) > .lay-gutter { flex-basis: 30px; background: var(--panel-2); }
+  .split.lay:not([data-collapsed="none"]) > .lay-gutter::before { display: none; }
+  .lay-restore { border: 0; background: transparent; color: var(--text-2); font: 600 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 14px 6px; writing-mode: vertical-rl; white-space: nowrap; border-radius: 6px; }
+  .split.lay[data-pos="top"] .lay-restore, .split.lay[data-pos="bottom"] .lay-restore { writing-mode: horizontal-tb; padding: 4px 14px; }
+  .lay-restore:hover { color: var(--accent); background: var(--accent-soft); }
+
+  .lay-min { display: inline-flex; align-items: center; justify-content: center; }
+  .crumbs .lay-min { margin-left: 10px; width: 24px; height: 22px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--text-3); }
+  .crumbs .lay-min:hover { color: var(--text); border-color: var(--line-2); }
+  .crumbs { align-items: center; }
+
+  .lay-menu { display: block; position: relative; }
+  .lay-toggle { display: inline-flex; align-items: center; gap: 6px; }
+  .lay-panel { position: absolute; right: 0; top: calc(100% + 10px); z-index: 40; width: 300px; padding: 14px; display: grid; gap: 12px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: var(--r-lg); box-shadow: 0 18px 50px -12px rgba(0, 0, 0, .7); }
+  .lay-group { display: grid; gap: 6px; }
+  .lay-label { font: 600 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+  .lay-seg { display: flex; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; }
+  .lay-seg button { flex: 1; padding: 6px 4px; border: 0; border-left: 1px solid var(--line-2); background: transparent; color: var(--text-2); font-size: 12.5px; white-space: nowrap; }
+  .lay-seg button:first-child { border-left: 0; }
+  .lay-seg button:hover { background: var(--panel-3); color: var(--text); }
+  .lay-seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .lay-reset { justify-self: start; }
+  .lay-tip { color: var(--text-3); font-size: 12px; line-height: 1.45; }
+}
+
+/* Breach toolkit drawer: draggable left edge */
+.drawer { position: relative; flex-shrink: 0; }
+.drawer-grip { position: absolute; left: -3px; top: 0; bottom: 0; width: 7px; cursor: col-resize; touch-action: none; z-index: 2; }
+.drawer-grip:hover, .drawer-grip.is-dragging { background: var(--accent-line); }
+@media (max-width: 900px) { .drawer { position: absolute; width: 100% !important; } .drawer-grip { display: none; } }

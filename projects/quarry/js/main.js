@@ -1,6 +1,7 @@
 // Quarry: router and views (map, challenge, reference, roadmap).
 import { el, icon, ICONS, md, toast } from "./ui.js";
 import * as store from "./store.js";
+import { initLayout } from "./layout.js";
 import { makeCtx, checkFlag } from "./flags.js";
 import { TRACKS, COURSES, UPCOMING, ALL, byId, trackOf, isUnlocked } from "./challenges/index.js";
 import { REFERENCE, SANDBOX } from "./reference.js";
@@ -116,6 +117,7 @@ async function viewChallenge(c) {
   const flagCtx = makeCtx(store.seed(), c);
   const idx = track.list.indexOf(c);
   const next = track.list[idx + 1] || TRACKS[TRACKS.indexOf(track) + 1]?.list[0];
+  const prev = track.list[idx - 1];
 
   // ── brief (left) ──
   const hintsBox = el("div", { class: "hints" });
@@ -164,7 +166,10 @@ async function viewChallenge(c) {
   }
 
   const brief = el("section", { class: "brief", "aria-label": "Briefing" },
-    el("nav", { class: "crumbs" }, el("a", { href: "#/", text: "Map" }), el("span", { text: "/" }), el("span", { text: track.title })),
+    el("nav", { class: "crumbs" }, el("a", { href: "#/", text: "Map" }), el("span", { text: "/" }), el("span", { text: track.title }),
+      el("span", { class: "crumbs-nav" },
+        prev ? el("a", { href: `#/c/${prev.id}`, title: `Previous: ${prev.title}`, text: "‹ Prev" }) : null,
+        next && unlocked(next) ? el("a", { href: `#/c/${next.id}`, title: `Next: ${next.title}`, text: "Next ›" }) : next ? el("span", { title: "Solve this challenge to unlock the next one", text: "Next ›" }) : null)),
     el("h1", { text: c.title }),
     el("div", { class: "meta" }, pips(c.level), el("span", { class: "mono", text: `~${c.time} min` }), c.tags.map((x) => el("span", { class: "cert-chip", text: x }))),
     el("div", { class: "objective" }, icon(ICONS.flag, 16), el("p", { text: c.objective })),
@@ -214,7 +219,8 @@ async function viewChallenge(c) {
   const layout = el("div", { class: "split", dataset: { pane: "brief" } }, brief, workspace);
   main.replaceChildren(el("div", { class: "challenge" }, tabs, layout));
   if (store.isSolved(c.id)) showSolved(false);
-  cleanup = () => { gen++; engineCleanup?.(); };
+  const stopLayout = initLayout({ split: layout, brief, workspace, key: "quarry.layout", workLabel: "Console" });
+  cleanup = () => { gen++; stopLayout(); engineCleanup?.(); };
   await restart();
 }
 
