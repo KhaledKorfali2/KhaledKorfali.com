@@ -189,8 +189,8 @@ async function viewChallenge(c) {
     toast,
     reveal(flag) {
       reveal.hidden = false;
-      reveal.replaceChildren(icon(ICONS.flag, 16), el("span", { text: `Objective met. Your flag: ${flag}` }),
-        store.isSolved(c.id) ? null : el("button", { type: "button", class: "btn btn-sm", text: "Capture flag", on: { click: () => { answer.value = flag; layout.dataset.pane = "brief"; syncTabs(); submit(); } } }));
+      reveal.replaceChildren(...[icon(ICONS.flag, 16), el("span", { text: `Objective met. Your flag: ${flag}` }),
+        store.isSolved(c.id) ? null : el("button", { type: "button", class: "btn btn-sm", text: "Capture flag", on: { click: () => { answer.value = flag; layout.dataset.pane = "brief"; syncTabs(); submit(); } } })].filter(Boolean));
     },
   };
   let engineCleanup = null, gen = 0;
