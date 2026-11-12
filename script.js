@@ -37,6 +37,13 @@ const projects = [
     category: "programming"
   },
   {
+    name: "Datum",
+    description: "Learn CAD by building the part: sketch, extrude, cut, fillet and shell on a real CAD kernel until your solid matches the target, then export it for 3D printing.",
+    image: "screenshots/datum.webp",
+    path: "./projects/datum/index.html",
+    category: "programming"
+  },
+  {
     name: "Vim System",
     description: "An interactive course that teaches Vim motions and operators in the browser.",
     image: "screenshots/vim-sim.webp",
