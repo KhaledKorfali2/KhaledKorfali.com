@@ -10,6 +10,7 @@ const ENGINES = {
   browser: () => import("./engines/browser.js"),
   files: () => import("./engines/files.js"),
   pcap: () => import("./engines/pcap.js"),
+  sql: () => import("./engines/sql.js"),
 };
 let cleanup = null;
 
@@ -241,8 +242,8 @@ async function viewChallenge(c) {
   await restart();
   cleanup = () => engineCleanup?.();
 }
-const wsName = (t) => ({ terminal: "Terminal", browser: "Browser", files: "Evidence", pcap: "Packet capture", stack: "Memory", custom: "Target" })[t] || "Target";
-const wsIcon = (t) => ({ terminal: ICONS.term, browser: ICONS.globe, files: ICONS.file, pcap: ICONS.wave, stack: ICONS.chip })[t] || ICONS.flag;
+const wsName = (t) => ({ terminal: "Terminal", browser: "Browser", files: "Evidence", pcap: "Packet capture", sql: "Database console", stack: "Memory", custom: "Target" })[t] || "Target";
+const wsIcon = (t) => ({ terminal: ICONS.term, browser: ICONS.globe, files: ICONS.file, pcap: ICONS.wave, sql: ICONS.db, stack: ICONS.chip })[t] || ICONS.flag;
 
 /* ───────────── Toolkit page ───────────── */
 function viewTools() {

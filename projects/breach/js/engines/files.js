@@ -2,7 +2,8 @@
 // All file content is untrusted-ish and goes into the DOM as text only.
 import { el } from "../ui.js";
 
-const KIND_LABEL = { text: "TXT", log: "LOG", hex: "HEX", image: "IMG", email: "EML" };
+// "code" is the numbered, filterable line view (same renderer as log) for source and disassembly.
+const KIND_LABEL = { text: "TXT", log: "LOG", code: "SRC", hex: "HEX", image: "IMG", email: "EML" };
 
 /* ── byte / text helpers ─────────────────────────────────────────── */
 export function toBytes(data) {
@@ -105,7 +106,7 @@ export function mount(host, env, api = {}) {
       dataset: { kind: f.kind || "text" }, title: f.name,
       on: { click: () => open(i) },
     },
-    el("span", { class: "fv-kind", text: KIND_LABEL[f.kind] || "FILE" }),
+    el("span", { class: "fv-kind", text: f.label || KIND_LABEL[f.kind] || "FILE" }),
     el("span", { class: "fv-name", text: f.name || `file ${i + 1}` })));
   list.append(...buttons);
 
@@ -456,3 +457,4 @@ const RENDER = {
     return { nodes: [el("div", { class: "fv-body fv-mail" }, auth, chain, hdrs, bodyBox)] };
   },
 };
+RENDER.code = RENDER.log;

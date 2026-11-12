@@ -336,7 +336,7 @@ export function mount(host, env, api = {}) {
     return d;
   }
   function renderDetails(p) {
-    const stack = ["eth", "ip", p.transport && p.transport.toLowerCase(), !["TCP", "UDP"].includes(p.proto) && p.proto.toLowerCase()].filter(Boolean);
+    const stack = ["eth", p.proto === "ARP" ? null : "ip", p.transport && p.transport.toLowerCase(), !["TCP", "UDP"].includes(p.proto) && p.proto.toLowerCase()].filter(Boolean);
     const parts = [
       node(`Frame ${p.no}: ${p.len} bytes on wire (${p.len * 8} bits)`, [
         `Frame Number: ${p.no}`,
@@ -344,7 +344,15 @@ export function mount(host, env, api = {}) {
         `Frame Length: ${p.len} bytes`,
         `Protocols in frame: ${stack.join(":")}`,
       ]),
-      node(`Internet Protocol Version 4, Src: ${p.src}, Dst: ${p.dst}`, [
+      p.proto === "ARP" ? node("Address Resolution Protocol", [
+        `Hardware type: Ethernet (1)`,
+        `Protocol type: IPv4 (0x0800)`,
+        `Opcode: ${/reply|is at/i.test(p.info || "") ? "reply (2)" : "request (1)"}`,
+        `Sender MAC address: ${p.smac || "?"}`,
+        `Sender IP address: ${p.src}`,
+        `Target MAC address: ${p.tmac || "00:00:00:00:00:00"}`,
+        `Target IP address: ${p.dst}`,
+      ], true) : node(`Internet Protocol Version 4, Src: ${p.src}, Dst: ${p.dst}`, [
         `Source Address: ${p.src}`,
         `Destination Address: ${p.dst}`,
         `Protocol: ${p.transport || p.proto} (${IP_NUM[p.transport || p.proto] ?? "?"})`,

@@ -7,9 +7,14 @@ import pki from "./pki.js";
 import web from "./web.js";
 import iam from "./iam.js";
 import appsec from "./appsec.js";
+import parse from "./parse.js";
+import db from "./db.js";
+import mem from "./mem.js";
+import asm from "./asm.js";
 import cloud from "./cloud.js";
 import osint from "./osint.js";
 import net from "./net.js";
+import pkt from "./pkt.js";
 import threats from "./threats.js";
 import blue from "./blue.js";
 import grc from "./grc.js";
@@ -21,9 +26,14 @@ export const TRACKS = [
   { id: "web", title: "Web Recon & Client Trust", icon: "globe", blurb: "Read what a website really sends you: source, cookies, tokens and the mistake of trusting the browser.", list: web },
   { id: "iam", title: "Identity & Access", icon: "lock", blurb: "How systems prove who you are and limit what you can do: factors and MFA, password storage, least privilege, sessions.", list: iam },
   { id: "appsec", title: "Secure Coding & Review", icon: "file", blurb: "Read code and config like a reviewer: find the hardcoded secret, the vulnerable dependency, the missing validation.", list: appsec },
+  { id: "parse", title: "Parsing, Cleaning & Validation", icon: "code", blurb: "Where most bugs begin: reading text you didn't write. Regex, anchored allow-lists, decoding order, log and CSV hygiene, Unicode lookalikes.", list: parse },
+  { id: "db", title: "Databases & SQL", icon: "db", blurb: "Query data like an investigator in a live SQL console, then review injection, statement logs and PostgreSQL access rules.", list: db },
+  { id: "mem", title: "Memory Safety & C", icon: "chip", blurb: "Learn to read C through the bugs it makes possible: over-reads, buffer overflows, integer wraparound, format strings, use-after-free and leaks.", list: mem },
+  { id: "asm", title: "Assembly & Reverse Engineering", icon: "term", blurb: "Read what the compiler really produced: registers, Intel and AT&T syntax, stack frames, calling conventions, branches, loops, mitigations and ARM.", list: asm },
   { id: "cloud", title: "Cloud & Hardening", icon: "shield", blurb: "The cloud's own failure modes: open buckets, over-broad IAM policies, posture findings and leaked-key abuse in audit logs.", list: cloud },
   { id: "osint", title: "Recon & Social Engineering", icon: "map", blurb: "The human and open-source attack surface: metadata leaks, lookalike domains, reused passwords and the social-engineering playbook.", list: osint },
   { id: "net", title: "Networks & Packet Analysis", icon: "wave", blurb: "Read packet captures like an analyst: follow a conversation, spot cleartext credentials, trace what happened.", list: net },
+  { id: "pkt", title: "Packets, Byte by Byte", icon: "wave", blurb: "Open the envelope: raw headers, byte order, TCP flags, sequence numbers, TTL, ARP, and what happens when code trusts a length field.", list: pkt },
   { id: "threats", title: "Threats & Detection", icon: "chip", blurb: "Spot the attacker in the noise: decode payloads, match indicators, catch C2 beaconing and map it to ATT&CK.", list: threats },
   { id: "blue", title: "Forensics & Defense", icon: "shield", blurb: "Investigate logs, phishing emails and hidden data to reconstruct an incident, the way a SOC analyst does.", list: blue },
   { id: "grc", title: "Governance & Risk", icon: "map", blurb: "The management side the big certifications test: risk maths, access-control models, policy and incident response.", list: grc },
