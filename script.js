@@ -30,6 +30,13 @@ const projects = [
     category: "simulation"
   },
   {
+    name: "Quarry",
+    description: "Learn databases by doing: write real SQL in a live MySQL-style console and capture a flag for every skill, from your first SELECT to joins, window functions, schema design, indexes and production data fixes.",
+    image: "screenshots/quarry.webp",
+    path: "./projects/quarry/index.html",
+    category: "programming"
+  },
+  {
     name: "Vim System",
     description: "An interactive course that teaches Vim motions and operators in the browser.",
     image: "screenshots/vim-sim.webp",
