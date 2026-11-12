@@ -101,7 +101,8 @@
     renderWidget: (key, state, context) => (context === "sandbox" ? window.VimWidgets.renderSandboxWidget(key) : window.VimWidgets.renderLessonWidget(key)),
     homeStats: (state) => [
       { label: "games won", value: Object.keys(state.gameBestScores).length }
-    ]
+    ],
+    saveImmediatelyOn: ["gameBestScores", "golfBestScores"]
   });
 
   window.Engine = Engine;

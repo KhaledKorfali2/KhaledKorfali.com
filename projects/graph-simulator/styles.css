@@ -6,7 +6,7 @@
   --bg3:       #111827;
   --border:    #1e2d45;
   --text:      #c8d8f0;
-  --muted:     #3a5070;
+  --muted:     #6382ae;
   --accent:    #38bdf8;
   --accent2:   #f59e0b;
   --danger:    #f87171;
@@ -290,7 +290,7 @@ body {
 #badge-space::before   { content: 'S'; }
 #badge-optimal::before { content: '★'; }
 #algo-desc {
-  font-size: 0.74rem; line-height: 1.65; color: #4a6080;
+  font-size: 0.74rem; line-height: 1.65; color: #6f8bb3;
   flex-shrink: 0; overflow-y: auto; max-height: 130px;
 }
 #step-log-wrap { display: flex; flex-direction: column; gap: 5px; flex: 1; min-height: 0; }

@@ -41,7 +41,7 @@ let paused = false;
 const foodParticles = [];          // { x, y, life }
 const FOOD_RADIUS   = 4;
 const FOOD_EAT_R2   = 10 * 10;    // fish eats food within 10px
-const FOOD_LIFETIME = 600;         // frames before it dissolves on its own
+const FOOD_LIFETIME = 600;         // sim steps (60/s) before it dissolves on its own
 
 // ══════════════════════════════════════════════════════════════════════════════
 // COLOUR PALETTE SYSTEM
@@ -342,7 +342,80 @@ function drawBarriers() {
 // ══════════════════════════════════════════════════════════════════════════════
 const EYE_HALF = EYE_SIZE / EYE_SCALE / 2;
 
-function draw() {
+// Fixed timestep: the flock advances 60 steps per second whatever the display
+// refresh rate is (a 144 Hz screen used to run it 2.4x faster).
+const STEP_MS   = 1000 / 60;
+const MAX_STEPS = 4;          // most catch-up steps in one frame
+let clockTs = -1, clockAcc = 0;
+
+// Number of simulation steps owed for the frame at timestamp `ts`.
+function stepsDue(ts) {
+  let dt = clockTs < 0 ? STEP_MS : ts - clockTs;
+  clockTs = ts;
+  if (Math.abs(dt - STEP_MS) < 1) dt = STEP_MS;   // ~60 Hz display: exactly one step per frame
+  clockAcc += dt;
+  let n = Math.floor(clockAcc / STEP_MS + 1e-6);
+  if (n > MAX_STEPS) { n = MAX_STEPS; clockAcc = 0; }   // long stall / background tab: drop the backlog
+  else clockAcc -= n * STEP_MS;
+  return n;
+}
+
+// ── One simulation step: age food, steer and move every boid ────────────────
+function stepSim() {
+  for (let i = foodParticles.length - 1; i >= 0; i--) {
+    if (--foodParticles[i].life <= 0) foodParticles.splice(i, 1);
+  }
+
+  buildSpatialGrid();
+
+  for (let i = 0, len = flock.length; i < len; i++) {
+    const boid       = flock[i];
+    const candidates = getCandidates(boid);
+
+    boid.flock(candidates);
+
+    // Food seeking
+    boid.seekFood(foodParticles);
+
+    // Eat nearby food
+    for (let fi = foodParticles.length - 1; fi >= 0; fi--) {
+      const fd = foodParticles[fi];
+      const edx = boid.position.x - fd.x, edy = boid.position.y - fd.y;
+      if (edx * edx + edy * edy < FOOD_EAT_R2) { foodParticles.splice(fi, 1); break; }
+    }
+
+    const hits = getBarrierNeighbours(boid);
+    const hl   = hits.length;
+    if (hl > 0) {
+      let bsx = 0, bsy = 0;
+      for (let j = 0; j < hl; j += 2) {
+        const dx = boid.position.x - hits[j], dy = boid.position.y - hits[j+1];
+        const dist = Math.sqrt(dx*dx+dy*dy) || 0.001;
+        bsx += dx/(dist*dist); bsy += dy/(dist*dist);
+      }
+      const mag = Math.sqrt(bsx*bsx+bsy*bsy)||1;
+      const nx=(bsx/mag)*boid.maxSpeed, ny=(bsy/mag)*boid.maxSpeed;
+      const mf3=boid.maxForce*3, force=2.2;
+      boid.acceleration.x += Math.min(Math.max((nx-boid.velocity.x)*force,-mf3),mf3);
+      boid.acceleration.y += Math.min(Math.max((ny-boid.velocity.y)*force,-mf3),mf3);
+    }
+
+    boid.edges();
+    boid.update();
+  }
+}
+
+function draw(ts) {
+  requestAnimationFrame(draw);
+
+  const steps = stepsDue(ts);   // keep the clock running while paused so resuming doesn't burst
+  if (!paused) {
+    // On displays faster than 60 Hz some frames have no step due; nothing has
+    // moved, so leave the previous frame on screen.
+    if (steps === 0) return;
+    for (let s = 0; s < steps; s++) stepSim();
+  }
+
   const w = viewW, h = viewH;
 
   ctx.fillStyle = useTrail ? _trailColor : bgColor;
@@ -350,11 +423,9 @@ function draw() {
 
   drawBarriers();
 
-  // ── Age & draw food ───────────────────────────────────────────────────────
-  for (let i = foodParticles.length - 1; i >= 0; i--) {
+  // ── Draw food ─────────────────────────────────────────────────────────────
+  for (let i = 0; i < foodParticles.length; i++) {
     const f = foodParticles[i];
-    if (!paused) f.life--;
-    if (f.life <= 0) { foodParticles.splice(i, 1); continue; }
     const alpha = Math.min(1, f.life / 40);
     ctx.beginPath();
     ctx.arc(f.x, f.y, FOOD_RADIUS, 0, 6.2832);
@@ -367,47 +438,11 @@ function draw() {
     ctx.stroke();
   }
 
-  buildSpatialGrid();
   clearBatches();
 
-  // ── Physics pass ─────────────────────────────────────────────────────────
+  // ── Body outlines + colour batching ───────────────────────────────────────
   for (let i = 0, len = flock.length; i < len; i++) {
-    const boid       = flock[i];
-
-    if (!paused) {
-      const candidates = getCandidates(boid);
-
-      boid.flock(candidates);
-
-      // Food seeking
-      boid.seekFood(foodParticles);
-
-      // Eat nearby food
-      for (let fi = foodParticles.length - 1; fi >= 0; fi--) {
-        const fd = foodParticles[fi];
-        const edx = boid.position.x - fd.x, edy = boid.position.y - fd.y;
-        if (edx * edx + edy * edy < FOOD_EAT_R2) { foodParticles.splice(fi, 1); break; }
-      }
-
-      const hits = getBarrierNeighbours(boid);
-      const hl   = hits.length;
-      if (hl > 0) {
-        let bsx = 0, bsy = 0;
-        for (let j = 0; j < hl; j += 2) {
-          const dx = boid.position.x - hits[j], dy = boid.position.y - hits[j+1];
-          const dist = Math.sqrt(dx*dx+dy*dy) || 0.001;
-          bsx += dx/(dist*dist); bsy += dy/(dist*dist);
-        }
-        const mag = Math.sqrt(bsx*bsx+bsy*bsy)||1;
-        const nx=(bsx/mag)*boid.maxSpeed, ny=(bsy/mag)*boid.maxSpeed;
-        const mf3=boid.maxForce*3, force=2.2;
-        boid.acceleration.x += Math.min(Math.max((nx-boid.velocity.x)*force,-mf3),mf3);
-        boid.acceleration.y += Math.min(Math.max((ny-boid.velocity.y)*force,-mf3),mf3);
-      }
-
-      boid.edges();
-      boid.update();
-    }
+    const boid = flock[i];
     computeEdges(boid);
 
     const ci     = Math.min(255, boid.colorT * 255 | 0);
@@ -449,8 +484,6 @@ function draw() {
         EYE_HALF * 2,  EYE_HALF * 2);
     }
   }
-
-  requestAnimationFrame(draw);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -653,7 +686,7 @@ function setup() {
   separationValue.textContent = separationSlider.value;
   velocityValue.textContent   = velocitySlider.value;
   countValue.textContent      = countSlider.value;
-  draw();
+  requestAnimationFrame(draw);
 }
 
 setup();

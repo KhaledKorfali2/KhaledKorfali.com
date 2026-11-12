@@ -48,6 +48,14 @@ let cur = 0, nxt = 1;
 let imgData, pixels;
 let colOrder;
 
+// Redraw bookkeeping: `shown` is the packed RGB last painted for each cell (-1 =
+// unknown), so render() only touches cells whose colour changed. `dirty` means
+// the grid may differ from what is on screen; `settled` means a simulation step
+// would change nothing, so it can be skipped until the next edit.
+let shown;
+let dirty   = true;
+let settled = false;
+
 function allocGrids() {
   total    = cols * rows;
   colOrder = new Uint16Array(cols);
@@ -65,8 +73,9 @@ function allocGrids() {
   pixels  = imgData.data;
   // alpha always 255
   for (let i = 3; i < pixels.length; i += 4) pixels[i] = 255;
-  // fill background
-  for (let i = 0; i < pixels.length; i += 4) pixels[i] = pixels[i+1] = pixels[i+2] = 10;
+  // A resized canvas is blank, so force every cell to be repainted
+  shown = new Int32Array(total).fill(-1);
+  dirty = true; settled = false;
 }
 
 function resetGrids() {
@@ -75,7 +84,7 @@ function resetGrids() {
     VEL [b].fill(0);
     LIFE[b].fill(0);
   }
-  for (let i = 0; i < pixels.length; i += 4) pixels[i] = pixels[i+1] = pixels[i+2] = 10;
+  dirty = true; settled = false;   // next render() repaints the cleared cells
 }
 
 // ── Resize ───────────────────────────────────────────────────
@@ -394,6 +403,7 @@ function stampAt(mc, mr) {
   // Walls and the eraser must be solid; only loose elements get a random scatter.
   const scatter    = selectedType !== T_WALL && selectedType !== 99;
   const surface    = brushMode === "surface" && COLORABLE.has(selectedType);
+  dirty = true; settled = false;
 
   for (let i = -extent; i <= extent; i++) {
     for (let j = -extent; j <= extent; j++) {
@@ -502,6 +512,7 @@ canvas.addEventListener("touchmove",  onPointerMove, { passive: false });
 // ── Simulation ────────────────────────────────────────────────
 function simulate() {
   TYPE[nxt].fill(0);
+  let restless = false;   // anything other than sand / wall present?
 
   for (let r = rows - 1; r >= 0; r--) {
     // Fisher-Yates shuffle column order
@@ -515,6 +526,7 @@ function simulate() {
       const i = idx(c, r);
       const type = TYPE[cur][i];
       if (type === T_EMPTY) continue;
+      if (type !== T_SAND && type !== T_WALL) restless = true;
 
       const vel  = VEL [cur][i];
       const life = LIFE[cur][i];
@@ -538,6 +550,17 @@ function simulate() {
   }
 
   const tmp = cur; cur = nxt; nxt = tmp;
+  dirty = true;
+
+  // Only sand and walls left, and no cell changed: the pile is at rest. Sand
+  // only ever moves downward and its rules depend on occupancy alone, so the
+  // grid stays exactly like this until something is painted, erased or resized.
+  if (!restless) {
+    const a = TYPE[cur], b = TYPE[nxt];
+    let same = true;
+    for (let i = 0; i < total; i++) if (a[i] !== b[i]) { same = false; break; }
+    settled = same;
+  }
 }
 
 function updateSand(c, r, vel, h, s, l) {
@@ -711,8 +734,11 @@ function updateEmber(c, r, life, h, s, l) {
 // ── Render ────────────────────────────────────────────────────
 const BG = 10;
 
+// Repaints only the cells whose colour changed since the last call and pushes
+// just the band of rows that contains them to the canvas.
 function render() {
   let count = 0;
+  let minR = rows, maxR = -1;
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -743,6 +769,12 @@ function render() {
         }
       }
 
+      const packed = (rr << 16) | (gg << 8) | bb;
+      if (shown[gi] === packed) continue;
+      shown[gi] = packed;
+      if (r < minR) minR = r;
+      maxR = r;
+
       const px0 = c * CELL_SIZE, py0 = r * CELL_SIZE;
       for (let dy = 0; dy < CELL_SIZE; dy++) {
         let pi = ((py0+dy) * canvas.width + px0) * 4;
@@ -755,26 +787,56 @@ function render() {
     }
   }
 
-  ctx.putImageData(imgData, 0, 0);
+  if (maxR >= 0) {
+    ctx.putImageData(imgData, 0, 0,
+      0, minR * CELL_SIZE, canvas.width, (maxR - minR + 1) * CELL_SIZE);
+  }
   return count;
 }
 
 // ── Loop ─────────────────────────────────────────────────────
+// Fixed timestep: the simulation advances 60 steps per second whatever the
+// display refresh rate is (a 144 Hz screen used to run it 2.4x faster).
+const STEP_MS   = 1000 / 60;
+const MAX_STEPS = 4;          // most catch-up steps in one frame
+let clockTs = -1, clockAcc = 0;
+
+// Number of simulation steps owed for the frame at timestamp `ts`.
+function stepsDue(ts) {
+  let dt = clockTs < 0 ? STEP_MS : ts - clockTs;
+  clockTs = ts;
+  if (Math.abs(dt - STEP_MS) < 1) dt = STEP_MS;   // ~60 Hz display: exactly one step per frame
+  clockAcc += dt;
+  let n = Math.floor(clockAcc / STEP_MS + 1e-6);
+  if (n > MAX_STEPS) { n = MAX_STEPS; clockAcc = 0; }   // long stall / background tab: drop the backlog
+  else clockAcc -= n * STEP_MS;
+  return n;
+}
+
 let lastTs = performance.now(), frames = 0;
+let particleCount = 0;
 
 function loop(ts) {
+  const steps = stepsDue(ts);   // keep the clock running while paused so resuming doesn't burst
   if (!paused) {
-    // Keep pouring while the pointer is held still (no move events fire then)
-    if (mousePressed && lastPointerCell) stampAt(lastPointerCell.c, lastPointerCell.r);
-    simulate();
+    for (let s = 0; s < steps; s++) {
+      // Keep pouring while the pointer is held still (no move events fire then)
+      if (mousePressed && lastPointerCell) stampAt(lastPointerCell.c, lastPointerCell.r);
+      if (!settled) simulate();
+    }
   }
-  const count = render();
+  // Nothing simulated, painted, cleared or resized since the last frame: the
+  // canvas is already up to date, so skip the redraw entirely.
+  if (dirty) {
+    particleCount = render();
+    dirty = false;
+  }
 
   frames++;
   if (frames >= 30) {
     const fps = Math.round(30000 / (ts - lastTs));
     fpsCounter.textContent      = fps + " fps";
-    particleCounter.textContent = count.toLocaleString() + " particles";
+    particleCounter.textContent = particleCount.toLocaleString() + " particles";
     lastTs = ts; frames = 0;
   }
 

@@ -299,7 +299,7 @@
 
   /* ── Canvas draw — optimised ── */
   var COLORS = {
-    default:  '#2a2a2a',
+    default:  '#666666',
     compare:  '#e8c547',
     swap:     '#f44747',
     write:    '#569cd6',

@@ -69,7 +69,7 @@
   font-size: 0.6rem;
   font-weight: 600;
   letter-spacing: 0.12em;
-  color: rgba(56, 189, 248, 0.6);
+  color: rgba(56, 189, 248, 0.72);
   text-transform: uppercase;
   margin-bottom: 8px;
 }
@@ -168,7 +168,7 @@
   cursor: pointer;
   border: 1px solid #1e3a5f;
   background: #0e1e30;
-  color: #4a7090;
+  color: #5e89ac;
   transition: all 0.15s;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -210,7 +210,7 @@
   border: 1px solid rgba(56,189,248,0.25);
   border-radius: 4px;
   width: 28px; height: 28px;
-  color: rgba(56,189,248,0.5);
+  color: rgba(56,189,248,0.72);
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
@@ -253,7 +253,7 @@
   outline: 2px solid #38bdf8;
   outline-offset: 2px;
 }
-#tut-skip { color: #5a7090; } /* was #3a5070 — too low contrast on #0d1525 */
+#tut-skip { color: #6980a1; } /* was #3a5070 — too low contrast on #0d1525 */
 #tut-skip:hover { color: #8ab0d0; }
 
 /* ── Reduced motion ── */

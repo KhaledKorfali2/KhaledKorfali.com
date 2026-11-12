@@ -58,7 +58,8 @@
     homeStats: (state) => [
       { label: "commits made", value: Object.keys(state.repo.commits).length },
       { label: "branches", value: Object.keys(state.repo.branches).length }
-    ]
+    ],
+    saveImmediatelyOn: ["challengesDone"]
   });
 
   window.Engine = Engine;

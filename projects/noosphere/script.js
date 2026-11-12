@@ -30,11 +30,23 @@
   /* ═══════════════════════════════════════════════
      Canvas
   ═══════════════════════════════════════════════ */
+  // W / H are the canvas size in CSS pixels; all simulation, drawing and
+  // pointer coordinates use them. The backing store is scaled by the device
+  // pixel ratio (capped at 2x for perf) so dots and links stay crisp on
+  // high-density screens.
   var W, H;
+  var needsDraw = true;
   function resize() {
-    W = canvas.width  = window.innerWidth;
-    H = canvas.height = window.innerHeight;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.width  = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     gridDirty = true;
+    needsDraw = true;   // resizing clears the canvas
   }
   // Debounced: re-sampling the word reads back a full-screen bitmap,
   // which is far too expensive to do on every resize event while dragging.
@@ -389,24 +401,32 @@
   var fpsLast  = performance.now();
 
   /* ═══════════════════════════════════════════════
-     Main loop
+     Fixed timestep
+     The physics advances 60 steps per second whatever the display
+     refresh rate is (a 144 Hz screen used to run it 2.4x faster).
   ═══════════════════════════════════════════════ */
-  function tick() {
-    requestAnimationFrame(tick);
-    ctx.clearRect(0, 0, W, H);
+  var STEP_MS   = 1000 / 60;
+  var MAX_STEPS = 4;          // most catch-up steps in one frame
+  var clockTs = -1, clockAcc = 0;
 
-    fpsCount++;
-    var now = performance.now();
-    if (now - fpsLast > 600) {
-      sFps.textContent = Math.round(fpsCount / (now - fpsLast) * 1000);
-      fpsCount = 0;
-      fpsLast  = now;
-    }
+  // Number of simulation steps owed for the frame at timestamp `ts`.
+  function stepsDue(ts) {
+    var dt = clockTs < 0 ? STEP_MS : ts - clockTs;
+    clockTs = ts;
+    if (Math.abs(dt - STEP_MS) < 1) dt = STEP_MS;   // ~60 Hz display: exactly one step per frame
+    clockAcc += dt;
+    var n = Math.floor(clockAcc / STEP_MS + 1e-6);
+    if (n > MAX_STEPS) { n = MAX_STEPS; clockAcc = 0; }   // long stall / background tab: drop the backlog
+    else clockAcc -= n * STEP_MS;
+    return n;
+  }
 
+  /* ═══════════════════════════════════════════════
+     Physics step
+  ═══════════════════════════════════════════════ */
+  function stepPhysics() {
     var n        = particles.length;
     var cx       = W / 2, cy = H / 2;
-    var linkSq   = P.link * P.link;
-    var cellSize = Math.max(P.link, 1);
     var repR     = P.repel;
     var repRSq   = repR * repR;
     var attraR   = repR * 1.4;
@@ -416,9 +436,6 @@
     var damp      = P.damp;
     var isSandbox = MODE === 'sandbox';
 
-    rebuildGrid();
-
-    /* ── Phase 1: physics ── */
     for (var i = 0; i < n; i++) {
       var xi = px[i], yi = py[i];
       var vxi = pvx[i], vyi = pvy[i];
@@ -489,6 +506,38 @@
       pvy[i] = vyi;
     }
 
+    if (vortexOn) { if (--vortexTimer <= 0) vortexOn = false; }
+  }
+
+  /* ═══════════════════════════════════════════════
+     Main loop
+  ═══════════════════════════════════════════════ */
+  function tick(ts) {
+    requestAnimationFrame(tick);
+
+    fpsCount++;
+    var now = performance.now();
+    if (now - fpsLast > 600) {
+      sFps.textContent = Math.round(fpsCount / (now - fpsLast) * 1000);
+      fpsCount = 0;
+      fpsLast  = now;
+    }
+
+    /* ── Phase 1: physics ── */
+    var steps = stepsDue(ts);
+    // On displays faster than 60 Hz some frames have no step due; nothing has
+    // moved, so leave the previous frame on screen.
+    if (steps === 0 && !needsDraw) return;
+    needsDraw = false;
+    for (var s = 0; s < steps; s++) stepPhysics();
+
+    var n        = particles.length;
+    var linkSq   = P.link * P.link;
+    var cellSize = Math.max(P.link, 1);
+
+    ctx.clearRect(0, 0, W, H);
+    rebuildGrid();
+
     /* ── Phase 2: links ── */
     if (!tick.lineBufs) {
       tick.lineBufs = [];
@@ -549,11 +598,9 @@
       ctx.arc(px[i], py[i], particles[i].r, 0, 6.2832);
       ctx.fill();
     }
-
-    if (vortexOn) { if (--vortexTimer <= 0) vortexOn = false; }
   }
 
-  tick();
+  requestAnimationFrame(tick);
 
   /* ═══════════════════════════════════════════════
      Mode switching
@@ -627,7 +674,7 @@
 
   document.getElementById('btn-vortex').addEventListener('click', function () {
     vortexOn    = true;
-    vortexTimer = 120;
+    vortexTimer = 120;   // physics steps (2 s)
   });
 
   document.getElementById('btn-reset').addEventListener('click', function () {

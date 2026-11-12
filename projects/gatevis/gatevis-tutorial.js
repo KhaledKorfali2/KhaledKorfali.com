@@ -25,7 +25,7 @@
             '• <strong>Drag gates</strong> to reposition them — wires follow automatically<br><br>' +
             'Signal colours tell you the live state of every wire:<br>' +
             '<span style="color:#4ee04e">■</span> <strong>Bright green</strong> = HIGH (1) &nbsp; ' +
-            '<span style="color:#1a5a1a">■</span> <strong>Dark green</strong> = LOW (0)',
+            '<span style="color:#217021">■</span> <strong>Dark green</strong> = LOW (0)',
       placement: 'top',
       padding: 0
     },

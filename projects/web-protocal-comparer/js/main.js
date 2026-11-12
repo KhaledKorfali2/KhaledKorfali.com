@@ -3,10 +3,17 @@ import { ICON } from "./util.js";
 import { subscribe, theme, setTheme, doneCount } from "./store.js";
 import { LESSONS } from "./content/lessons.js";
 import * as home from "./views/home.js";
-import * as lesson from "./views/lesson.js";
-import * as lab from "./views/lab.js";
-import * as protocols from "./views/protocols.js";
-import * as quiz from "./views/quiz.js";
+
+// Only the home view is needed for the first screen. The others (the simulator, the protocol
+// reference, the quiz bank) load when first opened, and are fetched ahead of time once the page is idle.
+const lazy = (load) => { let p = null; return () => (p ||= load().catch((e) => { p = null; throw e; })); };
+const VIEWS = {
+  home: () => home,
+  lesson: lazy(() => import("./views/lesson.js")),
+  lab: lazy(() => import("./views/lab.js")),
+  protocols: lazy(() => import("./views/protocols.js")),
+  quiz: lazy(() => import("./views/quiz.js")),
+};
 
 const NAV = [
   { href: "#/", key: "learn", label: "Learn", icon: ICON.learn },
@@ -15,17 +22,17 @@ const NAV = [
   { href: "#/quiz", key: "quiz", label: "Quiz", icon: ICON.quiz },
 ];
 const ROUTES = [
-  { re: /^\/?$/, view: home, nav: "learn" },
-  { re: /^\/learn\/([\w-]+)$/, view: lesson, nav: "learn", param: "id" },
-  { re: /^\/lab$/, view: lab, nav: "lab" },
-  { re: /^\/protocols$/, view: protocols, nav: "protocols" },
-  { re: /^\/protocols\/([\w-]+)$/, view: protocols, nav: "protocols", param: "id" },
-  { re: /^\/glossary$/, view: protocols, nav: "protocols", param: "glossary", value: true },
-  { re: /^\/quiz$/, view: quiz, nav: "quiz" },
+  { re: /^\/?$/, view: "home", nav: "learn" },
+  { re: /^\/learn\/([\w-]+)$/, view: "lesson", nav: "learn", param: "id" },
+  { re: /^\/lab$/, view: "lab", nav: "lab" },
+  { re: /^\/protocols$/, view: "protocols", nav: "protocols" },
+  { re: /^\/protocols\/([\w-]+)$/, view: "protocols", nav: "protocols", param: "id" },
+  { re: /^\/glossary$/, view: "protocols", nav: "protocols", param: "glossary", value: true },
+  { re: /^\/quiz$/, view: "quiz", nav: "quiz" },
 ];
 
 const main = document.getElementById("main");
-let active = null, activeNav = "learn", first = true;
+let active = null, activeNav = "learn", first = true, routeGen = 0;
 
 function renderNav() {
   document.querySelectorAll("[data-nav]").forEach((nav) => {
@@ -42,7 +49,7 @@ function renderNav() {
   });
 }
 
-function route() {
+async function route() {
   const path = (location.hash.replace(/^#/, "") || "/").split("?")[0];
   let match = null; const params = {};
   for (const r of ROUTES) {
@@ -50,16 +57,31 @@ function route() {
     if (m) { match = r; if (r.param) params[r.param] = r.value ?? decodeURIComponent(m[1]); break; }
   }
   if (!match) { location.replace("#/"); return; }
-  if (active?.cleanup) active.cleanup();
+  const mine = ++routeGen;
   activeNav = match.nav;
   renderNav();
+  let view;
+  try {
+    const loaded = VIEWS[match.view]();
+    view = loaded instanceof Promise ? await loaded : loaded;
+  } catch (err) {
+    console.error(err);
+    if (mine !== routeGen) return;
+    if (active?.cleanup) active.cleanup();
+    active = null;
+    main.innerHTML = `<div class="empty" role="alert"><h3>This page didn't load</h3><p>Usually a dropped connection. Your progress is safe.</p><button type="button" class="btn" data-retry-route>Try again</button></div>`;
+    main.querySelector("[data-retry-route]").addEventListener("click", route);
+    return;
+  }
+  if (mine !== routeGen) return;   // the visitor navigated again while this view was loading
+  if (active?.cleanup) active.cleanup();
   main.innerHTML = "";
   const host = document.createElement("div");
   main.appendChild(host);
-  const cleanup = match.view.render(host, params);
-  active = { view: match.view, cleanup };
+  const cleanup = view.render(host, params);
+  active = { view, cleanup };
   const h1 = host.querySelector("h1");
-  document.title = (h1 && match.view !== home ? h1.textContent.trim() + " · " : "") + "Wire";
+  document.title = (h1 && view !== home ? h1.textContent.trim() + " · " : "") + "Wire";
   window.scrollTo(0, 0);
   if (!first) main.focus({ preventScroll: true });
   first = false;
@@ -84,3 +106,5 @@ document.addEventListener("click", (e) => {
 window.addEventListener("hashchange", route);
 subscribe(() => renderNav());
 route();
+// Warm the other views once the first screen is up, so moving between tabs stays instant.
+(window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(() => { for (const k of ["lesson", "lab", "protocols", "quiz"]) VIEWS[k]().catch(() => {}); });

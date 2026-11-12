@@ -10,6 +10,7 @@ export const meta = { id: "postgres", name: "PostgreSQL", prompt: "shop=# ", not
 let libPromise = null;
 export function loadRuntime() {
   if (!libPromise) libPromise = Promise.all([import("../../vendor/pglite/dist/index.js"), import("../../vendor/pglite/dist/vector/index.js")]).then(([a, b]) => ({ PGlite: a.PGlite, vector: b.vector }));
+  libPromise.catch(() => { libPromise = null; });   // so Try again really retries
   return libPromise;
 }
 

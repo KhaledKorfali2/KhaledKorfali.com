@@ -1,7 +1,7 @@
 :root {
   --ink: #1a1a1a;
   --ink-muted: #6b6b6b;
-  --ink-faint: #767676; /* was #b0b0b0 — failed WCAG contrast on white */
+  --ink-faint: #6d6d6d; /* was #b0b0b0 — failed WCAG contrast on white */
   --surface: #faf9f6;
   --surface-card: #ffffff;
   --surface-hover: #f2f0eb;
@@ -11,7 +11,7 @@
   --correct-bg: #d8f0e6;
   --present: #8a6a00;
   --present-bg: #fef3cd;
-  --absent: #6b6b6b;
+  --absent: #686868;
   --absent-bg: #ebebeb;
   --border: rgba(26,26,26,0.1);
   --border-strong: rgba(26,26,26,0.2);

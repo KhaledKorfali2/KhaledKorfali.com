@@ -10,7 +10,7 @@
   --line-2: #2a3846;
   --text: #e6edf3;
   --text-2: #9fb0c0;
-  --text-3: #62707f;
+  --text-3: #7d8c9c;
   --accent: #ff9f5a;
   --accent-2: #ffc59a;
   --accent-ink: #1c0d02;
@@ -183,6 +183,16 @@ a.node:hover { border-color: var(--line-2); background: var(--panel-3); text-dec
 .ws-stage { position: relative; flex: 1; min-height: 0; display: flex; }
 .ws-body { flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .ws-loading { padding: 24px; color: var(--text-3); font-family: var(--mono); }
+.ws-load { flex: 1; display: grid; gap: 14px; place-content: center; justify-items: center; min-height: 220px; padding: 24px; text-align: center; color: var(--text-2); font-size: 14px; }
+.ws-load p { margin: 0; max-width: 46ch; }
+.ws-load-note { color: var(--text-3); font-family: var(--mono); font-size: 12px; min-height: 1.4em; }
+.ws-load-bar { width: min(320px, 70vw); height: 6px; border-radius: 3px; background: var(--line-2); overflow: hidden; }
+.ws-load-bar i { display: block; height: 100%; width: 30%; border-radius: 3px; background: var(--accent); animation: ws-slide 1.3s ease-in-out infinite; }
+.ws-load-bar.is-known i { animation: none; transition: width .2s linear; }
+.ws-load.is-error { color: var(--text); }
+.ws-load.is-error .ws-load-note { color: var(--danger); max-width: 60ch; overflow-wrap: anywhere; }
+@keyframes ws-slide { from { transform: translateX(-110%); } to { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) { .ws-load-bar:not(.is-known) i { animation: none; width: 100%; opacity: .45; } }
 .drawer { width: min(440px, 100%); border-left: 1px solid var(--line); background: var(--panel-2); display: flex; flex-direction: column; min-height: 0; }
 .drawer-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); }
 .drawer-body { flex: 1; overflow-y: auto; padding: 12px; }

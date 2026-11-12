@@ -195,21 +195,48 @@ async function viewChallenge(c) {
     },
   };
   let engineCleanup = null, gen = 0;
+  // Engine start-up: a visible progress bar while it downloads, and a way to retry if it fails.
+  function showLoading(text) {
+    const fill = el("i"), bar = el("div", { class: "ws-load-bar", role: "progressbar", "aria-label": "Loading" }, fill);
+    const note = el("p", { class: "ws-load-note" });
+    ws.replaceChildren(el("div", { class: "ws-load", role: "status" }, el("p", { text }), bar, note));
+    const t0 = Date.now();
+    const slow = setTimeout(() => { if (note.isConnected && !note.textContent) note.textContent = "Still working. On a slow connection the first load can take a minute."; }, 15000);
+    return {
+      progress(frac, label) {
+        if (!bar.isConnected) return;
+        if (frac >= 1) { bar.classList.remove("is-known"); fill.style.width = ""; bar.removeAttribute("aria-valuenow"); note.textContent = label || "Downloaded. Starting…"; return; }
+        bar.classList.add("is-known"); fill.style.width = `${Math.round(frac * 100)}%`; bar.setAttribute("aria-valuenow", String(Math.round(frac * 100)));
+        note.textContent = label || `${Math.round(frac * 100)}%`;
+      },
+      done() { clearTimeout(slow); return Date.now() - t0; },
+    };
+  }
+  function showFailure(what, err) {
+    const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+    const retry = el("button", { type: "button", class: "btn", on: { click: () => restart() } }, icon(ICONS.refresh, 14), "Try again");
+    ws.replaceChildren(el("div", { class: "ws-load is-error", role: "alert" },
+      el("p", { text: `${what} failed to start.${offline ? " You appear to be offline." : " This is usually a dropped connection."}` }),
+      el("p", { class: "ws-load-note", text: String(err && err.message || err) }), retry));
+    retry.focus({ preventScroll: true });
+  }
   async function restart() {
     const mine = ++gen;
     engineCleanup?.(); engineCleanup = null;
     reveal.hidden = true;
-    ws.replaceChildren(el("p", { class: "ws-loading", text: { postgres: "Starting PostgreSQL… (the first time, this downloads the server: about 14 MB)", pandas: "Starting Python and pandas… (the first time, this downloads about 20 MB and takes a few seconds)" }[c.engine] || "Starting the console…" }));
+    const loading = showLoading({ postgres: "Starting PostgreSQL… The first time, this downloads the server (about 14 MB); later visits start from the browser cache.", pandas: "Starting Python and pandas… The first time, this downloads about 20 MB; later visits start from the browser cache." }[c.engine] || "Starting the console…");
     try {
       const mod = await import("./engine/console.js");
       const stage = el("div", { class: "engine-stage" });
       const stop = await mod.mount(stage, { challenge: c, ctx: makeCtx(store.seed(), c), seed: store.seed() }, api);
+      loading.done();
       if (mine !== gen) { stop(); return; }
       ws.replaceChildren(stage);
       engineCleanup = stop;
     } catch (err) {
+      loading.done();
       console.error(err);
-      if (mine === gen) ws.replaceChildren(el("p", { class: "ws-loading", text: `The database failed to start: ${err.message}` }));
+      if (mine === gen) showFailure("The database", err);
     }
   }
 

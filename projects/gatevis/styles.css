@@ -32,13 +32,13 @@
   --gate-or:    #a0e840;
   --gate-not:   #e8c547;
   --gate-nand:  #e07840;
-  --gate-nor:   #e04040;
+  --gate-nor:   #e55e5e;
   --gate-xor:   #40c8e0;
-  --gate-xnor:  #c040e0;
+  --gate-xnor:  #c95be4;
   --gate-buf:   #4ee04e;
 
   --text:       #8acc8a;
-  --text-dim:   #2a6b2a;
+  --text-dim:   #388f38;
   --text-bright:#c0ffc0;
   --mono:       'Share Tech Mono', monospace;
   --display:    'Rajdhani', sans-serif;
@@ -205,7 +205,7 @@ body {
 .gate-icon   { background: var(--p1); border: 1px solid var(--p3); color: var(--p5); }
 .input-icon  { background: #0d1f0d; border: 1px solid var(--p3); color: var(--p5); }
 .clock-icon  { background: #0a1a1f; border: 1px solid #1a4a5a; color: #40c8e0; }
-.output-icon { background: #1f0d0d; border: 1px solid #5a1a1a; color: #e04040; }
+.output-icon { background: #1f0d0d; border: 1px solid #5a1a1a; color: #e55e5e; }
 .led-icon    { background: #1f180d; border: 1px solid #5a4a1a; color: #e8c547; }
 .not-icon    { color: var(--gate-not) !important; border-color: var(--gate-not) !important; }
 .nand-icon   { color: var(--gate-nand) !important; border-color: var(--gate-nand) !important; }
@@ -302,7 +302,7 @@ body {
 }
 #tt-title { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.12em; color: var(--p5); }
 #tt-close {
-  background: none; border: none; color: var(--text-dim); cursor: pointer;
+  background: none; border: none; color: #3e9d3e; cursor: pointer;
   font-size: 0.9rem; padding: 2px 4px; touch-action: manipulation;
 }
 #tt-close:hover { color: var(--p5); }
@@ -389,7 +389,7 @@ body {
 .leg-dot.float { background: var(--sig-float); border: 1px dashed var(--p3); }
 .leg-val { font-family: var(--mono); font-size: 0.65rem; color: var(--text); }
 .how-item {
-  font-family: var(--display); font-size: 0.72rem; color: #4a7a4a;
+  font-family: var(--display); font-size: 0.72rem; color: #518651;
   line-height: 1.5; padding-left: 8px; position: relative;
   margin-bottom: 3px;
 }

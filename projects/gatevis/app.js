@@ -147,14 +147,14 @@
     AND:    { fill:'#061a06', stroke:'#2db82d', label:'#4ee04e' },
     OR:     { fill:'#091a04', stroke:'#7ab820', label:'#a0e840' },
     NOT:    { fill:'#1a1504', stroke:'#b89020', label:'#e8c547' },
-    NAND:   { fill:'#1a0e04', stroke:'#b06030', label:'#e07840' },
-    NOR:    { fill:'#1a0404', stroke:'#b02020', label:'#e04040' },
+    NAND:   { fill:'#1a0e04', stroke:'#ba6533', label:'#e07840' },
+    NOR:    { fill:'#1a0404', stroke:'#dc4040', label:'#ff7a7a' },
     XOR:    { fill:'#041a1a', stroke:'#2098b0', label:'#40c8e0' },
-    XNOR:   { fill:'#100418', stroke:'#8020b0', label:'#c040e0' },
+    XNOR:   { fill:'#100418', stroke:'#ac49de', label:'#dd8cf5' },
     BUFFER: { fill:'#061a06', stroke:'#2db82d', label:'#4ee04e' },
     INPUT:  { fill:'#061806', stroke:'#2db82d', label:'#4ee04e' },
     CLOCK:  { fill:'#04121a', stroke:'#2098b0', label:'#40c8e0' },
-    OUTPUT: { fill:'#1a0606', stroke:'#b02020', label:'#e04040' },
+    OUTPUT: { fill:'#1a0606', stroke:'#dc4040', label:'#ff7a7a' },
     LED:    { fill:'#1a1404', stroke:'#b08820', label:'#e8c547' }
   };
 
@@ -397,7 +397,7 @@
     if (gate.type === 'INPUT' || gate.type === 'CLOCK') {
       var stateFs = Math.max(6, 9 / vp.scale);
       ctx.font      = 'bold ' + stateFs + 'px Share Tech Mono, monospace';
-      ctx.fillStyle = isHigh ? '#4ee04e' : '#1a6b1a';
+      ctx.fillStyle = isHigh ? '#4ee04e' : '#239123';
       ctx.fillText(String(gate.state), r.x + r.w/2, r.y + r.h * 0.78);
 
       /* Clock wave indicator */
@@ -421,7 +421,7 @@
     if (gate.type === 'LED') {
       ctx.beginPath();
       ctx.arc(r.x + r.w/2, r.y + r.h * 0.3, 5 / vp.scale, 0, Math.PI * 2);
-      ctx.fillStyle = isHigh ? '#e8c547' : '#3a2a04';
+      ctx.fillStyle = isHigh ? '#e8c547' : '#805c09';
       if (isHigh) { ctx.shadowColor = '#e8c547'; ctx.shadowBlur = 10/vp.scale; }
       ctx.fill();
       ctx.shadowBlur = 0;
@@ -433,7 +433,7 @@
       var sig  = wire ? wire.signal : 0;
       drawPin(pin.x, pin.y, sig, false);
       /* Short stub line */
-      ctx.strokeStyle = sig ? '#2db82d' : '#1a4a1a';
+      ctx.strokeStyle = sig ? '#2db82d' : '#217021';
       ctx.lineWidth   = 1.5 / vp.scale;
       ctx.beginPath(); ctx.moveTo(pin.x, pin.y); ctx.lineTo(pin.x + 8/vp.scale, pin.y); ctx.stroke();
     });
@@ -442,7 +442,7 @@
     if (gate.type !== 'OUTPUT' && gate.type !== 'LED') {
       var op = getOutputPin(gate);
       drawPin(op.x, op.y, gate.state, true);
-      ctx.strokeStyle = gate.state ? '#2db82d' : '#1a4a1a';
+      ctx.strokeStyle = gate.state ? '#2db82d' : '#217021';
       ctx.lineWidth   = 1.5 / vp.scale;
       ctx.beginPath(); ctx.moveTo(op.x - 8/vp.scale, op.y); ctx.lineTo(op.x, op.y); ctx.stroke();
     }
@@ -453,7 +453,7 @@
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fillStyle   = signal ? '#2db82d' : '#0a2a0a';
-    ctx.strokeStyle = signal ? '#4ee04e' : '#1a5a1a';
+    ctx.strokeStyle = signal ? '#4ee04e' : '#217021';
     ctx.lineWidth   = 1 / vp.scale;
     ctx.fill(); ctx.stroke();
   }
@@ -473,7 +473,7 @@
 
     ctx.save();
     if (isHigh) { ctx.shadowColor = '#2db82d'; ctx.shadowBlur = 6 / vp.scale; }
-    ctx.strokeStyle = isHovered ? '#7dd87d' : isHigh ? '#4ee04e' : '#1a5a1a';
+    ctx.strokeStyle = isHovered ? '#7dd87d' : isHigh ? '#4ee04e' : '#217021';
     ctx.lineWidth   = (isHovered ? 2.5 : isHigh ? 2 : 1.5) / vp.scale;
     ctx.lineJoin    = 'round';
     ctx.beginPath();

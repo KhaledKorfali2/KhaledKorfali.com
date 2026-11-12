@@ -86,7 +86,8 @@
     scrollPreserveSelectors: [".tree-scroll", ".term-history"],
     renderWidget,
     homeStats: (state) => [{ label: "dirs explored", value: M.flatten(state.fs).filter((f) => f.node.type === "dir").length }],
-    beforeSave: (state) => { state.inodeCounter = M.getInodeCounter(); }
+    beforeSave: (state) => { state.inodeCounter = M.getInodeCounter(); },
+    saveImmediatelyOn: ["challengeResult"]
   });
 
   window.Engine = Engine;

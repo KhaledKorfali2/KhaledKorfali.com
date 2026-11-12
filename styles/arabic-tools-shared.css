@@ -2,7 +2,7 @@
 :root {
   --ink: #1a1a1a;
   --ink-muted: #6b6b6b;
-  --ink-faint: #767676; /* was #b0b0b0 — failed WCAG contrast on white */
+  --ink-faint: #6d6d6d; /* was #b0b0b0 — failed WCAG contrast on white */
   --surface: #faf9f6;
   --surface-card: #ffffff;
   --surface-hover: #f2f0eb;

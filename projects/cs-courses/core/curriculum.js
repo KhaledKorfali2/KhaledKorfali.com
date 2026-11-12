@@ -19,6 +19,9 @@
      - homeStats(state)    : optional extra stat pills for the Home dashboard
      - beforeSave(state)   : optional hook to sync any state kept outside `state`
                              (e.g. a module-level id counter) right before saving
+     - saveImmediatelyOn   : optional list of state keys (e.g. solved challenges);
+                             saves are otherwise debounced, but a change to one
+                             of these is written at once
      - scrollPreserveSelectors, brandName/brandTagline/brandIcon, footerNote,
        storageKey, defaultSandboxView, resetExtraWarning, mountId
 
@@ -148,7 +151,42 @@ window.Curriculum = (function () {
     /* --------------------------------- persistence -------------------------------- */
     const storageKey = config.storageKey || "curriculum-progress-v1";
 
-    function saveProgress() { window.Persistence.save(storageKey, engine.state); }
+    // Serialising the whole state on every render made each key press in a
+    // widget pay for a full JSON.stringify + localStorage write. Renders now
+    // only *request* a save: it is written at most once per SAVE_DELAY_MS, and
+    // flushed when the page is hidden or closed, so nothing is lost. Anything
+    // that changes progress (a step marked complete, a checkpoint passed, or a
+    // host field listed in config.saveImmediatelyOn such as solved challenges)
+    // is still written straight away.
+    const SAVE_DELAY_MS = 400;
+    let saveTimer = null;
+    let savePending = false;
+    let lastProgressSig = null;
+
+    function progressSignature() {
+      const st = engine.state;
+      const parts = [st.completed, st.checkpointPassed];
+      (config.saveImmediatelyOn || []).forEach((k) => parts.push(st[k]));
+      try { return JSON.stringify(parts); } catch (e) { return null; }
+    }
+    function cancelPendingSave() {
+      if (saveTimer !== null) { clearTimeout(saveTimer); saveTimer = null; }
+      savePending = false;
+    }
+    function saveProgress() {
+      cancelPendingSave();
+      if (config.beforeSave) config.beforeSave(engine.state);
+      lastProgressSig = progressSignature();
+      return window.Persistence.save(storageKey, engine.state);
+    }
+    function flushPendingSave() { if (savePending) saveProgress(); }
+    function requestSave() {
+      if (progressSignature() !== lastProgressSig) { saveProgress(); return; }
+      savePending = true;
+      if (saveTimer === null) saveTimer = setTimeout(() => { saveTimer = null; flushPendingSave(); }, SAVE_DELAY_MS);
+    }
+    if (window.addEventListener) window.addEventListener("pagehide", flushPendingSave);
+    if (document.addEventListener) document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushPendingSave(); });
     function loadProgress() {
       const saved = window.Persistence.load(storageKey);
       if (!saved || typeof saved !== "object" || Array.isArray(saved)) return false;
@@ -177,14 +215,19 @@ window.Curriculum = (function () {
         }
       }
       engine.state = merged;
+      lastProgressSig = progressSignature();
       return true;
     }
     function resetProgress() {
+      // Drop any save still waiting on the timer first: it holds the state
+      // being thrown away and must not land after the reset.
+      cancelPendingSave();
       window.Persistence.remove(storageKey);
       engine.state = createInitialState();
       render();
+      saveProgress();
     }
-    Object.assign(engine, { saveProgress, loadProgress, resetProgress });
+    Object.assign(engine, { saveProgress, flushPendingSave, loadProgress, resetProgress });
 
     /* ----------------------------------- render ----------------------------------- */
     function renderProgressRing(pct) {
@@ -273,7 +316,7 @@ window.Curriculum = (function () {
         <div class="subsection-head"><span class="s-title">${esc(sub.title)} <span class="kind-badge ${sub.kind}">${sub.kind}</span></span></div>
         <div class="subsection-body">${sub.body}</div>
         ${sub.tryIt ? `<div class="try-it">Try it: ${sub.tryIt}</div>` : ""}
-        ${sub.widget ? `<div class="widget-embed">${config.renderWidget ? config.renderWidget(sub.widget, engine.state, "lesson") : ""}</div>` : ""}
+        ${sub.widget ? `<div class="widget-embed" data-wslot>${widgetSlot(config.renderWidget ? config.renderWidget(sub.widget, engine.state, "lesson") : "")}</div>` : ""}
         <div class="mark-complete-row">
           ${done ? `<span class="done-label">${icon("check", 12)} Completed</span><button class="btn" data-marksub="${key}">Unmark</button>` : `<button class="btn accent" data-marksub="${key}">Mark as complete</button>`}
         </div>
@@ -344,9 +387,18 @@ window.Curriculum = (function () {
       return `
         <div class="breadcrumb"><span>Sandbox</span><span class="sep">/</span><span class="current">${esc(view || "")}</span></div>
         <nav class="nav" style="margin-bottom:16px" aria-label="Sandbox tools">${nav.map((n) => `<button class="nav-btn mono ${view === n.key ? "active" : ""}" data-sandboxview="${esc(n.key)}" ${view === n.key ? `aria-current="page"` : ""}>${icon(n.icon, 12)} ${esc(n.label)}</button>`).join("")}</nav>
-        ${body}
+        <div class="sandbox-body" data-wslot>${widgetSlot(body)}</div>
       `;
     }
+
+    // Widgets are the only part of a view that changes while someone types in
+    // an editor or runs terminal commands. Their HTML is collected here and
+    // the surrounding page ("shell") carries a placeholder instead, so render()
+    // can tell "only a widget changed" apart from "the page changed" and, in
+    // the first case, rewrite just that widget's container.
+    let slotHtml = [];
+    let lastShell = null, lastSlots = null, lastMount = null;
+    function widgetSlot(html) { slotHtml.push(String(html)); return `\u0000w${slotHtml.length - 1}\u0000`; }
 
     function render() {
       const app = document.getElementById(config.mountId || "app");
@@ -359,6 +411,7 @@ window.Curriculum = (function () {
       const refocus = engine.state._focusSelector ? null : focusKeyFor(document.activeElement, app);
 
       let body;
+      slotHtml = [];
       try {
         body = engine.state.mode === "home" ? renderHomeView() : engine.state.mode === "lessons" ? renderLessonsMode() : renderSandboxMode();
       } catch (e) {
@@ -368,6 +421,7 @@ window.Curriculum = (function () {
         // half-built page with no way back in short of manually clearing
         // localStorage themselves.
         console.error("Render failed, offering recovery:", e);
+        slotHtml = [];
         body = `<div class="panel" style="padding:24px">
           <div class="title mono" style="margin-bottom:8px">Something went wrong rendering this view</div>
           <p class="perm-note" style="margin-top:0">This can happen if saved progress is from an older, incompatible version. Resetting progress will fix it.</p>
@@ -375,7 +429,7 @@ window.Curriculum = (function () {
         </div>`;
       }
 
-      app.innerHTML = `
+      const shell = `
         <header class="header">
           <div class="brand-wrap">
             <a class="back-link mono" href="${esc(config.backHref || "/projects.html")}">${icon("chevronLeft", 12)} projects</a>
@@ -389,6 +443,22 @@ window.Curriculum = (function () {
         <footer class="foot">${esc(config.footerNote || "progress saves automatically in this browser")} · <button class="reset-link" data-resetprogress>reset progress</button></footer>
       `;
 
+      // Same page around the widgets as last time: leave it alone (keeping its
+      // focus, scroll and open/closed state) and rewrite only the widget
+      // containers whose HTML actually changed. Anything else is a full rebuild.
+      const active = document.activeElement;
+      const slotEls = shell === lastShell && app === lastMount && lastSlots.length === slotHtml.length && app.querySelectorAll ? app.querySelectorAll("[data-wslot]") : null;
+      if (slotEls && slotEls.length === slotHtml.length) {
+        for (let i = 0; i < slotHtml.length; i++) {
+          if (slotHtml[i] !== lastSlots[i]) slotEls[i].innerHTML = slotHtml[i];
+        }
+      } else {
+        app.innerHTML = shell.replace(/\u0000w(\d+)\u0000/g, (m, i) => slotHtml[+i]);
+      }
+      lastShell = shell; lastSlots = slotHtml; lastMount = app;
+      // Whatever was focused survived untouched: no need to go looking for it.
+      const focusKept = !!active && active !== document.body && document.activeElement === active && app.contains(active);
+
       window.ScrollPreserve.restore(snapshots);
       if (engine.state._stickToBottomSelectors) {
         window.ScrollPreserve.scrollToBottom(engine.state._stickToBottomSelectors);
@@ -397,7 +467,7 @@ window.Curriculum = (function () {
       if (engine.state._focusSelector) {
         window.ScrollPreserve.focus(engine.state._focusSelector);
         engine.state._focusSelector = null;
-      } else if (refocus) {
+      } else if (refocus && !focusKept) {
         window.ScrollPreserve.focus(refocus);
       }
       if (engine.state._skipWindowScrollRestore) {
@@ -406,8 +476,7 @@ window.Curriculum = (function () {
         window.scrollTo(0, savedWindowScroll);
       }
 
-      if (config.beforeSave) config.beforeSave(engine.state);
-      saveProgress();
+      requestSave();
     }
     engine.render = render;
 

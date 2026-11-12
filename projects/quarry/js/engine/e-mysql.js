@@ -2,17 +2,11 @@
 // to the interface the console uses for every engine.
 import { createSession } from "./mysql.js";
 import { buildShop } from "../data/shop.js";
+import { loadSqlJs } from "./sqljs.js";
 
 export const meta = { id: "mysql", name: "MySQL", prompt: "mysql> ", note: "root@shop · MySQL-compatible sandbox", placeholder: "Type SQL here, then press Run (Ctrl+Enter)", sidebar: "shop" };
 
-let sqlPromise = null;
-export function loadRuntime() {
-  if (!sqlPromise) {
-    if (typeof window.initSqlJs !== "function") return Promise.reject(new Error("the database engine script (vendor/sql-wasm.js) did not load"));
-    sqlPromise = window.initSqlJs({ locateFile: (f) => `vendor/${f}` });
-  }
-  return sqlPromise;
-}
+export const loadRuntime = loadSqlJs;
 
 export async function open({ seed, challenge: c, ctx }, SQL) {
   SQL = SQL || await loadRuntime();

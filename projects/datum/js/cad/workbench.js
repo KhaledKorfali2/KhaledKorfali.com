@@ -15,12 +15,37 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 const fmt = (v) => String(round(v, 2));
 
 let modelerPromise = null;
-/** Load the OpenCascade kernel once (a large one-time download, then cached by the browser). */
-export function loadModeler() {
+const KERNEL_BYTES = 22942327;   // size of vendor/replicad_single.wasm (the server may compress it, so Content-Length can't be used)
+let reportProgress = () => {};
+/**
+ * Load the OpenCascade kernel once (a large one-time download, then cached by the browser).
+ * onProgress(fraction 0..1) is called as the download arrives; 1 means "downloaded, now compiling".
+ */
+export function loadModeler(onProgress) {
+  reportProgress = onProgress || (() => {});
   if (!modelerPromise) {
     modelerPromise = (async () => {
       const [{ default: initOC }, R] = await Promise.all([import("../../vendor/replicad_single.js"), import("../../vendor/replicad.js")]);
-      const oc = await initOC({ locateFile: (f) => new URL(`../../vendor/${f}`, import.meta.url).href });
+      const wasmUrl = new URL("../../vendor/replicad_single.wasm", import.meta.url).href;
+      // We fetch the kernel ourselves so the bytes can be counted on their way into the streaming compiler.
+      let fail; const failed = new Promise((_, reject) => { fail = reject; });
+      const oc = await Promise.race([failed, initOC({
+        locateFile: (f) => new URL(`../../vendor/${f}`, import.meta.url).href,
+        instantiateWasm(imports, receive) {
+          (async () => {
+            const res = await fetch(wasmUrl);
+            if (!res.ok) throw new Error(`the CAD kernel could not be downloaded (HTTP ${res.status})`);
+            let got = 0;
+            const counted = res.body.pipeThrough(new TransformStream({
+              transform(chunk, ctl) { got += chunk.byteLength; reportProgress(Math.min(got / KERNEL_BYTES, got < KERNEL_BYTES ? 0.999 : 1)); ctl.enqueue(chunk); },
+              flush() { reportProgress(1); },
+            }));
+            const { instance, module } = await WebAssembly.instantiateStreaming(new Response(counted, { headers: { "Content-Type": "application/wasm" } }), imports);
+            receive(instance, module);
+          })().catch(fail);
+          return {};
+        },
+      })]);
       R.setOC(oc);
       return createModeler(R);
     })();
@@ -74,7 +99,7 @@ function drawingSvg(t) {
 
 /** mount(host, { challenge, ctx, fresh }, api) → cleanup */
 export async function mount(host, { challenge: c, ctx, fresh }, api) {
-  const M = await loadModeler();
+  const M = await loadModeler(api.progress);
   const target = targetFor(M, c);
   const tools = c.tools || ["sketch", "extrude"];
   const sketchTools = ["select", ...(c.sketchTools || ["rect", "circle", "poly", "slot", "path"])];

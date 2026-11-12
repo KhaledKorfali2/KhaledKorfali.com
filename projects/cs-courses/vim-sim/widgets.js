@@ -1123,9 +1123,9 @@ window.VimWidgets = (function () {
       if (target === "main") window.VimGrammar.feedKey(ENGINE, token);
       else if (target === "game") window.VimGames.feedGameKey(ENGINE, token);
       else if (target === "golf") window.VimGolf.feedGolfKey(ENGINE, token);
-      // Every render() rebuilds #app.innerHTML from scratch, which destroys and
-      // recreates this element — without this, focus is silently dropped after
-      // every single keystroke. Opt-in via _focusSelector, per the established
+      // render() rewrites the widget container this element lives in, which
+      // destroys and recreates it — without this, focus is silently dropped
+      // after every single keystroke. Opt-in via _focusSelector, per the established
       // core/curriculum.js pattern (see fs-sim's terminal / git-sim's console).
       ENGINE.state._focusSelector = `[data-vedinput="${target}"]`;
       ENGINE.render();

@@ -2,14 +2,11 @@
 // sqlite3 shell's most useful dot-commands so the console behaves like the CLI.
 import { splitSql, normCell } from "./common.js";
 import { shopTables, insertsFor, SQLITE_SCHEMA } from "../data/shop.js";
+import { loadSqlJs } from "./sqljs.js";
 
 export const meta = { id: "sqlite", name: "SQLite", prompt: "sqlite> ", note: "sqlite3 · shop.db · real SQLite", placeholder: "SELECT … ;   or a dot-command such as .tables", sidebar: "shop.db" };
 
-let sqlPromise = null;
-export function loadRuntime() {
-  if (!sqlPromise) sqlPromise = window.initSqlJs({ locateFile: (f) => `vendor/${f}` });
-  return sqlPromise;
-}
+export const loadRuntime = loadSqlJs;
 
 function raw(db, sql) {
   const st = db.prepare(sql);

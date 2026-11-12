@@ -11,8 +11,8 @@
   --panel-border: rgba(57, 255, 126, 0.14);
 
   --text:         rgba(220, 255, 235, 0.9);
-  --text-muted:   rgba(160, 210, 180, 0.45);
-  --text-dim:     rgba(120, 170, 140, 0.3);
+  --text-muted:   rgba(160, 210, 180, 0.68);
+  --text-dim:     rgba(120, 170, 140, 0.85);
 
   --seg-active-bg:     rgba(57, 255, 126, 0.14);
   --seg-active-border: rgba(57, 255, 126, 0.45);
@@ -120,7 +120,9 @@ html, body {
   align-items: center;
   justify-content: space-between;
   padding: 10px 20px;
-  background: linear-gradient(to bottom, rgba(7,11,9,0.96) 0%, transparent 100%);
+  /* Stays near-opaque behind the title and stats (they sit on top of live
+     cells), then fades out below them */
+  background: linear-gradient(to bottom, rgba(7,11,9,0.96) 0%, rgba(7,11,9,0.93) 78%, transparent 100%);
   pointer-events: none;
 }
 
@@ -646,6 +648,10 @@ html, body {
   transition: opacity 1.5s ease;
   z-index: 10;
   white-space: nowrap;
+  /* Backing pill: this label is overlaid directly on the grid */
+  padding: 4px 10px;
+  border-radius: 100px;
+  background: var(--panel-bg);
 }
 
 #drawHint.hidden { opacity: 0; }
@@ -661,6 +667,10 @@ html, body {
   pointer-events: none;
   z-index: 10;
   text-align: right;
+  /* Backing panel: this label is overlaid directly on the grid */
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  background: var(--panel-bg);
 }
 
 /* ── Keyboard focus ── */

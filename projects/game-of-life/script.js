@@ -47,6 +47,14 @@ const canvas = document.getElementById("canvas");
 const ctx    = canvas.getContext("2d", { alpha: false });
 let imgData, pixels;
 
+// Redraw bookkeeping. `shown` holds the packed RGB last painted for each cell
+// (-1 = unknown) so render() only rewrites cells whose colour changed.
+// `needsRender` is set by anything that can change what the grid looks like;
+// `ghostsFading` is set while death trails may still be visible.
+let shown        = null;
+let needsRender  = true;
+let ghostsFading = false;
+
 function isMobile() { return window.innerWidth <= 768; }
 
 function resizeCanvas() {
@@ -80,6 +88,9 @@ function rebuildImageData() {
   pixels  = imgData.data;
   // Alpha channel is always 255 — set once here.
   for (let i = 3; i < pixels.length; i += 4) pixels[i] = 255;
+  // A resized canvas is blank, so force every cell to be repainted.
+  shown = new Int32Array(cols * rows).fill(-1);
+  needsRender = true;
 }
 
 // ── Rule state ───────────────────────────────────────────────
@@ -167,6 +178,8 @@ function step() {
   // Swap buffers
   const tmp = alive; alive = scratch; scratch = tmp;
   generation++;
+  needsRender  = true;
+  ghostsFading = true;
 }
 
 // ── Colour modes ─────────────────────────────────────────────
@@ -200,7 +213,10 @@ function ghostColor(g) {
 // ── Render ───────────────────────────────────────────────────
 const BG_R = 7, BG_G = 11, BG_B = 9;
 
+// Repaints only the cells whose colour changed since the last call and pushes
+// just the band of rows that contains them to the canvas.
 function render() {
+  let minR = rows, maxR = -1;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const i  = idx(c, r);
@@ -215,6 +231,12 @@ function render() {
         rr = BG_R; gg = BG_G; bb = BG_B;
       }
 
+      const packed = (rr << 16) | (gg << 8) | bb;
+      if (shown[i] === packed) continue;
+      shown[i] = packed;
+      if (r < minR) minR = r;
+      maxR = r;
+
       for (let dy = 0; dy < CELL; dy++) {
         let pi = ((py + dy) * canvas.width + px) * 4;
         for (let dx = 0; dx < CELL; dx++, pi += 4) {
@@ -225,7 +247,10 @@ function render() {
       }
     }
   }
-  ctx.putImageData(imgData, 0, 0);
+  if (maxR >= 0) {
+    ctx.putImageData(imgData, 0, 0,
+      0, minR * CELL, canvas.width, (maxR - minR + 1) * CELL);
+  }
 }
 
 // ── Game loop ─────────────────────────────────────────────────
@@ -248,14 +273,24 @@ function tick(ts) {
       step();
       lastStepTs = ts;
     }
-  } else {
+  } else if (ghostsFading) {
     // Decay ghosts while paused so trails still fade out
+    ghostsFading = false;
     for (let i = 0; i < ghost.length; i++) {
-      if (ghost[i] > 0) ghost[i] = Math.max(0, ghost[i] - 0.04);
+      if (ghost[i] > 0) {
+        ghost[i] = Math.max(0, ghost[i] - 0.04);
+        if (ghost[i] > 0) ghostsFading = true;
+      }
     }
+    needsRender = true;
   }
 
-  render();
+  // Paused with no trails left, or running but between generations: the canvas
+  // is already up to date, so skip the redraw.
+  if (needsRender) {
+    render();
+    needsRender = false;
+  }
 
   // Stats — only update DOM when values change
   if (fpsFrames >= 30) {
@@ -306,6 +341,7 @@ function doClear() {
   alive.fill(0); age.fill(0); ghost.fill(0);
   generation = 0; population = 0;
   lastGen = lastPop = -1; // force stat DOM refresh
+  needsRender = true;
 }
 
 function doRandom() {
@@ -317,6 +353,7 @@ function doRandom() {
     population += alive[i];
   }
   lastPop = -1;
+  needsRender = true;
 }
 
 function setSpeed(fps) {
@@ -331,6 +368,7 @@ function setSpeed(fps) {
 
 function setColour(mode) {
   colourMode = mode;
+  needsRender = true;
   document.querySelectorAll("#colourSeg .seg-btn").forEach(b =>
     b.classList.toggle("active", b.dataset.mode === mode));
   document.querySelectorAll("#colourSegMobile .seg-btn").forEach(b =>
@@ -512,6 +550,7 @@ function stampPattern(name) {
     }
   }
   lastPop = -1;
+  needsRender = true;
 }
 
 // ── Drawing ───────────────────────────────────────────────────
@@ -553,6 +592,8 @@ function drawLine(c0, r0, c1, r1) {
     if (e2 <  dc) { err += dc; r += sr; }
   }
   lastPop = -1; // force stat refresh
+  needsRender  = true;
+  ghostsFading = true;
 }
 
 // FIX: check if the touch target is inside any UI element —
@@ -750,6 +791,7 @@ function handleResize() {
     }
     lastPop = -1;
   }
+  needsRender = true;
 }
 
 // Debounced — mobile URL-bar show/hide fires many resize events.
