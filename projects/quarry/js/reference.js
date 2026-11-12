@@ -148,3 +148,25 @@ docker run --name mysql8 -e MYSQL_ROOT_PASSWORD=dev -p 3306:3306 -d mysql:8
 mysql -h 127.0.0.1 -u root -p
 ~~~
 Then load a sample database (*Sakila* and *employees* are the classic ones from the MySQL documentation) and repeat a few challenges there.`;
+
+export const CONSOLES = `Each course runs on the most faithful engine that can run inside a browser tab. Nothing is sent to a server.
+
+| Course | What runs | How real is it? |
+|---|---|---|
+| MySQL | SQLite (WebAssembly) behind a MySQL dialect layer | An emulation of MySQL's syntax, commands and errors on a real SQL engine. Differences are listed below. |
+| PostgreSQL | PGlite: PostgreSQL 17 compiled to WebAssembly | The real server. Single connection, so nothing about concurrency or replication can be shown. psql's backslash commands are re-implemented by the console. |
+| SQLite | sql.js: SQLite 3.49 compiled to WebAssembly | The real engine. The dot-commands (~.tables~, ~.schema~, ~.indexes~) are re-implemented by the console. |
+| pandas | Pyodide: CPython 3.14 with pandas 3.0 and numpy | The real interpreter and library. No file system or network, and no plotting. |
+| NoSQL | A document store written for Quarry | An **emulator** of MongoDB's shell language, not MongoDB. It supports the commands the lessons use (see below); anything else reports an error. |
+| Vector | PGlite with the pgvector extension | Real PostgreSQL and real pgvector, including HNSW indexes. The embeddings come from a hand-built 16-dimension toy model, not a neural network. |
+
+### What the document-store emulator supports
+- **Reads:** ~find~ (with projection), ~findOne~, ~countDocuments~, ~distinct~, and ~sort~ / ~limit~ / ~skip~ / ~count~ / ~explain~ on cursors.
+- **Query operators:** ~$eq $ne $gt $gte $lt $lte $in $nin $exists $regex $and $or $nor $not $elemMatch $size $all~, dot notation and array matching.
+- **Writes:** ~insertOne~, ~insertMany~, ~updateOne~, ~updateMany~ (~$set $unset $inc $mul $push $addToSet $pull~, ~upsert~), ~deleteOne~, ~deleteMany~.
+- **Aggregation:** ~$match $group $sort $limit $skip $project $addFields $unwind $lookup $count~ with the common expression operators.
+- **Indexes:** ~createIndex~ (including ~unique~), ~getIndexes~, ~dropIndex~. ~explain()~ reports a simplified plan.
+- Dates are ISO strings; there are no ObjectId or date types, no transactions, and no replication or sharding.
+
+### The toy embedding model
+~embed('text')~ in the vector course maps a few hundred outdoor-gear words onto 16 concept dimensions (shelter, feet, warmth, waterproofing and so on) and normalises the result. It makes similar product descriptions land close together, which is all the lessons need. Words it doesn't know carry almost no meaning to it, so don't expect it to understand general English.`;

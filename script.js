@@ -31,7 +31,7 @@ const projects = [
   },
   {
     name: "Quarry",
-    description: "Learn databases by doing: write real SQL in a live MySQL-style console and capture a flag for every skill, from your first SELECT to joins, window functions, schema design, indexes and production data fixes.",
+    description: "Learn databases by doing: write real queries in live consoles and capture a flag for every skill. A full MySQL course from your first SELECT to production data fixes, plus PostgreSQL, SQLite, pandas, document databases and vector search.",
     image: "screenshots/quarry.webp",
     path: "./projects/quarry/index.html",
     category: "programming"

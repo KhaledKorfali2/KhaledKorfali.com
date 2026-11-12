@@ -37,7 +37,7 @@ const two = (n) => String(n).padStart(2, "0");
 const DAY = 864e5;
 const iso = (t) => { const d = new Date(t); return `${d.getUTCFullYear()}-${two(d.getUTCMonth() + 1)}-${two(d.getUTCDate())}`; };
 const T = (y, m, d) => Date.UTC(y, m - 1, d);
-const q = (v) => (v == null ? "NULL" : typeof v === "number" ? String(v) : `'${String(v).replace(/'/g, "''")}'`);
+const q = (v) => (v == null ? "NULL" : typeof v === "number" ? String(v) : typeof v === "object" ? v.raw : `'${String(v).replace(/'/g, "''")}'`);
 const insert = (table, cols, rows, size = 60) => {
   const out = [];
   for (let i = 0; i < rows.length; i += size) out.push(`INSERT INTO ${table} (${cols}) VALUES\n${rows.slice(i, i + size).map((r) => `(${r.map(q).join(", ")})`).join(",\n")}`);
@@ -98,8 +98,8 @@ export const SCHEMA = [
 )`,
 ];
 
-/** → array of MySQL statements that build and fill the shop database. */
-export function buildShop(seed) {
+/** The raw rows, generated from the seed. Every engine loads these same rows. */
+function generate(seed) {
   const h = helpers(rngFrom(`${seed}|shop`));
   const { rng, int, pick, shuffle } = h;
 
@@ -150,13 +150,64 @@ export function buildShop(seed) {
     shuffle(orderable).slice(0, pick([1, 1, 2, 2, 2, 3, 3, 4])).forEach((pid) => items.push([i + 1, pid, pick([1, 1, 1, 1, 2, 2, 3, 5]), products[pid - 1][2]]));
   });
 
-  return [
-    ...SCHEMA,
-    ...insert("categories", "name", CATEGORIES.map((c) => [c])),
-    ...insert("customers", "first_name, last_name, email, phone, city, country, signup_date", customers.map((c) => c.slice(0, 7))),
-    ...insert("products", "name, category_id, price, stock, discontinued", products),
-    ...insert("employees", "first_name, last_name, title, department, manager_id, salary, hire_date", employees),
-    ...insert("orders", "customer_id, order_date, status, shipped_date", orders.map((o) => o.slice(0, 4))),
-    ...insert("order_items", "order_id, product_id, quantity, unit_price", items),
-  ];
+  return {
+    categories: CATEGORIES.map((c) => [c]),
+    customers: customers.map((c) => c.slice(0, 7)),
+    products, employees,
+    orders: orders.map((o) => o.slice(0, 4)),
+    order_items: items,
+  };
 }
+
+const COLS = {
+  categories: ["name"],
+  customers: ["first_name", "last_name", "email", "phone", "city", "country", "signup_date"],
+  products: ["name", "category_id", "price", "stock", "discontinued"],
+  employees: ["first_name", "last_name", "title", "department", "manager_id", "salary", "hire_date"],
+  orders: ["customer_id", "order_date", "status", "shipped_date"],
+  order_items: ["order_id", "product_id", "quantity", "unit_price"],
+};
+const ID = { categories: "category_id", customers: "customer_id", products: "product_id", employees: "employee_id", orders: "order_id" };
+const cache = new Map();
+const rowsFor = (seed) => { if (!cache.has(seed)) cache.set(seed, generate(seed)); return cache.get(seed); };
+
+/** → array of MySQL statements that build and fill the shop database. */
+export function buildShop(seed) {
+  const d = rowsFor(seed);
+  return [...SCHEMA, ...Object.keys(COLS).flatMap((t) => insert(t, COLS[t].join(", "), d[t]))];
+}
+
+/**
+ * The same data as plain tables, in creation order (parents before children):
+ * → [{ name, id, cols, rows }], where `id` is the auto-numbered key column (rows are in id order, starting at 1).
+ */
+export function shopTables(seed) {
+  const d = rowsFor(seed);
+  return Object.keys(COLS).map((name) => ({ name, id: ID[name] || null, cols: COLS[name], rows: d[name] }));
+}
+
+/** INSERT statements in standard SQL for any engine. bool: column names to write as true/false. */
+export function insertsFor(tables, { bool = [] } = {}) {
+  return tables.flatMap((t) => {
+    const flags = t.cols.map((c) => bool.includes(c));
+    return insert(t.name, t.cols.join(", "), t.rows.map((r) => r.map((v, i) => (flags[i] ? { raw: v ? "true" : "false" } : v))));
+  });
+}
+
+export const SQLITE_SCHEMA = [
+  "CREATE TABLE customers (customer_id INTEGER PRIMARY KEY, first_name TEXT NOT NULL, last_name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, phone TEXT, city TEXT NOT NULL, country TEXT NOT NULL, signup_date TEXT NOT NULL)",
+  "CREATE TABLE categories (category_id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE)",
+  "CREATE TABLE products (product_id INTEGER PRIMARY KEY, name TEXT NOT NULL, category_id INTEGER NOT NULL REFERENCES categories (category_id), price REAL NOT NULL, stock INTEGER NOT NULL DEFAULT 0, discontinued INTEGER NOT NULL DEFAULT 0)",
+  "CREATE TABLE employees (employee_id INTEGER PRIMARY KEY, first_name TEXT NOT NULL, last_name TEXT NOT NULL, title TEXT NOT NULL, department TEXT NOT NULL, manager_id INTEGER REFERENCES employees (employee_id), salary REAL NOT NULL, hire_date TEXT NOT NULL)",
+  "CREATE TABLE orders (order_id INTEGER PRIMARY KEY, customer_id INTEGER NOT NULL REFERENCES customers (customer_id), order_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid','shipped','delivered','cancelled')), shipped_date TEXT)",
+  "CREATE TABLE order_items (order_id INTEGER NOT NULL REFERENCES orders (order_id), product_id INTEGER NOT NULL REFERENCES products (product_id), quantity INTEGER NOT NULL, unit_price REAL NOT NULL, PRIMARY KEY (order_id, product_id))",
+];
+
+export const POSTGRES_SCHEMA = [
+  "CREATE TABLE customers (customer_id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, first_name text NOT NULL, last_name text NOT NULL, email text NOT NULL UNIQUE, phone text, city text NOT NULL, country text NOT NULL, signup_date date NOT NULL)",
+  "CREATE TABLE categories (category_id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, name text NOT NULL UNIQUE)",
+  "CREATE TABLE products (product_id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, name text NOT NULL, category_id integer NOT NULL REFERENCES categories, price numeric(8,2) NOT NULL, stock integer NOT NULL DEFAULT 0, discontinued boolean NOT NULL DEFAULT false)",
+  "CREATE TABLE employees (employee_id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, first_name text NOT NULL, last_name text NOT NULL, title text NOT NULL, department text NOT NULL, manager_id integer REFERENCES employees, salary numeric(10,2) NOT NULL, hire_date date NOT NULL)",
+  "CREATE TABLE orders (order_id integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, customer_id integer NOT NULL REFERENCES customers, order_date date NOT NULL, status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid','shipped','delivered','cancelled')), shipped_date date)",
+  "CREATE TABLE order_items (order_id integer NOT NULL REFERENCES orders, product_id integer NOT NULL REFERENCES products, quantity integer NOT NULL, unit_price numeric(8,2) NOT NULL, PRIMARY KEY (order_id, product_id))",
+];

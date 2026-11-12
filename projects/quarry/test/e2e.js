@@ -5,7 +5,7 @@
 // challenge through the real UI and reports into <pre id="e2e">.
 import { ALL } from "../js/challenges/index.js";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const until = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { const v = fn(); if (v) return v; await sleep(20); } return null; };
+const until = async (fn, ms = 60000) => { const t = Date.now(); while (Date.now() - t < ms) { const v = fn(); if (v) return v; await sleep(20); } return null; };
 const log = [];
 const errors = [];
 window.addEventListener("error", (e) => errors.push(e.message));
@@ -17,12 +17,13 @@ for (const c of ALL) {
   location.hash = `#/c/${c.id}`;
   const h1 = await until(() => { const h = document.querySelector(".brief h1"); return h && h.textContent === c.title ? h : null; });
   if (!h1) { log.push(`FAIL ${c.id}: page did not open (locked?)`); continue; }
-  const sq = await until(() => document.querySelector(".sq"));
+  const sq = await until(() => document.querySelector(".sq") || (/failed to start/.test(document.querySelector(".ws-loading")?.textContent || "") ? "x" : null));
+  if (sq === "x") { log.push(`FAIL ${c.id}: ${document.querySelector(".ws-loading").textContent}`); continue; }
   if (!sq) { log.push(`FAIL ${c.id}: console did not mount: ${document.querySelector(".ws-loading")?.textContent}`); continue; }
   const goalBefore = document.querySelector(".sq-goal").textContent.slice(0, 60);
-  if (c.starter) sq._console.run(c.starter);
+  if (c.starter) await sq._console.run(c.starter);
   if (!document.querySelector(".reveal").hidden) { log.push(`FAIL ${c.id}: flag revealed by starter`); continue; }
-  sq._console.run(c.solution);
+  await sq._console.run(c.solution);
   if (c.mode === "find") {
     const flag = [...document.querySelectorAll(".sq-grid td")].map((t) => t.textContent.match(/QUARRY\{[^}]+\}/)?.[0]).find(Boolean);
     document.querySelector(".answer").value = flag || "";

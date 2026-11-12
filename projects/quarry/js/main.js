@@ -4,7 +4,7 @@ import * as store from "./store.js";
 import { initLayout } from "./layout.js";
 import { makeCtx, checkFlag } from "./flags.js";
 import { TRACKS, COURSES, UPCOMING, ALL, byId, trackOf, isUnlocked } from "./challenges/index.js";
-import { REFERENCE, SANDBOX } from "./reference.js";
+import { REFERENCE, SANDBOX, CONSOLES } from "./reference.js";
 
 const main = document.getElementById("main");
 let cleanup = null;
@@ -44,21 +44,21 @@ function viewHome() {
     el("div", { class: "hero-copy" },
       el("p", { class: "eyebrow", text: "> hands-on databases" }),
       el("h1", {}, "Learn databases", el("br"), el("span", { class: "accent", text: "by querying a real one." })),
-      el("p", { class: "lead", text: "Every lesson puts you in a live console on a working shop database. Write the query, change the data, design the table, fix the incident, and capture the flag that proves it. Start with no experience at all; finish doing the work a professional does." }),
+      el("p", { class: "lead", text: "Every lesson puts you in a live console on a working shop database. Write the query, change the data, design the table, fix the incident, and capture the flag that proves it. Start with MySQL and no experience at all; then take the same skills to PostgreSQL, SQLite, pandas, document databases and vector search." }),
       el("div", { class: "hero-cta" },
         resume ? el("a", { class: "btn btn-primary", href: `#/c/${resume.id}` }, solved ? `Continue: ${resume.title}` : "Start with your first query", icon(ICONS.next, 16)) : el("span", { class: "btn btn-primary", text: "Every flag captured. Well done." }),
         el("a", { class: "btn", href: "#/reference", text: "SQL reference" }))),
     el("div", { class: "hero-stat" },
       ring(pct),
       el("div", {}, el("b", { text: `${solved} of ${ALL.length}` }), el("span", { text: "flags captured" })),
-      el("ul", { class: "hero-tracks" }, TRACKS.map((t) => {
-        const n = t.list.filter((c) => store.isSolved(c.id)).length;
-        return el("li", {}, el("span", { text: t.title }), el("span", { class: "mono", text: `${n}/${t.list.length}` }));
+      el("ul", { class: "hero-tracks" }, COURSES.map((course) => {
+        const list = course.tracks.flatMap((t) => t.list), n = list.filter((c) => store.isSolved(c.id)).length;
+        return el("li", {}, el("span", { text: course.title }), el("span", { class: "mono", text: `${n}/${list.length}` }));
       }))));
 
   let num = 0;
   const courses = COURSES.map((course) => el("section", { class: "tracks", "aria-label": `${course.title} course` },
-    el("header", { class: "course-head" }, el("h2", {}, icon(ICONS.db, 20), `${course.title} course`), el("p", { text: course.blurb })),
+    el("header", { class: "course-head" }, el("h2", {}, icon(ICONS.db, 20), `${course.title} course`, el("span", { class: "course-count mono", text: `${course.tracks.flatMap((t) => t.list).filter((c) => store.isSolved(c.id)).length}/${course.tracks.flatMap((t) => t.list).length}` })), el("p", { text: course.blurb })),
     course.tracks.map((t) => {
       const done = t.list.filter((c) => store.isSolved(c.id)).length;
       return el("article", { class: "track" },
@@ -80,14 +80,14 @@ function viewHome() {
     })));
 
   const soon = el("section", { class: "soon", "aria-label": "Coming next" },
-    el("header", { class: "course-head" }, el("h2", {}, icon(ICONS.map, 20), "Coming next"), el("p", {}, "More courses are planned on the same engine and the same flag-driven format. ", el("a", { href: "#/roadmap", text: "See the roadmap →" }))),
+    el("header", { class: "course-head" }, el("h2", {}, icon(ICONS.map, 20), "Coming next"), el("p", {}, "More material is planned in the same flag-driven format. ", el("a", { href: "#/roadmap", text: "See the roadmap →" }))),
     el("div", { class: "soon-grid" }, UPCOMING.map((u) => el("article", { class: "soon-card" },
       el("h3", {}, icon(ICONS[u.icon] || ICONS.db, 16), u.title, el("span", { class: "soon-tag", text: "planned" })),
       el("p", { text: u.blurb })))));
 
   main.replaceChildren(el("div", { class: "page" }, hero, courses, soon,
     el("footer", { class: "foot" },
-      el("p", {}, "Quarry runs entirely in your browser. The database is a private copy; nothing you type is sent anywhere. ", el("a", { href: "#/reference", text: "How the sandbox differs from real MySQL →" })),
+      el("p", {}, "Quarry runs entirely in your browser. The database is a private copy; nothing you type is sent anywhere. ", el("a", { href: "#/reference", text: "How each console compares with the real thing →" })),
       el("button", { type: "button", class: "linkish", text: "Reset progress", on: { click: () => {
         if (confirm("Reset all progress? You'll get a new practice database and brand-new flags.")) { store.reset(); route(); toast("Progress reset"); }
       } } }))));
@@ -114,6 +114,7 @@ async function viewChallenge(c) {
   }
   store.visit(c.id);
   const track = trackOf(c);
+  const course = COURSES.find((k) => k.tracks.includes(track));
   const flagCtx = makeCtx(store.seed(), c);
   const idx = track.list.indexOf(c);
   const next = track.list[idx + 1] || TRACKS[TRACKS.indexOf(track) + 1]?.list[0];
@@ -180,7 +181,7 @@ async function viewChallenge(c) {
   const reveal = el("div", { class: "reveal", hidden: true, role: "status", "aria-live": "polite" });
   const ws = el("div", { class: "ws-body" });
   const wsHead = el("div", { class: "ws-head" },
-    el("span", { class: "ws-title" }, icon(ICONS.db, 15), "Database console"),
+    el("span", { class: "ws-title" }, icon(ICONS.db, 15), `${course.title} console`),
     el("span", { class: "ws-actions" },
       el("button", { type: "button", class: "btn btn-sm", title: "Throw away your changes and restore the original data", on: { click: () => restart() } }, icon(ICONS.refresh, 14), "Reset database")));
   const workspace = el("section", { class: "workspace", "aria-label": "Database console" }, wsHead, reveal, el("div", { class: "ws-stage" }, ws));
@@ -198,7 +199,7 @@ async function viewChallenge(c) {
     const mine = ++gen;
     engineCleanup?.(); engineCleanup = null;
     reveal.hidden = true;
-    ws.replaceChildren(el("p", { class: "ws-loading", text: "Starting database…" }));
+    ws.replaceChildren(el("p", { class: "ws-loading", text: { postgres: "Starting PostgreSQL… (the first time, this downloads the server: about 14 MB)", pandas: "Starting Python and pandas… (the first time, this downloads about 20 MB and takes a few seconds)" }[c.engine] || "Starting the console…" }));
     try {
       const mod = await import("./engine/console.js");
       const stage = el("div", { class: "engine-stage" });
@@ -228,9 +229,11 @@ async function viewChallenge(c) {
 function viewReference() {
   main.replaceChildren(el("div", { class: "page narrow" },
     el("header", { class: "page-head" }, el("h1", { text: "SQL reference" }),
-      el("p", { class: "lead", text: "The statements this course teaches, on one page. Keep it open in another tab while you work." })),
+      el("p", { class: "lead", text: "The core SQL the MySQL course teaches, on one page, followed by what each course's console really is. Keep it open in another tab while you work." })),
     el("div", { class: "prose" }, md(REFERENCE)),
-    el("header", { class: "page-head", id: "sandbox" }, el("h1", { text: "The sandbox vs. real MySQL" })),
+    el("header", { class: "page-head" }, el("h1", { text: "What runs each console" })),
+    el("div", { class: "prose" }, md(CONSOLES)),
+    el("header", { class: "page-head", id: "sandbox" }, el("h1", { text: "The MySQL sandbox vs. real MySQL" })),
     el("div", { class: "prose" }, md(SANDBOX))));
 }
 
@@ -238,14 +241,15 @@ function viewReference() {
 function viewRoadmap() {
   main.replaceChildren(el("div", { class: "page narrow" },
     el("header", { class: "page-head" }, el("h1", { text: "Roadmap" }),
-      el("p", { class: "lead", text: "Quarry starts with MySQL because relational SQL is the foundation everything else is compared against. These courses are planned next, in this order." })),
+      el("p", { class: "lead", text: "Six courses are live: MySQL, PostgreSQL, SQLite, pandas, NoSQL and vector search. The first is complete; the other five are first editions that cover the essentials. These are planned next." })),
     el("div", { class: "soon-grid one" }, UPCOMING.map((u, i) => el("article", { class: "soon-card" },
       el("h3", {}, icon(ICONS[u.icon] || ICONS.db, 16), `${i + 1}. ${u.title}`, el("span", { class: "soon-tag", text: "planned" })),
       el("p", { text: u.blurb })))),
-    el("div", { class: "prose" }, md(`### Why this order
-- **PostgreSQL** and **SQLite** reuse almost everything from the MySQL course, so they focus on what's different and what each one is best at.
-- **pandas** answers the same questions from Python, which is where a lot of analysis work actually happens.
-- **NoSQL** and **vector databases** make the most sense once you know what relational databases guarantee, and so what you give up and gain by leaving them.`))));
+    el("div", { class: "prose" }, md(`### Also planned for the existing courses
+- **PostgreSQL:** recursive CTEs, lateral joins, materialized views and window frames.
+- **pandas:** reading and writing files and SQL, plotting, and performance.
+- **NoSQL:** schema validation, transactions, and a key-value track.
+- **Vector:** hybrid keyword-plus-vector search, re-ranking, and measuring recall.`))));
 }
 
 route();

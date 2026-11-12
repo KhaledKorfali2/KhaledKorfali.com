@@ -1,7 +1,8 @@
 // End-to-end test of the real engine: runs every challenge through the same
 // session, dialect layer and goal checks the browser uses.   node test/run.mjs [seed...]
 import { createRequire } from "node:module";
-import { ALL } from "../js/challenges/index.js";
+import { ALL as EVERY } from "../js/challenges/index.js";
+const ALL = EVERY.filter((c) => c.engine === "mysql");   // the other courses are covered by test/courses.mjs
 import { makeCtx } from "../js/flags.js";
 import { buildShop } from "../js/data/shop.js";
 import { createSession, compareResult } from "../js/engine/mysql.js";
