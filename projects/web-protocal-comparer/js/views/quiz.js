@@ -24,6 +24,7 @@ export function render(el) {
     const seen = QUIZ.filter((q) => st[q.id]).length;
     const right = QUIZ.filter((q) => st[q.id]?.last).length;
     const missed = QUIZ.filter((q) => st[q.id] && !st[q.id].last).length;
+    if (!missed) setup.missedOnly = false; // nothing left to retry: don't leave the filter stuck on
     el.innerHTML = `<div class="page">
       <div class="page-head"><div class="eyebrow">Practice</div><h1>Quiz</h1>
         <p>${QUIZ.length} questions on everything in the course. ${seen ? `You've answered ${seen}; ${right} are right on your latest try.` : "Short, specific, with an explanation for every answer."}</p></div>
@@ -45,6 +46,7 @@ export function render(el) {
   }
   function pool() {
     const st = quizState();
+    if (setup.missedOnly && !QUIZ.some((q) => st[q.id] && !st[q.id].last)) setup.missedOnly = false;
     return QUIZ.filter((q) => (setup.topics.size === 0 || setup.topics.has(q.topic)) && (!setup.missedOnly || (st[q.id] && !st[q.id].last)));
   }
   function count() {

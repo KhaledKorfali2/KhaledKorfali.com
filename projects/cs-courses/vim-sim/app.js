@@ -81,6 +81,8 @@
     // sensible default for just that one setting.
     Object.keys(fresh.settings).forEach((key) => {
       if (state.editor.settings[key] === undefined) state.editor.settings[key] = fresh.settings[key];
+      // Saves from before :set clamped tabstop/shiftwidth to 1..16.
+      if (typeof fresh.settings[key] === "number" && !(state.editor.settings[key] >= 1 && state.editor.settings[key] <= 16)) state.editor.settings[key] = fresh.settings[key];
     });
     return state;
   }

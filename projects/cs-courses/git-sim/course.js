@@ -34,14 +34,14 @@ window.GitCourse = (function () {
           body: "Git separates \"what changed\" from \"what's about to be committed\" from \"what's permanently saved.\" Your <b>working tree</b> is the files as they sit right now. The <b>staging area</b> (or index) is a holding zone for changes you've deliberately chosen to include in the next commit. The <b>repository</b> is the permanent history of commits." },
         { id: "s2", title: "Practice: watch a file move through all three", kind: "practice", widget: "staging",
           body: "The columns below show exactly this pipeline for this simulated project.",
-          tryIt: "Use \"Simulate an edit\" to dirty a file, then stage it, and notice which column it's in at each step." }
+          tryIt: "Pick <code>README.md</code> and use \"Simulate an edit\" to dirty it, then stage it, and notice which column it's in at each step." }
       ]},
       { id: "l2", title: "Making a commit", view: "console", subsections: [
         { id: "s1", title: "edit → add → commit", kind: "concept", widget: null,
           body: "The everyday loop is: change a file, <code>git add</code> it to stage the change, then <code>git commit -m \"message\"</code> to save it permanently. Nothing is part of history until that last step." },
         { id: "s2", title: "Practice: make a real commit", kind: "practice", widget: "console",
           body: "This simulator uses <code>edit &lt;file&gt;</code> to stand in for changing a file's contents.",
-          tryIt: "Run <code>edit app.js</code>, then <code>git add app.js</code>, then <code>git commit -m \"Update app.js\"</code>." },
+          tryIt: "Run <code>edit README.md</code>, then <code>git add README.md</code>, then <code>git commit -m \"Update README\"</code>." },
         { id: "s3", title: "Why bother staging at all?", kind: "concept", widget: null,
           body: "Staging lets you build a commit deliberately — you can change three files but only commit the two that belong together, reviewing exactly what's about to be saved with <code>git status</code>." }
       ]}
@@ -114,13 +114,13 @@ window.GitCourse = (function () {
       { id: "l1", title: "Rewriting history onto a new base", view: "console", subsections: [
         { id: "s1", title: "Replaying commits elsewhere", kind: "concept", widget: null,
           body: "<code>git rebase &lt;branch&gt;</code> takes the commits unique to your current branch and replays them, one by one, on top of the target branch's tip — as if you'd started your work from there all along. Each replayed commit gets a <i>new</i> hash." },
-        { id: "s2", title: "Practice: rebase feature onto main", kind: "practice", widget: "console",
-          body: "Make sure you're on the branch being moved, not the target.",
-          tryIt: "Run <code>git checkout feature</code>, then <code>git rebase main</code>." }
+        { id: "s2", title: "Practice: rebase a branch onto main", kind: "practice", widget: "console",
+          body: "A rebase only has something to do when both branches have commits the other lacks, so first build that situation: a new <code>topic</code> branch with one commit of its own, and one newer commit on <code>main</code>. Then make sure you're on the branch being moved, not the target.",
+          tryIt: "Run these in order: <code>git checkout main</code>, <code>git checkout -b topic</code>, <code>edit styles.css</code>, <code>git commit -am \"Topic work\"</code>, <code>git checkout main</code>, <code>edit README.md</code>, <code>git commit -am \"Main moves on\"</code>, <code>git checkout topic</code>, and finally <code>git rebase main</code>." }
       ]},
       { id: "l2", title: "Before and after", view: "graph", subsections: [
         { id: "s1", title: "From diamond to straight line", kind: "demo", widget: "graph",
-          body: "After a rebase, feature's commits sit in a straight line after main's tip instead of branching off earlier. Replayed commits are tagged \"(rebased)\" here so you can tell them apart from their originals — which, just like in real git, aren't deleted immediately, only left behind." },
+          body: "After a rebase, the rebased branch's commits (<code>topic</code>'s, if you followed the previous lesson) sit in a straight line after main's tip instead of branching off earlier. Replayed commits are tagged \"(rebased)\" here so you can tell them apart from their originals — which, just like in real git, aren't deleted immediately, only left behind." },
         { id: "s2", title: "Merge vs. rebase: know the tradeoff", kind: "concept", widget: null,
           body: "Merging preserves exactly what happened, including the branching. Rebasing produces a cleaner, linear-looking history but rewrites commit identity — which is why the standard advice is: never rebase commits that other people have already pulled." }
       ]}

@@ -6,7 +6,7 @@ import { loadPrefs, savePrefs } from "../layout.js";
 import { createModeler, FEATURE_NAMES, DEFAULTS, newId } from "./model.js";
 import { createViewport } from "./viewport.js";
 import { createSketcher, TOOLS } from "./sketcher.js";
-import { PLANES, outline, expand, toSketch, round } from "./geom.js";
+import { PLANES, outline, expand, toSketch, round, MAX_SIDES, MAX_COUNT, MAX_POLAR } from "./geom.js";
 
 const MODELS_KEY = "datum.models";
 const NS = "http://www.w3.org/2000/svg";
@@ -137,8 +137,8 @@ export async function mount(host, { challenge: c, ctx, fresh }, api) {
 
   // ── rebuild + redraw ──
   function refresh() {
-    save();
     try { result = M.rebuild(features); } catch (e) { result = { body: null, errors: { _: String(e.message || e) } }; }
+    save();   // only once the rebuild has returned, so a model that hangs the kernel is never the saved one
     const f = byId(sel);
     const roll = f && PICKERS.includes(f.t) && !edit ? features.indexOf(f) : -1;
     shown = roll >= 0 ? M.rebuild(features, roll).body : result.body;
@@ -259,7 +259,7 @@ export async function mount(host, { challenge: c, ctx, fresh }, api) {
     const rotation = () => number("Rotation", () => it.rot || 0, (v) => { it.rot = v; }, { step: 5, key: "rot", unit: "°" });
     if (it.k === "rect") out.push(...centre(), number("Width", () => it.w, (v) => { it.w = v; }, { key: "w", min: 0 }), number("Height", () => it.h, (v) => { it.h = v; }, { key: "h", min: 0 }), number("Corner radius", () => it.r || 0, (v) => { it.r = v; }, { key: "r", min: 0 }), rotation());
     if (it.k === "circle") out.push(...centre(), number("Diameter", () => it.d, (v) => { it.d = v; }, { key: "d", min: 0 }));
-    if (it.k === "poly") out.push(...centre(), number("Sides", () => it.n, (v) => { it.n = Math.round(v); }, { key: "n", unit: "", min: 3 }), number("Size", () => it.d, (v) => { it.d = v; }, { key: "d", min: 0 }),
+    if (it.k === "poly") out.push(...centre(), number("Sides", () => it.n, (v) => { it.n = Math.min(MAX_SIDES, Math.max(3, Math.round(v))); }, { key: "n", unit: "", min: 3 }), number("Size", () => it.d, (v) => { it.d = v; }, { key: "d", min: 0 }),
       choice("Size measured", it.mode || "corners", [["corners", "across corners"], ["flats", "across flats"]], (v) => { it.mode = v; }), rotation());
     if (it.k === "slot") out.push(...centre(), number("Overall length", () => it.len, (v) => { it.len = v; }, { key: "len", min: 0 }), number("Width", () => it.w, (v) => { it.w = v; }, { key: "w", min: 0 }), rotation());
     if (it.k === "path") {
@@ -271,9 +271,9 @@ export async function mount(host, { challenge: c, ctx, fresh }, api) {
     const p = it.pattern || { type: "none" };
     out.push(el("div", { class: "wb-h", text: "Pattern" }), choice("Repeat", p.type, [["none", "none"], ["grid", "grid (rows and columns)"], ["polar", "circular (around a point)"]], (v) => {
       it.pattern = v === "grid" ? { type: "grid", nx: 2, ny: 1, dx: 20, dy: 20 } : v === "polar" ? { type: "polar", n: 4, cx: 0, cy: 0 } : undefined; }));
-    if (p.type === "grid") out.push(number(`Count along ${a}`, () => p.nx, (v) => { p.nx = Math.max(1, Math.round(v)); }, { key: "nx", unit: "", min: 1 }), number(`Spacing along ${a}`, () => p.dx, (v) => { p.dx = v; }, { key: "dx" }),
-      number(`Count along ${b}`, () => p.ny, (v) => { p.ny = Math.max(1, Math.round(v)); }, { key: "ny", unit: "", min: 1 }), number(`Spacing along ${b}`, () => p.dy, (v) => { p.dy = v; }, { key: "dy" }));
-    if (p.type === "polar") out.push(number("Count", () => p.n, (v) => { p.n = Math.max(1, Math.round(v)); }, { key: "pn", unit: "", min: 1 }), number(`Centre ${a}`, () => p.cx || 0, (v) => { p.cx = v; }, { key: "pcx" }), number(`Centre ${b}`, () => p.cy || 0, (v) => { p.cy = v; }, { key: "pcy" }));
+    if (p.type === "grid") out.push(number(`Count along ${a}`, () => p.nx, (v) => { p.nx = Math.min(MAX_COUNT, Math.max(1, Math.round(v))); }, { key: "nx", unit: "", min: 1 }), number(`Spacing along ${a}`, () => p.dx, (v) => { p.dx = v; }, { key: "dx" }),
+      number(`Count along ${b}`, () => p.ny, (v) => { p.ny = Math.min(MAX_COUNT, Math.max(1, Math.round(v))); }, { key: "ny", unit: "", min: 1 }), number(`Spacing along ${b}`, () => p.dy, (v) => { p.dy = v; }, { key: "dy" }));
+    if (p.type === "polar") out.push(number("Count", () => p.n, (v) => { p.n = Math.min(MAX_POLAR, Math.max(1, Math.round(v))); }, { key: "pn", unit: "", min: 1 }), number(`Centre ${a}`, () => p.cx || 0, (v) => { p.cx = v; }, { key: "pcx" }), number(`Centre ${b}`, () => p.cy || 0, (v) => { p.cy = v; }, { key: "pcy" }));
     out.push(el("button", { type: "button", class: "btn btn-sm wb-danger", text: "Delete shape", on: { click: () => { s.items.splice(itemSel, 1); edit.sketcher.select(-1); commit(); } } }));
     return out;
   }

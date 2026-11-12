@@ -148,7 +148,8 @@ function bindActionButtons() {
   document.getElementById("exitBtn").addEventListener("click", () => {
     // Endless mode has no natural end — show the summary instead of
     // silently discarding the session
-    if (state.endless && state.totalAnswered > 0) endQuiz();
+    const onSummary = !document.getElementById("endScreen").classList.contains("hidden");
+    if (state.endless && state.totalAnswered > 0 && !onSummary) endQuiz();
     else showSettings();
   });
 }
@@ -166,8 +167,12 @@ function bindKeyboard() {
       return;
     }
 
+    // Only from the page body or the quiz card — never hijack Enter on a
+    // link or another button (Restart, Exit, Confirm, "← Projects")
+    const inQuiz = e.target === document.body || e.target.closest("#quiz");
+    const otherControl = e.target.closest("a, button:not(.answer-btn)");
     if (e.key === "Enter" && state.recallPhase === "selecting" &&
-        e.target.id !== "confirmBtn") {
+        inQuiz && !otherControl) {
       e.preventDefault(); // don't also "click" (deselect) the focused answer
       document.getElementById("confirmBtn").click();
     }
@@ -229,6 +234,7 @@ function showSettings() {
 function endQuiz() {
   cancelScheduled();
   hide("quiz");
+  hide("statsBar");
   hide("progressContainer");
   hide("confirmBar");
   show("endScreen");

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  The page Breach loads inside its sandboxed iframe. It exists as a real file (not
+  srcdoc) so that it has its OWN Content-Security-Policy: a srcdoc frame inherits the
+  app's strict policy, which blocks the inline scripts and styles that simulated
+  websites are made of.
+
+  Network access stays off (default-src 'none'); simulated pages reach the simulated
+  server only through postMessage to the app.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; form-action 'none'; base-uri 'none'">
+<meta name="robots" content="noindex">
+<title>Breach sandbox</title>
+<script>
+(function () {
+  // Act only inside a sandboxed frame, where this document has an opaque origin and
+  // so no access to the site's storage or cookies. Opened directly, or framed
+  // without the sandbox attribute, it does nothing at all.
+  if (self.origin !== "null" || parent === self) return;
+  addEventListener("message", function receive(e) {
+    if (e.source !== parent || !e.data || typeof e.data.__breach_doc !== "string") return;
+    removeEventListener("message", receive);
+    document.open();
+    document.write(e.data.__breach_doc);
+    document.close();
+  });
+  parent.postMessage({ __breach_ready: true }, "*");
+})();
+</script>
+</head>
+<body></body>
+</html>

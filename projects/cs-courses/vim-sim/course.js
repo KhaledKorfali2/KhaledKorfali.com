@@ -50,10 +50,10 @@ window.VimCourse = (function () {
           body: "The six feel similar once you've used them, but the differences matter in real editing — try each one back to back on the same line.",
           tryIt: "On one line, try <code>i</code>, <code>Escape</code>, <code>a</code>, <code>Escape</code>, <code>I</code>, <code>Escape</code>, <code>A</code>, <code>Escape</code>, <code>o</code>, <code>Escape</code>, <code>O</code>, <code>Escape</code> — watch where the cursor lands each time before you type anything." },
         { id: "s5", title: "Two keys for undoing a typo without leaving Insert mode", kind: "concept", widget: null,
-          body: "<code>Ctrl-w</code> deletes the word immediately before the cursor — handy the instant you notice you've mistyped one. <code>Ctrl-u</code> deletes everything you've typed so far back to the point Insert mode started (not the whole line — if you entered Insert mode partway through a line, it stops right there, the same way it stops for real Vim). Neither one ever leaves Insert mode, so you keep typing right where they leave off." },
-        { id: "s6", title: "Practice: Ctrl-w and Ctrl-u", kind: "practice", widget: "editor",
+          body: "<code>Ctrl-w</code> deletes the word immediately before the cursor — handy the instant you notice you've mistyped one. <b>In this simulator press <code>Alt-w</code> instead: in a browser, Ctrl+W closes the tab.</b> <code>Ctrl-u</code> deletes everything you've typed so far back to the point Insert mode started (not the whole line — if you entered Insert mode partway through a line, it stops right there, the same way it stops for real Vim). Neither one ever leaves Insert mode, so you keep typing right where they leave off." },
+        { id: "s6", title: "Practice: Ctrl-w (Alt-w here) and Ctrl-u", kind: "practice", widget: "editor",
           body: "Type a few words, then try clearing them without leaving Insert mode.",
-          tryIt: "Press <code>A</code>, type a couple of words, press <code>Ctrl-w</code> and watch the last word disappear; type more, then press <code>Ctrl-u</code> and watch everything you typed this session vanish at once." }
+          tryIt: "Press <code>A</code>, type a couple of words, press <code>Alt-w</code> (this simulator's stand-in for Ctrl-w, which would close the browser tab) and watch the last word disappear; type more, then press <code>Ctrl-u</code> and watch everything you typed this session vanish at once." }
       ]},
       { id: "l3", title: "Visual mode: selecting text before you act", view: "editor", subsections: [
         { id: "s1", title: "Select first, then act — same operators every time", kind: "concept", widget: null,
@@ -493,10 +493,10 @@ window.VimCourse = (function () {
         { id: "s1", title: "A window is a viewport, not a copy", kind: "concept", widget: null,
           body: "Splitting the screen doesn't duplicate anything &mdash; each window is just a view onto some buffer. Two windows can even show the very same buffer at once, which is handy for looking at two different parts of one long file simultaneously." },
         { id: "s2", title: "Horizontal vs. vertical splits", kind: "concept", widget: null,
-          body: "<code>Ctrl-w s</code> (or <code>:split</code>) splits horizontally &mdash; windows stacked top and bottom. <code>Ctrl-w v</code> (or <code>:vsplit</code>) splits vertically &mdash; windows side by side. Either can optionally take a buffer name to show something different in the new window instead of duplicating the current one." },
+          body: "<b>In this simulator press <code>Alt-w</code> wherever real Vim uses <code>Ctrl-w</code>: in a browser, Ctrl+W closes the tab.</b> <code>Ctrl-w s</code> (or <code>:split</code>) splits horizontally &mdash; windows stacked top and bottom. <code>Ctrl-w v</code> (or <code>:vsplit</code>) splits vertically &mdash; windows side by side. Either can optionally take a buffer name to show something different in the new window instead of duplicating the current one." },
         { id: "s3", title: "Practice: split and move between windows", kind: "practice", widget: "buffers",
           body: "The inactive window's content below is genuinely read from that window's own buffer &mdash; it isn't a placeholder.",
-          tryIt: "Press <code>Ctrl-w s</code> to split, then <code>Ctrl-w w</code> to hop between the two windows, then <code>Ctrl-w c</code> to close one." },
+          tryIt: "Press <code>Alt-w s</code> to split, then <code>Alt-w w</code> to hop between the two windows, then <code>Alt-w c</code> to close one (Alt-w stands in for Ctrl-w here; Ctrl+W would close the browser tab)." },
         { id: "s4", title: "A scope note on this simulator", kind: "concept", widget: null,
           body: "Real Vim allows arbitrarily nested splits &mdash; a vertical split where one side is further split horizontally, and so on, forming a tree. This simulator keeps things simpler: every window in a given tab shares one split direction at a time. It's enough to genuinely practice the core keys and commands, just not arbitrarily complex layouts." },
         { id: "s5", title: "Practice: :only to simplify", kind: "practice", widget: "buffers",
@@ -525,19 +525,19 @@ window.VimCourse = (function () {
       ]}, lessons: [
       { id: "l1", title: "Marks: bookmarking a position", view: "marks", subsections: [
         { id: "s1", title: "m sets, ' and ` jump", kind: "concept", widget: null,
-          body: "<code>m</code> followed by a letter drops a bookmark at the cursor. <code>'{letter}</code> jumps to that bookmark's line (landing on the first non-blank character); <code>\\`{letter}</code> jumps to the exact row and column instead." },
+          body: "<code>m</code> followed by a letter drops a bookmark at the cursor. <code>'{letter}</code> jumps to that bookmark's line (landing on the first non-blank character); <code>`{letter}</code> jumps to the exact row and column instead." },
         { id: "s2", title: "Practice: set and jump to a mark", kind: "practice", widget: "marks",
           body: "The panel below reads the real marks data &mdash; nothing here is a separate illustration.",
-          tryIt: "Move the cursor somewhere, press <code>ma</code>, move elsewhere, then press <code>'a</code> and <code>\\`a</code> and compare where each one lands." },
+          tryIt: "Move the cursor somewhere, press <code>ma</code>, move elsewhere, then press <code>'a</code> and <code>`a</code> and compare where each one lands." },
         { id: "s3", title: "Marks work as operator motions too", kind: "concept", widget: null,
-          body: "Just like search motions, marks can be an operator's target: <code>d'a</code> deletes whole lines from here down to (or up to) mark a's line; <code>d\\`a</code> deletes the exact exclusive range between the cursor and mark a." },
+          body: "Just like search motions, marks can be an operator's target: <code>d'a</code> deletes whole lines from here down to (or up to) mark a's line; <code>d`a</code> deletes the exact exclusive range between the cursor and mark a." },
         { id: "s4", title: "Practice: delete or yank up to a mark", kind: "practice", widget: "marks",
           body: "This combines directly with everything from Module 3.",
-          tryIt: "Set a mark a few lines down with <code>ma</code>, move back to the top, then try <code>d'a</code> and undo, then try <code>y\\`a</code>." },
+          tryIt: "Set a mark a few lines down with <code>ma</code>, move back to the top, then try <code>d'a</code> and undo, then try <code>y`a</code>." },
         { id: "s5", title: "Marks follow the text, not a line number", kind: "concept", widget: null,
           body: "A mark is a bookmark on the <em>content</em>, not a fixed row. If you set <code>ma</code> on some line and then add or remove lines above it, the mark quietly shifts to stay on the same text &mdash; <code>'a</code> still lands on what you actually marked, wherever it ended up." },
         { id: "s6", title: "\"''\" jumps back to before your last big jump", kind: "concept", widget: null,
-          body: "Vim automatically drops an invisible mark right before any long-distance move &mdash; <code>G</code>, <code>gg</code>, a search, <code>%</code>, or jumping to another mark. That mark is <code>'</code> (and <code>\\`</code>), so <code>''</code> instantly returns you to wherever you were standing before the jump. It's the fastest way to peek somewhere else in a file and come straight back." },
+          body: "Vim automatically drops an invisible mark right before any long-distance move &mdash; <code>G</code>, <code>gg</code>, a search, <code>%</code>, or jumping to another mark. That mark is <code>'</code> (and <code>`</code>), so <code>''</code> instantly returns you to wherever you were standing before the jump. It's the fastest way to peek somewhere else in a file and come straight back." },
         { id: "s7", title: "Practice: jump far, then jump back", kind: "practice", widget: "marks",
           body: "No need to set anything yourself here &mdash; this one's automatic.",
           tryIt: "Press <code>G</code> to jump to the end of the buffer, then press <code>''</code> and watch it return you to exactly where you started." }
@@ -547,7 +547,7 @@ window.VimCourse = (function () {
           body: "A lowercase mark only makes sense inside the buffer it was set in &mdash; switch buffers and it's simply not there anymore. An uppercase mark instead remembers exactly which buffer it belongs to, so jumping to it from anywhere else switches you straight to that buffer and lands on the exact spot." },
         { id: "s2", title: "Practice: bookmark across buffers", kind: "practice", widget: "marks",
           body: "Global marks show which buffer they belong to right in the list below, and are flagged when they're not in the buffer you're currently viewing.",
-          tryIt: "Press <code>mA</code> here, open a second buffer with <code>:enew</code>, then press <code>\\`A</code> and watch it jump you back, buffer switch included." }
+          tryIt: "Press <code>mA</code> here, open a second buffer with <code>:enew</code>, then press <code>`A</code> and watch it jump you back, buffer switch included." }
       ]},
       { id: "l3", title: "Undo as a tree, not a line", view: "undotree", subsections: [
         { id: "s1", title: "Undoing doesn't erase the future — until you overwrite it", kind: "concept", widget: null,

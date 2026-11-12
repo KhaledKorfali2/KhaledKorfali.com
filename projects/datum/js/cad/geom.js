@@ -54,7 +54,7 @@ export function outline(it, seg = 48) {
     case "rect": return place(roundPolygon([[-it.w / 2, -it.h / 2], [it.w / 2, -it.h / 2], [it.w / 2, it.h / 2], [-it.w / 2, it.h / 2]], it.r || 0));
     case "slot": return place(roundPolygon([[-it.len / 2, -it.w / 2], [it.len / 2, -it.w / 2], [it.len / 2, it.w / 2], [-it.len / 2, it.w / 2]], it.w / 2, 12));
     case "circle": return Array.from({ length: seg }, (_, i) => [it.x + (it.d / 2) * Math.cos((2 * Math.PI * i) / seg), it.y + (it.d / 2) * Math.sin((2 * Math.PI * i) / seg)]);
-    case "poly": { const R = polyRadius(it); return place(Array.from({ length: it.n }, (_, i) => [R * Math.cos(Math.PI / 2 + (2 * Math.PI * i) / it.n), R * Math.sin(Math.PI / 2 + (2 * Math.PI * i) / it.n)])); }
+    case "poly": { const R = polyRadius(it), n = Math.min(MAX_SIDES, Math.max(3, Math.round(it.n) || 3)); return place(Array.from({ length: n }, (_, i) => [R * Math.cos(Math.PI / 2 + (2 * Math.PI * i) / n), R * Math.sin(Math.PI / 2 + (2 * Math.PI * i) / n)])); }
     case "path": return roundPolygon(it.pts, it.r || 0);
   }
   return [];
@@ -69,16 +69,22 @@ function turned(it, deg, c) {
   return { ...it, x, y, rot: (it.rot || 0) + deg };
 }
 
-/** Apply an item's pattern → the concrete items it stands for. */
+// Limits that keep a typo (a count of 100000) from freezing the page: every copy costs
+// a kernel boolean and a redraw.
+export const MAX_SIDES = 60, MAX_COUNT = 30, MAX_POLAR = 120, MAX_COPIES = 150;
+const clampInt = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(v)) || lo));
+
+/** Apply an item's pattern → the concrete items it stands for (never more than MAX_COPIES). */
 export function expand(it) {
   const p = it.pattern;
   const base = { ...it, pattern: undefined };
   if (!p || p.type === "none") return [base];
   const out = [];
   if (p.type === "grid") {
-    for (let i = 0; i < Math.max(1, Math.round(p.nx)); i++) for (let j = 0; j < Math.max(1, Math.round(p.ny)); j++) out.push(moved(base, i * p.dx, j * p.dy));
+    const nx = clampInt(p.nx, 1, MAX_COUNT), ny = clampInt(p.ny, 1, MAX_COUNT);
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny && out.length < MAX_COPIES; j++) out.push(moved(base, i * p.dx, j * p.dy));
   } else if (p.type === "polar") {
-    const n = Math.max(1, Math.round(p.n));
+    const n = clampInt(p.n, 1, MAX_POLAR);
     for (let k = 0; k < n; k++) out.push(turned(base, (360 * k) / n, [p.cx || 0, p.cy || 0]));
   }
   return out;

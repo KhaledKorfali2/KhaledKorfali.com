@@ -117,15 +117,21 @@ export async function mount(host, { challenge: c, ctx, seed }, api) {
     if (!results.length) results = [{ kind: "error", stmt: text.trim(), message: "Nothing to run: that was only a comment." }];
     output.replaceChildren(...results.map(block));
     output.scrollTop = 0;
-    try { await renderSchema(); await renderGoal(results); }
-    finally { busy = false; runBtn.disabled = false; syncRunLabel(); }
+    try {
+      try { await renderSchema(); } catch (e) { console.error(e); }   // a sidebar problem must not hide the result
+      await renderGoal(results);
+    } finally { busy = false; runBtn.disabled = false; syncRunLabel(); }
   }
   /** Runs are queued, so a second click (or a test) never overlaps the first. */
   function run() {
     // With text selected, run only the selection (handy for trying one statement of several).
     const sel = editor.value.slice(editor.selectionStart, editor.selectionEnd);
     const text = sel.trim() ? sel : editor.value;
-    queue = queue.then(() => runNow(text, true));
+    // The chain must never stay rejected, or every later Run would silently do nothing.
+    queue = queue.then(() => runNow(text, true)).catch((e) => {
+      console.error(e);
+      output.replaceChildren(block({ kind: "error", stmt: "", message: `The console hit an internal error: ${e && e.message ? e.message : e}. Your data is unchanged by this message; if runs keep failing, press Reset database.` }));
+    });
     return queue;
   }
 

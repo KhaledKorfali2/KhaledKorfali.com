@@ -39,6 +39,8 @@ window.FsModel = (function () {
             mk("photo.png", { perms: "rw-r--r--", size: 184320, mtime: "Jun 30 18:02" }),
             mk("secret.key", { perms: "rw-------", size: 256, mtime: "Jun 25 07:40" }),
             mk(".bashrc", { perms: "rw-r--r--", size: 3324, mtime: "May 02 11:00" }),
+            // Scratch file for the mv exercises: nothing else in the course depends on it.
+            mk("draft.txt", { perms: "rw-r--r--", size: 128, mtime: "Jul 01 09:30" }),
             mk("latest", { type: "symlink", perms: "rwxrwxrwx", size: 9, target: "notes.txt" }),
             mk("docs", { type: "dir", perms: "rwxr-xr-x", children: [
               mk("report.docx", { perms: "rw-r--r--", size: 51200, mtime: "Jun 20 14:30" })

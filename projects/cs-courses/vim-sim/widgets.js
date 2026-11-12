@@ -130,6 +130,12 @@ window.VimWidgets = (function () {
         if (isTrailingSpace) cls.push("ved-listchar");
         cells.push(`<span class="${cls.join(" ")}">${esc(displayCh)}</span>`);
       });
+      // Insert mode can park the cursor one past the last character (after A,
+      // or while typing at the end of a line). There's no character there to
+      // draw it on, so give it a placeholder cell of its own.
+      if (li === cursor.line && lineText.length > 0 && cursor.col >= lineText.length) {
+        cells.push(`<span class="ved-char ${cursorClass || "ved-cursor-block"}"> </span>`);
+      }
       if (settings && settings.list) cells.push(`<span class="ved-eol-marker">$</span>`);
       const gutter = showGutter ? renderGutterCell(li, cursor.line, settings, gutterWidth) : "";
       const cursorlineCls = settings && settings.cursorline && li === cursor.line ? " ved-cursorline" : "";
@@ -767,13 +773,14 @@ window.VimWidgets = (function () {
         <div class="bw-buf-list">${bufferRows}</div>
         <div class="mark-complete-row" style="justify-content:flex-start;margin-top:12px">
           <button class="btn accent" data-bwnewbuffer>+ new empty buffer</button>
-          <button class="btn" data-bwsplit="horizontal">split window (Ctrl-w s)</button>
-          <button class="btn" data-bwsplit="vertical">vsplit window (Ctrl-w v)</button>
+          <button class="btn" data-bwsplit="horizontal">split window (Alt-w s)</button>
+          <button class="btn" data-bwsplit="vertical">vsplit window (Alt-w v)</button>
         </div>
         <div class="search-section-title mono" style="margin-top:16px">key reference</div>
         <div class="search-ref-row mono"><span>:e name</span><span>open/create a named buffer</span></div>
         <div class="search-ref-row mono"><span>:bn / :bp</span><span>next / previous buffer</span></div>
         <div class="search-ref-row mono"><span>:bd</span><span>delete the current buffer</span></div>
+        <div class="search-ref-row mono"><span>Alt-w = Ctrl-w</span><span>use Alt-w here: Ctrl-w closes the browser tab</span></div>
         <div class="search-ref-row mono"><span>Ctrl-w s / v</span><span>split window horizontally / vertically</span></div>
         <div class="search-ref-row mono"><span>Ctrl-w w</span><span>cycle to the next window</span></div>
         <div class="search-ref-row mono"><span>Ctrl-w c / o</span><span>close window / keep only this one</span></div>
@@ -1084,6 +1091,9 @@ window.VimWidgets = (function () {
     // character (e.g. "@", "{"), not a Ctrl chord.
     if (e.ctrlKey && !e.altKey && e.key.length === 1) return "ctrl-" + e.key.toLowerCase();
     if (e.ctrlKey && e.key === "[") return "Escape";
+    // Browsers reserve Ctrl+W for "close tab" and a page can't cancel it, so
+    // Alt+W is this simulator's safe stand-in for the same key.
+    if (e.altKey && !e.ctrlKey && (e.code === "KeyW" || e.key === "w" || e.key === "W")) return "ctrl-w";
     if (e.altKey && !e.ctrlKey) return null;
     if (["Escape", "Enter", "Backspace", "Tab"].indexOf(e.key) !== -1) return e.key;
     if (e.key.length === 1) return e.key;

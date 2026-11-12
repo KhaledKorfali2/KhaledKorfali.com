@@ -569,7 +569,8 @@
         gdTable.appendChild(tr);
       });
     }
-    if (isMobile()) openInfoPanel();
+    /* Mobile: don't pop the info sheet on every tap/drag — it covers the lower
+       half of the canvas. The peeking sheet handle opens it deliberately. */
     requestDraw();
   }
 
@@ -785,12 +786,17 @@
     touchMoved     = false;
     touchStartTime = Date.now();
 
-    longPressTimer = setTimeout(function () {
-      if (!touchMoved) {
-        pointerDown(touchStartPos, true);
-        if (navigator.vibrate) navigator.vibrate(40);
-      }
-    }, 500);
+    /* Long-press only means something for the select tool; in delete mode a
+       second pointerDown would delete whatever was underneath the first gate. */
+    clearTimeout(longPressTimer);
+    if (activeTool === 'select') {
+      longPressTimer = setTimeout(function () {
+        if (!touchMoved) {
+          pointerDown(touchStartPos, true);
+          if (navigator.vibrate) navigator.vibrate(40);
+        }
+      }, 500);
+    }
 
     pointerDown(touchStartPos, false);
   }, { passive: false });
@@ -890,6 +896,26 @@
       });
       mpsGrid.appendChild(item);
     });
+    /* Presets — #palette is hidden on phones, so mirror its preset buttons here */
+    var presetBtns = document.querySelectorAll('#palette .preset-btn');
+    if (!presetBtns.length) return;
+    var sec = document.createElement('div');
+    sec.className = 'mps-section'; sec.textContent = 'PRESETS';
+    mpsGrid.appendChild(sec);
+    presetBtns.forEach(function (btn) {
+      var item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'mps-item mps-preset';
+      var lbl = document.createElement('span'); lbl.className = 'mps-label';
+      lbl.textContent = btn.textContent;
+      item.appendChild(lbl);
+      item.setAttribute('aria-label', 'Load preset: ' + btn.textContent);
+      item.addEventListener('click', function () {
+        closeMobilePalette();
+        loadPreset(btn.getAttribute('data-preset'));
+      });
+      mpsGrid.appendChild(item);
+    });
   }
 
   function openMobilePalette() {
@@ -913,21 +939,21 @@
   if (mobileBackdrop) mobileBackdrop.addEventListener('click', closeMobilePalette);
 
   /* Preset buttons */
+  function loadPreset(key) {
+    var preset = GateEngine.PRESETS[key];
+    if (!preset) return;
+    saveSnapshot();
+    dragGate = null; wireDrag = null;
+    circuit.stopAllClocks();
+    circuit.load(JSON.parse(JSON.stringify(preset)));
+    restartClocks();
+    selectGate(null);
+    updateStats();
+    ttPanel.classList.add('hidden');
+    setTimeout(fitToScreen, 50);
+  }
   document.querySelectorAll('.preset-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var key = btn.getAttribute('data-preset');
-      var preset = GateEngine.PRESETS[key];
-      if (!preset) return;
-      saveSnapshot();
-      dragGate = null; wireDrag = null;
-      circuit.stopAllClocks();
-      circuit.load(JSON.parse(JSON.stringify(preset)));
-      restartClocks();
-      selectGate(null);
-      updateStats();
-      ttPanel.classList.add('hidden');
-      setTimeout(fitToScreen, 50);
-    });
+    btn.addEventListener('click', function () { loadPreset(btn.getAttribute('data-preset')); });
   });
 
   /* ── Toolbar button wiring ── */

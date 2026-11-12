@@ -131,7 +131,7 @@ window.GitWidgets = (function () {
   /* --------------------------------- Console --------------------------------- */
   function renderConsole() {
     const state = ENGINE.state;
-    const quick = ["git status", "git log --oneline", "git branch", "edit app.js"];
+    const quick = ["git status", "git log --oneline", "git branch", "edit README.md"];
     return `<div class="panel">
       <div class="panel-header"><span class="title mono">${icon("terminal", 15)} command console</span><span class="pill accent mono">${esc(G.currentBranchName(state.repo) || "detached")}</span></div>
       <div id="git-console-history" class="terminal-body" role="log" aria-label="Git console output">
@@ -185,7 +185,7 @@ window.GitWidgets = (function () {
   function renderConflictSimulator() {
     const r = ENGINE.state.repo;
     if (!r.conflict) {
-      return `<div class="panel"><div class="panel-header"><span class="title mono">${icon("alertTriangle", 15)} conflict simulator</span></div><div class="panel-body"><p class="perm-note" style="margin:0">No merge conflict right now. Trigger one by merging two branches that touched the same file — try merging <span class="mono">feature</span> into <span class="mono">main</span> in the console.</p></div></div>`;
+      return `<div class="panel"><div class="panel-header"><span class="title mono">${icon("alertTriangle", 15)} conflict simulator</span></div><div class="panel-body"><p class="perm-note" style="margin:0">No merge conflict right now. Trigger one by merging two branches that both changed the same file since they split. In the console, on <span class="mono">main</span>: <span class="mono">edit app.js</span>, <span class="mono">git commit -am "Change app.js on main"</span>, then <span class="mono">git merge feature</span> (<span class="mono">feature</span> changed <span class="mono">app.js</span> too).</p></div></div>`;
     }
     const allResolved = r.conflict.files.every((f) => f.resolved);
     return `<div class="panel">
@@ -210,17 +210,29 @@ window.GitWidgets = (function () {
   }
 
   /* --------------------------------- Challenges --------------------------------- */
+  // Some challenges undo each other (after merging feature into main, feature
+  // can only be rebased onto main by moving past it again), so each one is
+  // latched in saved state the first time it's achieved instead of being
+  // recomputed from the live repo on every render.
   function challengeStatus() {
     const s = ENGINE.state;
     const r = s.repo;
+    if (!s.challengesDone || typeof s.challengesDone !== "object") s.challengesDone = {};
+    const items = challengeChecks(s, r);
+    items.forEach((it) => { if (it.done) s.challengesDone[it.key] = true; else it.done = !!s.challengesDone[it.key]; });
+    return items;
+  }
+
+  function challengeChecks(s, r) {
+    const has = (name) => G.hasBranch(r, name);
     return [
-      { title: "Create a branch named 'hotfix'", done: !!r.branches.hotfix },
-      { title: "Merge 'feature' fully into 'main'", done: !!r.branches.feature && !!r.branches.main && G.isAncestor(r, r.branches.feature, r.branches.main) },
+      { key: "hotfix", title: "Create a branch named 'hotfix'", done: has("hotfix") },
+      { key: "merge", title: "Merge 'feature' fully into 'main'", done: has("feature") && has("main") && G.isAncestor(r, r.branches.feature, r.branches.main) },
       // Linear = main is an ancestor of feature AND nothing between them is a
       // merge commit (merging main INTO feature would otherwise also count).
-      { title: "Rebase 'feature' onto 'main' (linear history)", done: !!r.branches.feature && !!r.branches.main && r.branches.feature !== r.branches.main && G.isAncestor(r, r.branches.main, r.branches.feature) && G.commitsSince(r, r.branches.main, r.branches.feature).every((c) => c.parents.length < 2) },
-      { title: "Trigger a merge conflict and resolve it", done: !!s.hadConflict && !r.conflict },
-      { title: "Stash changes, then bring them back with stash pop", done: !!s.everStashed && (s.everPopped !== undefined ? !!s.everPopped : r.stash.length === 0) }
+      { key: "rebase", title: "Rebase 'feature' onto 'main' (linear history)", done: has("feature") && has("main") && r.branches.feature !== r.branches.main && G.isAncestor(r, r.branches.main, r.branches.feature) && G.commitsSince(r, r.branches.main, r.branches.feature).every((c) => c.parents.length < 2) },
+      { key: "conflict", title: "Trigger a merge conflict and resolve it", done: !!s.conflictResolved },
+      { key: "stash", title: "Stash changes, then bring them back with stash pop", done: !!s.everStashed && (s.everPopped !== undefined ? !!s.everPopped : r.stash.length === 0) }
     ];
   }
 
@@ -264,6 +276,7 @@ window.GitWidgets = (function () {
 
     function runAndRefresh(cmd) {
       window.GitCommands.run(cmd);
+      challengeStatus(); // latch anything this command just achieved, whichever view is open
       state()._stickToBottomSelectors = ["#git-console-history"];
       state()._focusSelector = "#git-console-input";
       ENGINE.render();
@@ -320,6 +333,7 @@ window.GitWidgets = (function () {
     Actions.register("click", "[data-finishmerge]", () => {
       const r = state().repo;
       if (r.conflict && r.conflict.files.every((f) => f.resolved)) window.GitCommands.finishMerge();
+      challengeStatus();
       ENGINE.render();
     });
   }

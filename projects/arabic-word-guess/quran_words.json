@@ -30,5 +30,1137 @@
   {
     "word": "حق",
     "meaning": "Truth"
+  },
+  {
+    "word": "نور",
+    "meaning": "Light"
+  },
+  {
+    "word": "رحمة",
+    "meaning": "Mercy"
+  },
+  {
+    "word": "صبر",
+    "meaning": "Patience"
+  },
+  {
+    "word": "أرض",
+    "meaning": "Earth"
+  },
+  {
+    "word": "سماء",
+    "meaning": "Sky"
+  },
+  {
+    "word": "قلب",
+    "meaning": "Heart"
+  },
+  {
+    "word": "يوم",
+    "meaning": "Day"
+  },
+  {
+    "word": "ليل",
+    "meaning": "Night"
+  },
+  {
+    "word": "نهار",
+    "meaning": "Daytime"
+  },
+  {
+    "word": "شمس",
+    "meaning": "Sun"
+  },
+  {
+    "word": "قمر",
+    "meaning": "Moon"
+  },
+  {
+    "word": "نجم",
+    "meaning": "Star"
+  },
+  {
+    "word": "ماء",
+    "meaning": "Water"
+  },
+  {
+    "word": "علم",
+    "meaning": "Knowledge"
+  },
+  {
+    "word": "خير",
+    "meaning": "Good"
+  },
+  {
+    "word": "شر",
+    "meaning": "Evil"
+  },
+  {
+    "word": "صلاة",
+    "meaning": "Prayer"
+  },
+  {
+    "word": "زكاة",
+    "meaning": "Almsgiving (Zakah)"
+  },
+  {
+    "word": "صوم",
+    "meaning": "Fasting"
+  },
+  {
+    "word": "حج",
+    "meaning": "Pilgrimage"
+  },
+  {
+    "word": "رسول",
+    "meaning": "Messenger"
+  },
+  {
+    "word": "نبي",
+    "meaning": "Prophet"
+  },
+  {
+    "word": "قول",
+    "meaning": "Saying"
+  },
+  {
+    "word": "دين",
+    "meaning": "Religion"
+  },
+  {
+    "word": "إيمان",
+    "meaning": "Faith"
+  },
+  {
+    "word": "إسلام",
+    "meaning": "Submission (Islam)"
+  },
+  {
+    "word": "هدى",
+    "meaning": "Guidance"
+  },
+  {
+    "word": "تقوى",
+    "meaning": "Piety"
+  },
+  {
+    "word": "توبة",
+    "meaning": "Repentance"
+  },
+  {
+    "word": "ذكر",
+    "meaning": "Remembrance"
+  },
+  {
+    "word": "شكر",
+    "meaning": "Gratitude"
+  },
+  {
+    "word": "حمد",
+    "meaning": "Praise"
+  },
+  {
+    "word": "رب",
+    "meaning": "Lord"
+  },
+  {
+    "word": "عبد",
+    "meaning": "Servant"
+  },
+  {
+    "word": "ناس",
+    "meaning": "People"
+  },
+  {
+    "word": "إنسان",
+    "meaning": "Human being"
+  },
+  {
+    "word": "رجل",
+    "meaning": "Man"
+  },
+  {
+    "word": "امرأة",
+    "meaning": "Woman"
+  },
+  {
+    "word": "ولد",
+    "meaning": "Child"
+  },
+  {
+    "word": "ابن",
+    "meaning": "Son"
+  },
+  {
+    "word": "أب",
+    "meaning": "Father"
+  },
+  {
+    "word": "أم",
+    "meaning": "Mother"
+  },
+  {
+    "word": "أخ",
+    "meaning": "Brother"
+  },
+  {
+    "word": "أخت",
+    "meaning": "Sister"
+  },
+  {
+    "word": "زوج",
+    "meaning": "Spouse"
+  },
+  {
+    "word": "أهل",
+    "meaning": "Family"
+  },
+  {
+    "word": "قوم",
+    "meaning": "People / Nation"
+  },
+  {
+    "word": "أمة",
+    "meaning": "Community"
+  },
+  {
+    "word": "بيت",
+    "meaning": "House"
+  },
+  {
+    "word": "دار",
+    "meaning": "Abode"
+  },
+  {
+    "word": "مسجد",
+    "meaning": "Mosque"
+  },
+  {
+    "word": "قرية",
+    "meaning": "Town"
+  },
+  {
+    "word": "مدينة",
+    "meaning": "City"
+  },
+  {
+    "word": "بلد",
+    "meaning": "Land / City"
+  },
+  {
+    "word": "طريق",
+    "meaning": "Road"
+  },
+  {
+    "word": "سبيل",
+    "meaning": "Way"
+  },
+  {
+    "word": "باب",
+    "meaning": "Door / Gate"
+  },
+  {
+    "word": "بحر",
+    "meaning": "Sea"
+  },
+  {
+    "word": "نهر",
+    "meaning": "River"
+  },
+  {
+    "word": "جبل",
+    "meaning": "Mountain"
+  },
+  {
+    "word": "شجرة",
+    "meaning": "Tree"
+  },
+  {
+    "word": "ثمر",
+    "meaning": "Fruit"
+  },
+  {
+    "word": "زرع",
+    "meaning": "Crops"
+  },
+  {
+    "word": "ريح",
+    "meaning": "Wind"
+  },
+  {
+    "word": "سحاب",
+    "meaning": "Clouds"
+  },
+  {
+    "word": "مطر",
+    "meaning": "Rain"
+  },
+  {
+    "word": "برق",
+    "meaning": "Lightning"
+  },
+  {
+    "word": "رعد",
+    "meaning": "Thunder"
+  },
+  {
+    "word": "ظل",
+    "meaning": "Shade"
+  },
+  {
+    "word": "تراب",
+    "meaning": "Dust / Soil"
+  },
+  {
+    "word": "طين",
+    "meaning": "Clay"
+  },
+  {
+    "word": "حجر",
+    "meaning": "Stone"
+  },
+  {
+    "word": "حديد",
+    "meaning": "Iron"
+  },
+  {
+    "word": "ذهب",
+    "meaning": "Gold"
+  },
+  {
+    "word": "فضة",
+    "meaning": "Silver"
+  },
+  {
+    "word": "مال",
+    "meaning": "Wealth"
+  },
+  {
+    "word": "رزق",
+    "meaning": "Provision"
+  },
+  {
+    "word": "طعام",
+    "meaning": "Food"
+  },
+  {
+    "word": "شراب",
+    "meaning": "Drink"
+  },
+  {
+    "word": "لبن",
+    "meaning": "Milk"
+  },
+  {
+    "word": "عسل",
+    "meaning": "Honey"
+  },
+  {
+    "word": "لحم",
+    "meaning": "Meat"
+  },
+  {
+    "word": "خبز",
+    "meaning": "Bread"
+  },
+  {
+    "word": "عين",
+    "meaning": "Eye / Spring"
+  },
+  {
+    "word": "يد",
+    "meaning": "Hand"
+  },
+  {
+    "word": "وجه",
+    "meaning": "Face"
+  },
+  {
+    "word": "لسان",
+    "meaning": "Tongue"
+  },
+  {
+    "word": "أذن",
+    "meaning": "Ear"
+  },
+  {
+    "word": "رأس",
+    "meaning": "Head"
+  },
+  {
+    "word": "صدر",
+    "meaning": "Chest"
+  },
+  {
+    "word": "نفس",
+    "meaning": "Soul / Self"
+  },
+  {
+    "word": "روح",
+    "meaning": "Spirit"
+  },
+  {
+    "word": "دم",
+    "meaning": "Blood"
+  },
+  {
+    "word": "عظم",
+    "meaning": "Bone"
+  },
+  {
+    "word": "حياة",
+    "meaning": "Life"
+  },
+  {
+    "word": "موت",
+    "meaning": "Death"
+  },
+  {
+    "word": "دنيا",
+    "meaning": "This world"
+  },
+  {
+    "word": "آخرة",
+    "meaning": "Hereafter"
+  },
+  {
+    "word": "ساعة",
+    "meaning": "Hour"
+  },
+  {
+    "word": "وقت",
+    "meaning": "Time"
+  },
+  {
+    "word": "سنة",
+    "meaning": "Year"
+  },
+  {
+    "word": "عام",
+    "meaning": "Year"
+  },
+  {
+    "word": "شهر",
+    "meaning": "Month"
+  },
+  {
+    "word": "فجر",
+    "meaning": "Dawn"
+  },
+  {
+    "word": "صبح",
+    "meaning": "Morning"
+  },
+  {
+    "word": "حساب",
+    "meaning": "Reckoning"
+  },
+  {
+    "word": "ميزان",
+    "meaning": "Scale / Balance"
+  },
+  {
+    "word": "عذاب",
+    "meaning": "Punishment"
+  },
+  {
+    "word": "ثواب",
+    "meaning": "Reward"
+  },
+  {
+    "word": "أجر",
+    "meaning": "Reward / Wage"
+  },
+  {
+    "word": "جزاء",
+    "meaning": "Recompense"
+  },
+  {
+    "word": "فضل",
+    "meaning": "Bounty / Grace"
+  },
+  {
+    "word": "نعمة",
+    "meaning": "Blessing / Favor"
+  },
+  {
+    "word": "سلام",
+    "meaning": "Peace"
+  },
+  {
+    "word": "أمن",
+    "meaning": "Security"
+  },
+  {
+    "word": "خوف",
+    "meaning": "Fear"
+  },
+  {
+    "word": "حزن",
+    "meaning": "Grief"
+  },
+  {
+    "word": "عدل",
+    "meaning": "Justice"
+  },
+  {
+    "word": "ظلم",
+    "meaning": "Injustice"
+  },
+  {
+    "word": "صدق",
+    "meaning": "Truthfulness"
+  },
+  {
+    "word": "كذب",
+    "meaning": "Lie / Falsehood"
+  },
+  {
+    "word": "باطل",
+    "meaning": "Falsehood"
+  },
+  {
+    "word": "كفر",
+    "meaning": "Disbelief"
+  },
+  {
+    "word": "نفاق",
+    "meaning": "Hypocrisy"
+  },
+  {
+    "word": "ذنب",
+    "meaning": "Sin"
+  },
+  {
+    "word": "إثم",
+    "meaning": "Sin"
+  },
+  {
+    "word": "عمل",
+    "meaning": "Deed"
+  },
+  {
+    "word": "أمر",
+    "meaning": "Command / Matter"
+  },
+  {
+    "word": "حكم",
+    "meaning": "Judgment"
+  },
+  {
+    "word": "حكمة",
+    "meaning": "Wisdom"
+  },
+  {
+    "word": "آية",
+    "meaning": "Sign / Verse"
+  },
+  {
+    "word": "سورة",
+    "meaning": "Chapter (Surah)"
+  },
+  {
+    "word": "قرآن",
+    "meaning": "Qur'an"
+  },
+  {
+    "word": "وحي",
+    "meaning": "Revelation"
+  },
+  {
+    "word": "كلمة",
+    "meaning": "Word"
+  },
+  {
+    "word": "اسم",
+    "meaning": "Name"
+  },
+  {
+    "word": "مثل",
+    "meaning": "Example / Parable"
+  },
+  {
+    "word": "قصص",
+    "meaning": "Stories"
+  },
+  {
+    "word": "حديث",
+    "meaning": "Speech / Narration"
+  },
+  {
+    "word": "نبأ",
+    "meaning": "News"
+  },
+  {
+    "word": "بشرى",
+    "meaning": "Good news"
+  },
+  {
+    "word": "وعد",
+    "meaning": "Promise"
+  },
+  {
+    "word": "عهد",
+    "meaning": "Covenant"
+  },
+  {
+    "word": "ميثاق",
+    "meaning": "Covenant / Pledge"
+  },
+  {
+    "word": "شهيد",
+    "meaning": "Witness / Martyr"
+  },
+  {
+    "word": "شاهد",
+    "meaning": "Witness"
+  },
+  {
+    "word": "عرش",
+    "meaning": "Throne"
+  },
+  {
+    "word": "قلم",
+    "meaning": "Pen"
+  },
+  {
+    "word": "لوح",
+    "meaning": "Tablet"
+  },
+  {
+    "word": "سفينة",
+    "meaning": "Ship"
+  },
+  {
+    "word": "جمل",
+    "meaning": "Camel"
+  },
+  {
+    "word": "بقرة",
+    "meaning": "Cow"
+  },
+  {
+    "word": "غنم",
+    "meaning": "Sheep"
+  },
+  {
+    "word": "كلب",
+    "meaning": "Dog"
+  },
+  {
+    "word": "حمار",
+    "meaning": "Donkey"
+  },
+  {
+    "word": "خيل",
+    "meaning": "Horses"
+  },
+  {
+    "word": "طير",
+    "meaning": "Birds"
+  },
+  {
+    "word": "نحل",
+    "meaning": "Bees"
+  },
+  {
+    "word": "نمل",
+    "meaning": "Ants"
+  },
+  {
+    "word": "حوت",
+    "meaning": "Fish / Whale"
+  },
+  {
+    "word": "فيل",
+    "meaning": "Elephant"
+  },
+  {
+    "word": "عنكبوت",
+    "meaning": "Spider"
+  },
+  {
+    "word": "ثياب",
+    "meaning": "Clothes"
+  },
+  {
+    "word": "لباس",
+    "meaning": "Clothing"
+  },
+  {
+    "word": "حرب",
+    "meaning": "War"
+  },
+  {
+    "word": "فتح",
+    "meaning": "Victory / Opening"
+  },
+  {
+    "word": "نصر",
+    "meaning": "Help / Victory"
+  },
+  {
+    "word": "قوة",
+    "meaning": "Strength"
+  },
+  {
+    "word": "جنود",
+    "meaning": "Soldiers"
+  },
+  {
+    "word": "عدو",
+    "meaning": "Enemy"
+  },
+  {
+    "word": "صديق",
+    "meaning": "Friend"
+  },
+  {
+    "word": "ولي",
+    "meaning": "Protector / Ally"
+  },
+  {
+    "word": "شيطان",
+    "meaning": "Satan / Devil"
+  },
+  {
+    "word": "جن",
+    "meaning": "Jinn"
+  },
+  {
+    "word": "جهنم",
+    "meaning": "Hell"
+  },
+  {
+    "word": "قيامة",
+    "meaning": "Resurrection"
+  },
+  {
+    "word": "قبر",
+    "meaning": "Grave"
+  },
+  {
+    "word": "مغفرة",
+    "meaning": "Forgiveness"
+  },
+  {
+    "word": "عفو",
+    "meaning": "Pardon"
+  },
+  {
+    "word": "دعاء",
+    "meaning": "Supplication"
+  },
+  {
+    "word": "سجود",
+    "meaning": "Prostration"
+  },
+  {
+    "word": "ركوع",
+    "meaning": "Bowing"
+  },
+  {
+    "word": "قبلة",
+    "meaning": "Prayer direction (Qiblah)"
+  },
+  {
+    "word": "كعبة",
+    "meaning": "Kaaba"
+  },
+  {
+    "word": "صدقة",
+    "meaning": "Charity"
+  },
+  {
+    "word": "يتيم",
+    "meaning": "Orphan"
+  },
+  {
+    "word": "مسكين",
+    "meaning": "Needy person"
+  },
+  {
+    "word": "فقير",
+    "meaning": "Poor person"
+  },
+  {
+    "word": "غني",
+    "meaning": "Rich"
+  },
+  {
+    "word": "كبير",
+    "meaning": "Big / Great"
+  },
+  {
+    "word": "صغير",
+    "meaning": "Small"
+  },
+  {
+    "word": "كثير",
+    "meaning": "Much / Many"
+  },
+  {
+    "word": "قليل",
+    "meaning": "Little / Few"
+  },
+  {
+    "word": "عظيم",
+    "meaning": "Great / Mighty"
+  },
+  {
+    "word": "كريم",
+    "meaning": "Noble / Generous"
+  },
+  {
+    "word": "حكيم",
+    "meaning": "Wise"
+  },
+  {
+    "word": "قريب",
+    "meaning": "Near"
+  },
+  {
+    "word": "بعيد",
+    "meaning": "Far"
+  },
+  {
+    "word": "جديد",
+    "meaning": "New"
+  },
+  {
+    "word": "قديم",
+    "meaning": "Old / Ancient"
+  },
+  {
+    "word": "طيب",
+    "meaning": "Good / Pure"
+  },
+  {
+    "word": "جميل",
+    "meaning": "Beautiful"
+  },
+  {
+    "word": "أبيض",
+    "meaning": "White"
+  },
+  {
+    "word": "أسود",
+    "meaning": "Black"
+  },
+  {
+    "word": "أخضر",
+    "meaning": "Green"
+  },
+  {
+    "word": "واحد",
+    "meaning": "One"
+  },
+  {
+    "word": "سبع",
+    "meaning": "Seven"
+  },
+  {
+    "word": "عشر",
+    "meaning": "Ten"
+  },
+  {
+    "word": "ألف",
+    "meaning": "Thousand"
+  },
+  {
+    "word": "شيء",
+    "meaning": "Thing"
+  },
+  {
+    "word": "مكان",
+    "meaning": "Place"
+  },
+  {
+    "word": "أول",
+    "meaning": "First"
+  },
+  {
+    "word": "آخر",
+    "meaning": "Last"
+  },
+  {
+    "word": "مبين",
+    "meaning": "Clear"
+  },
+  {
+    "word": "مستقيم",
+    "meaning": "Straight"
+  },
+  {
+    "word": "صالح",
+    "meaning": "Righteous"
+  },
+  {
+    "word": "مسلم",
+    "meaning": "Muslim (one who submits)"
+  },
+  {
+    "word": "كافر",
+    "meaning": "Disbeliever"
+  },
+  {
+    "word": "منافق",
+    "meaning": "Hypocrite"
+  },
+  {
+    "word": "ظالم",
+    "meaning": "Wrongdoer"
+  },
+  {
+    "word": "صادق",
+    "meaning": "Truthful"
+  },
+  {
+    "word": "كاذب",
+    "meaning": "Liar"
+  },
+  {
+    "word": "صابر",
+    "meaning": "Patient"
+  },
+  {
+    "word": "شاكر",
+    "meaning": "Grateful"
+  },
+  {
+    "word": "حلال",
+    "meaning": "Lawful"
+  },
+  {
+    "word": "حرام",
+    "meaning": "Forbidden"
+  },
+  {
+    "word": "فتنة",
+    "meaning": "Trial / Temptation"
+  },
+  {
+    "word": "بلاء",
+    "meaning": "Trial / Test"
+  },
+  {
+    "word": "مصيبة",
+    "meaning": "Calamity"
+  },
+  {
+    "word": "ضر",
+    "meaning": "Harm"
+  },
+  {
+    "word": "نفع",
+    "meaning": "Benefit"
+  },
+  {
+    "word": "أجل",
+    "meaning": "Appointed term"
+  },
+  {
+    "word": "خلق",
+    "meaning": "Creation"
+  },
+  {
+    "word": "سلطان",
+    "meaning": "Authority"
+  },
+  {
+    "word": "برهان",
+    "meaning": "Proof"
+  },
+  {
+    "word": "شفاء",
+    "meaning": "Healing"
+  },
+  {
+    "word": "مرض",
+    "meaning": "Illness"
+  },
+  {
+    "word": "جوع",
+    "meaning": "Hunger"
+  },
+  {
+    "word": "نوم",
+    "meaning": "Sleep"
+  },
+  {
+    "word": "سفر",
+    "meaning": "Journey"
+  },
+  {
+    "word": "جهاد",
+    "meaning": "Striving"
+  },
+  {
+    "word": "قتال",
+    "meaning": "Fighting"
+  },
+  {
+    "word": "صلح",
+    "meaning": "Reconciliation"
+  },
+  {
+    "word": "أمانة",
+    "meaning": "Trust"
+  },
+  {
+    "word": "شهادة",
+    "meaning": "Testimony"
+  },
+  {
+    "word": "وصية",
+    "meaning": "Bequest / Will"
+  },
+  {
+    "word": "نكاح",
+    "meaning": "Marriage"
+  },
+  {
+    "word": "طلاق",
+    "meaning": "Divorce"
+  },
+  {
+    "word": "تجارة",
+    "meaning": "Trade"
+  },
+  {
+    "word": "بيع",
+    "meaning": "Sale"
+  },
+  {
+    "word": "كنز",
+    "meaning": "Treasure"
+  },
+  {
+    "word": "مرجان",
+    "meaning": "Coral"
+  },
+  {
+    "word": "حرير",
+    "meaning": "Silk"
+  },
+  {
+    "word": "كأس",
+    "meaning": "Cup"
+  },
+  {
+    "word": "مصباح",
+    "meaning": "Lamp"
+  },
+  {
+    "word": "زيت",
+    "meaning": "Oil"
+  },
+  {
+    "word": "زيتون",
+    "meaning": "Olives"
+  },
+  {
+    "word": "تين",
+    "meaning": "Fig"
+  },
+  {
+    "word": "عنب",
+    "meaning": "Grapes"
+  },
+  {
+    "word": "نخل",
+    "meaning": "Date palms"
+  },
+  {
+    "word": "رمان",
+    "meaning": "Pomegranate"
+  },
+  {
+    "word": "بصل",
+    "meaning": "Onion"
+  },
+  {
+    "word": "عدس",
+    "meaning": "Lentils"
+  },
+  {
+    "word": "ملح",
+    "meaning": "Salt"
+  },
+  {
+    "word": "صيف",
+    "meaning": "Summer"
+  },
+  {
+    "word": "شتاء",
+    "meaning": "Winter"
+  },
+  {
+    "word": "دخان",
+    "meaning": "Smoke"
+  },
+  {
+    "word": "رماد",
+    "meaning": "Ashes"
+  },
+  {
+    "word": "حطب",
+    "meaning": "Firewood"
+  },
+  {
+    "word": "حبل",
+    "meaning": "Rope"
+  },
+  {
+    "word": "عصا",
+    "meaning": "Staff"
+  },
+  {
+    "word": "قميص",
+    "meaning": "Shirt"
+  },
+  {
+    "word": "سقف",
+    "meaning": "Roof"
+  },
+  {
+    "word": "جدار",
+    "meaning": "Wall"
+  },
+  {
+    "word": "كهف",
+    "meaning": "Cave"
+  },
+  {
+    "word": "مشرق",
+    "meaning": "East"
+  },
+  {
+    "word": "مغرب",
+    "meaning": "West"
+  },
+  {
+    "word": "يمين",
+    "meaning": "Right side"
+  },
+  {
+    "word": "شمال",
+    "meaning": "Left side"
+  },
+  {
+    "word": "فوق",
+    "meaning": "Above"
+  },
+  {
+    "word": "تحت",
+    "meaning": "Below"
+  },
+  {
+    "word": "قبل",
+    "meaning": "Before"
+  },
+  {
+    "word": "بعد",
+    "meaning": "After"
   }
 ]

@@ -67,8 +67,14 @@ export async function open({ seed, challenge: c, ctx }, SQL) {
 
   return {
     run, plan,
-    tables: () => names("'table','view'").map((name) => ({ name, note: String(scalar(`SELECT COUNT(*) FROM "${name}"`)), preview: `SELECT *\nFROM ${name}\nLIMIT 10;`,
-      cols: q(`PRAGMA table_info("${name}")`).rows.map((r) => ({ name: r[1], type: `${String(r[2] || "").toLowerCase() || "any"}${r[5] ? " · pk" : ""}` })) })),
+    // One unreadable table (a view whose base table was dropped, say) must not break the whole listing.
+    tables: () => names("'table','view'").map((name) => {
+      const preview = `SELECT *\nFROM ${name}\nLIMIT 10;`;
+      try {
+        return { name, note: String(scalar(`SELECT COUNT(*) FROM "${name}"`)), preview,
+          cols: q(`PRAGMA table_info("${name}")`).rows.map((r) => ({ name: r[1], type: `${String(r[2] || "").toLowerCase() || "any"}${r[5] ? " · pk" : ""}` })) };
+      } catch { return { name, note: "?", preview, cols: [] }; }
+    }),
     expected: (solution) => run(solution).filter((r) => r.kind === "rows").pop(),
     resolve: (checks) => checks.map((k) => ("expect" in k ? { ...k, is: probe(() => scalar(k.expect)) } : k)),
     check(k) {

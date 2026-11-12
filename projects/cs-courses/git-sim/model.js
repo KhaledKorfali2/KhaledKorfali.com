@@ -32,8 +32,13 @@ window.GitModel = (function () {
     };
   }
 
+  // Branch names come straight from the learner, so every lookup has to be an
+  // own-property check: "constructor" / "toString" exist on any plain object.
+  const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+  const hasBranch = (repo, name) => typeof name === "string" && hasOwn(repo.branches, name);
+
   function laneFor(repo, branchName) {
-    if (!(branchName in repo.branchLanes)) repo.branchLanes[branchName] = Object.keys(repo.branchLanes).length;
+    if (!hasOwn(repo.branchLanes, branchName)) repo.branchLanes[branchName] = Object.keys(repo.branchLanes).length;
     return repo.branchLanes[branchName];
   }
 
@@ -98,7 +103,7 @@ window.GitModel = (function () {
       return c && c.parents[n - 1] ? c.parents[n - 1] : null;
     }
     if (ref === "HEAD") return headHash(repo);
-    if (repo.branches[ref]) return repo.branches[ref];
+    if (hasBranch(repo, ref)) return repo.branches[ref];
     const found = findByPrefix(repo, ref);
     if (found === "ambiguous") return "ambiguous";
     return found ? found.hash : null;
@@ -174,7 +179,7 @@ window.GitModel = (function () {
   }
 
   return {
-    WORKSPACE_FILES, makeRepo, addCommit, laneFor, buildInitialRepo,
+    WORKSPACE_FILES, makeRepo, addCommit, laneFor, hasBranch, buildInitialRepo,
     findByPrefix, resolveRef, headHash, currentBranchName,
     ancestors, isAncestor, commonAncestor, commitsSince, logFrom, filesTouchedBy
   };

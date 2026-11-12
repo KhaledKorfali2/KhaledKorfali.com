@@ -444,6 +444,12 @@ body {
   font-family: var(--display); font-size: 0.65rem; font-weight: 500;
   color: var(--text); text-align: center;
 }
+.mps-section {
+  grid-column: 1 / -1;
+  font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.14em;
+  color: var(--text-dim); padding: 8px 0 2px;
+}
+.mps-item.mps-preset { justify-content: center; min-height: 44px; }
 
 #mobile-palette-backdrop {
   position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 299;

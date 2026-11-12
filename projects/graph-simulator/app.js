@@ -164,8 +164,24 @@
       var b = graph.nodes[(Math.random() * graph.nodes.length) | 0];
       if (a.id !== b.id && !hasEdge(a.id, b.id)) graph.edges.push({ u: a.id, v: b.id, w: rw() });
     }
+    if (currentAlgo === 'topo') orientAsDag();
     autoSetStartEnd();
+    if (W > 0 && H > 0) autoGenDone = true;
     resetTraversal(); draw();
+  }
+
+  // Point every edge the same way along one node ordering (left → right), so
+  // the graph is acyclic — used when a graph is made directed for Topo Sort.
+  function orientAsDag() {
+    var rank = {}, seen = {};
+    graph.nodes.slice().sort(function (a, b) { return a.x - b.x; })
+      .forEach(function (n, i) { rank[n.id] = i; });
+    graph.edges = graph.edges.filter(function (e) {
+      if (rank[e.u] > rank[e.v]) { var t = e.u; e.u = e.v; e.v = t; }
+      var k = e.u + '->' + e.v;
+      if (seen[k]) return false;       // A→B + B→A collapse into one edge
+      seen[k] = true; return true;
+    });
   }
 
   function generateGrid(cols, rows) {
@@ -191,6 +207,7 @@
       }
     startNodeId = grid[0][0];
     endNodeId   = grid[rows-1][cols-1];
+    if (W > 0 && H > 0) autoGenDone = true;
     resetTraversal(); draw();
   }
 
@@ -209,8 +226,11 @@
     endNodeId   = sorted[sorted.length - 1].id;
   }
 
+  // Only for first load (canvas had no size yet at boot) — never after the
+  // user has cleared the graph on purpose.
+  var autoGenDone = false;
   function regenerateIfEmpty() {
-    if (graph.nodes.length === 0 && W > 0 && H > 0) generateRandom();
+    if (!autoGenDone && W > 0 && H > 0) generateRandom();
   }
 
   /* ══════════════════════════════════════════════════════
@@ -354,7 +374,7 @@
     frontier: '#38bdf8', visited: '#7c3aed', path: '#f59e0b'
   };
   var EDGE_COL = {
-    default: '#162030', tree: '#1d4ed8', relaxed: '#6d28d9',
+    default: '#45607f', tree: '#3b82f6', relaxed: '#8b5cf6',
     mst: '#059669', path: '#d97706'
   };
 
@@ -401,7 +421,7 @@
       var col = getEdgeCol(k);
       var active = !!dispEdgeStates[k];
       ctx.strokeStyle = col;
-      ctx.lineWidth   = active ? 2.5 : 1.2;
+      ctx.lineWidth   = active ? 2.5 : 1.5;
       if (graph.directed) {
         drawArrow(nu.x, nu.y, nv.x, nv.y, col, active);
       } else {
@@ -417,7 +437,7 @@
         var ox = -dy / len * 11, oy = dx / len * 11;
         ctx.font = '600 10px JetBrains Mono, monospace';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillStyle = active ? col : '#2a4060';
+        ctx.fillStyle = active ? col : '#8ea3bf';
         ctx.fillText(e.w, mx + ox, my + oy);
       }
     });
@@ -900,6 +920,7 @@
       if (currentAlgo === 'topo' && !graph.directed) {
         chkDirected.checked = true;
         graph.directed = true;
+        orientAsDag();      // undirected edges have no meaningful direction yet
       }
       initAndReset();
     });

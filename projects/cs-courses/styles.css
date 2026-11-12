@@ -141,7 +141,7 @@
   .term-line.sys { color: var(--text-dim); white-space: pre-wrap; }
   .term-prompt-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
   .term-prompt-row .prompt { color: var(--accent); white-space: nowrap; }
-  #term-input { background: transparent; border: none; outline: none; color: var(--text-primary); flex: 1; font-family:'IBM Plex Mono',monospace; font-size: 12.5px; padding: 0; }
+  #term-input, .term-input { background: transparent; border: none; outline: none; color: var(--text-primary); flex: 1; font-family:'IBM Plex Mono',monospace; font-size: 12.5px; padding: 0; }
   .term-quick { padding: 8px 16px; border-top: 1px solid var(--border-soft); display: flex; gap: 6px; flex-wrap: wrap; }
   .term-quick button { font-family:'IBM Plex Mono',monospace; font-size: 11px; padding: 4px 8px; border-radius: 5px; background: var(--bg-raised); color: var(--text-muted); border: 1px solid var(--border-soft); cursor: pointer; }
 

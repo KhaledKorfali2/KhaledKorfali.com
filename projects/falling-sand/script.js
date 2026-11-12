@@ -375,29 +375,43 @@ function getPointerCell(e) {
   };
 }
 
+// Surface mode: row where a particle lands on top of the column under the
+// brush. Occupied cell → first empty cell above it; empty cell → lowest empty
+// cell below it (resting on the pile / floor). Returns -1 if the column is full.
+function surfaceRow(col, row) {
+  let yTop = row;
+  while (yTop >= 0 && TYPE[cur][idx(col, yTop)] !== T_EMPTY) yTop--;
+  if (yTop === row) {
+    while (yTop + 1 < rows && TYPE[cur][idx(col, yTop + 1)] === T_EMPTY) yTop++;
+  }
+  return yTop;
+}
+
 // Stamp brush at one grid cell
 function stampAt(mc, mr) {
   const extent     = brushExtent;
   const placedCols = new Set();
+  // Walls and the eraser must be solid; only loose elements get a random scatter.
+  const scatter    = selectedType !== T_WALL && selectedType !== 99;
+  const surface    = brushMode === "surface" && COLORABLE.has(selectedType);
 
   for (let i = -extent; i <= extent; i++) {
     for (let j = -extent; j <= extent; j++) {
       if (i*i + j*j > extent*extent) continue;   // circular
-      if (chance(0.35)) continue;
+      if (scatter && chance(0.35)) continue;
       const col = mc + i, row = mr + j;
       if (!inBounds(col, row)) continue;
       const ci = idx(col, row);
 
       // Eraser
       if (selectedType === 99) { TYPE[cur][ci] = T_EMPTY; continue; }
-      if (TYPE[cur][ci] !== T_EMPTY) continue;
+      if (!surface && TYPE[cur][ci] !== T_EMPTY) continue;
 
       switch (selectedType) {
         case T_SAND: {
           if (brushMode === "surface") {
             if (placedCols.has(col)) continue;
-            let yTop = row;
-            while (yTop >= 0 && TYPE[cur][idx(col, yTop)] !== T_EMPTY) yTop--;
+            const yTop = surfaceRow(col, row);
             if (yTop >= 0) { spawnSand(cur, col, yTop, baseH, baseS, baseL); placedCols.add(col); }
           } else {
             spawnSand(cur, col, row, baseH, baseS, baseL);
@@ -411,8 +425,7 @@ function stampAt(mc, mr) {
         case T_WALL: {
           if (brushMode === "surface") {
             if (placedCols.has(col)) continue;
-            let yTop = row;
-            while (yTop >= 0 && TYPE[cur][idx(col, yTop)] !== T_EMPTY) yTop--;
+            const yTop = surfaceRow(col, row);
             if (yTop >= 0) { spawnWall(cur, col, yTop, baseH, baseS, baseL); placedCols.add(col); }
           } else {
             spawnWall(cur, col, row, baseH, baseS, baseL);
@@ -445,9 +458,16 @@ function stampLine(c0, r0, c1, r1) {
   }
 }
 
+// First-run hint: hide on the first pointer interaction
+const hint = document.getElementById("hint");
+function dismissHint() {
+  if (hint) hint.classList.add("gone");
+}
+
 function onPointerDown(e) {
   e.preventDefault();
   mousePressed = true;
+  dismissHint();
   const cell = getPointerCell(e);
   lastPointerCell = cell;
   stampAt(cell.c, cell.r);
@@ -743,7 +763,11 @@ function render() {
 let lastTs = performance.now(), frames = 0;
 
 function loop(ts) {
-  if (!paused) simulate();
+  if (!paused) {
+    // Keep pouring while the pointer is held still (no move events fire then)
+    if (mousePressed && lastPointerCell) stampAt(lastPointerCell.c, lastPointerCell.r);
+    simulate();
+  }
   const count = render();
 
   frames++;
@@ -766,4 +790,4 @@ window.addEventListener("resize", () => {
 });
 resizeCanvas();
 selectElement("sand");   // set initial state
-requestAnimationFrame(loop);
+requestAnimationFrame(loop);

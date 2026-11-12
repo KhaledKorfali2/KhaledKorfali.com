@@ -83,7 +83,7 @@
     migrateState,
     sandboxNav: SANDBOX_NAV,
     defaultSandboxView: "explorer",
-    scrollPreserveSelectors: [".tree-scroll", "#term-history"],
+    scrollPreserveSelectors: [".tree-scroll", ".term-history"],
     renderWidget,
     homeStats: (state) => [{ label: "dirs explored", value: M.flatten(state.fs).filter((f) => f.node.type === "dir").length }],
     beforeSave: (state) => { state.inodeCounter = M.getInodeCounter(); }

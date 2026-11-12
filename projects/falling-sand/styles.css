@@ -48,6 +48,24 @@ canvas {
 #pausedBadge { color: var(--text); }
 #pausedBadge[hidden] { display: none; }
 
+/* ── First-run hint ── */
+#hint {
+  position: fixed;
+  top: 38%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 0.4s ease, visibility 0s linear 0.4s;
+}
+#hint.gone { opacity: 0; visibility: hidden; }
+
 /* ── Back link ── */
 #backLink {
   position: fixed;
@@ -376,6 +394,7 @@ input[type="color"]:focus-visible {
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; }
+  #hint.gone { display: none; }
 }
 
 /* ── Touch devices: bigger tap targets ── */
@@ -399,4 +418,4 @@ input[type="color"]:focus-visible {
   #panel { max-width: calc(100vw - 16px); }
   #panelInner { padding: 8px 12px; }
   .back-text { display: none; }
-}
+}

@@ -124,10 +124,10 @@ async function viewChallenge(c) {
   const hintsBox = el("div", { class: "hints" });
   const renderHints = () => {
     const used = Math.min(store.hintsUsed(c.id), c.hints.length);
-    hintsBox.replaceChildren(
+    hintsBox.replaceChildren(...[
       ...c.hints.slice(0, used).map((h, i) => el("div", { class: "hint" }, el("b", { text: `Hint ${i + 1}` }), md(h))),
       used < c.hints.length ? el("button", { type: "button", class: "btn btn-ghost", on: { click: () => { store.useHint(c.id); renderHints(); } } },
-        icon(ICONS.bulb, 15), used ? `Another hint (${used}/${c.hints.length})` : `Stuck? Reveal a hint (${c.hints.length} available)`) : null);
+        icon(ICONS.bulb, 15), used ? `Another hint (${used}/${c.hints.length})` : `Stuck? Reveal a hint (${c.hints.length} available)`) : null].filter(Boolean));
   };
   renderHints();
 

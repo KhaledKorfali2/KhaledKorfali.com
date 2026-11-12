@@ -365,7 +365,11 @@ window.VimGrammar = (function () {
       const onWordChar = atCursor !== undefined && B.charClass(atCursor) !== "space";
       if (p.operator === "c" && onWordChar) {
         inclusive = true;
-        let t = cur; for (let i = 0; i < count; i++) t = B.wordEnd(ed.lines, t);
+        // Already on the last character of the word (a one-letter word
+        // included): the first "word" ends right here, not at the next one.
+        const next = (ed.lines[cur.line] || "")[cur.col + 1];
+        const atWordEnd = next === undefined || B.charClass(next) !== B.charClass(atCursor);
+        let t = cur; for (let i = 0; i < count; i++) { if (i === 0 && atWordEnd) continue; t = B.wordEnd(ed.lines, t); }
         target = t;
       } else {
         let t = cur; for (let i = 0; i < count; i++) t = B.wordForward(ed.lines, t);
@@ -381,7 +385,9 @@ window.VimGrammar = (function () {
       const onWordChar = atCursor !== undefined && B.charClassBig(atCursor) !== "space";
       if (p.operator === "c" && onWordChar) {
         inclusive = true;
-        let t = cur; for (let i = 0; i < count; i++) t = B.wordEnd(ed.lines, t, true);
+        const next = (ed.lines[cur.line] || "")[cur.col + 1];
+        const atWordEnd = next === undefined || B.charClassBig(next) !== B.charClassBig(atCursor);
+        let t = cur; for (let i = 0; i < count; i++) { if (i === 0 && atWordEnd) continue; t = B.wordEnd(ed.lines, t, true); }
         target = t;
       } else {
         let t = cur; for (let i = 0; i < count; i++) t = B.wordForward(ed.lines, t, true);
@@ -849,8 +855,8 @@ window.VimGrammar = (function () {
     if (p.awaitingChar === "find") { p.findChar = key; return applyVisualMotion(engine, p); }
     if (!p.textObjectKind && (key === "i" || key === "a")) { p.textObjectKind = key; p.awaitingChar = "textobject"; return; }
     if ("fFtT".includes(key)) { p.motion = key; p.awaitingChar = "find"; return; }
-    if (key === "g") { p.awaitingChar = "g-motion"; return; }
     if (p.awaitingChar === "g-motion") { p.motion = key === "g" ? "gg" : key === "e" ? "ge" : key === "E" ? "gE" : null; if (!p.motion) { resetParse(ed); return; } return applyVisualMotion(engine, p); }
+    if (key === "g") { p.awaitingChar = "g-motion"; return; }
     if ("hjklwbe0^$%HML{}()".includes(key) || "WBEG".includes(key)) { p.motion = key; return applyVisualMotion(engine, p); }
     if (key === "o") { const a = ed.visualAnchor; ed.visualAnchor = ed.cursor; ed.cursor = a; resetParse(ed); return; }
     if (key === "p" || key === "P") return applyVisualPaste(engine);
@@ -951,7 +957,9 @@ window.VimGrammar = (function () {
       if (m) {
         const canon = findSettingByAlias(m[1]);
         if (!canon || SETTING_DEFS[canon].type !== "number") { messages.push(`E518: Unknown option: ${tok}`); return; }
-        ed.settings[canon] = Math.max(1, parseInt(m[2], 10));
+        // Clamped: an unbounded shiftwidth/tabstop lets one >> build a
+        // multi-megabyte line (and the setting is saved with the session).
+        ed.settings[canon] = Math.min(16, Math.max(1, parseInt(m[2], 10)));
         return;
       }
       if (tok.endsWith("?")) {
@@ -1290,7 +1298,7 @@ window.VimGrammar = (function () {
   function findAllMatches(lines, pattern, ignoreCase) {
     const c = vimPatternToJs(pattern);
     let re;
-    try { re = new RegExp(c.source, (c.icase !== null ? c.icase : ignoreCase) ? "gi" : "g"); } catch (e) { return null; }
+    try { re = new RegExp(c.source, (c.icase !== null ? c.icase : ignoreCase) ? "gim" : "gm"); } catch (e) { return null; } // m: ^ and $ anchor at every line of the joined buffer
     const text = B.flatten(lines);
     const matches = [];
     let m;
@@ -1973,6 +1981,8 @@ window.VimGrammar = (function () {
         return;
       }
       if (kind === "g-prefix") {
+        // g~g~ / gugu / gUgU: the long spelling of g~~ / guu / gUU.
+        if (p.operator && p.operator.length === 2 && p.operator[0] === "g" && key === p.operator[1]) { p.motion = "LINEWISE_SELF"; return executeParsed(engine, p); }
         if (key === "g") { p.motion = "gg"; return executeParsed(engine, p); }
         if (key === "e") { p.motion = "ge"; return executeParsed(engine, p); }
         if (key === "E") { p.motion = "gE"; return executeParsed(engine, p); }
@@ -1985,8 +1995,8 @@ window.VimGrammar = (function () {
           } else { ed.message = "no previous visual selection"; }
           resetParse(ed); return;
         }
-        if (key === "t") { cycleTab(engine, false); resetParse(ed); return; }
-        if (key === "T") { cycleTab(engine, true); resetParse(ed); return; }
+        if (key === "t" && !p.operator) { cycleTab(engine, false); resetParse(ed); return; }
+        if (key === "T" && !p.operator) { cycleTab(engine, true); resetParse(ed); return; }
         if ((key === "~" || key === "u" || key === "U") && !p.operator) { p.operator = "g" + key; ed.pending = "pending"; return; }
         resetParse(ed); return;
       }
@@ -2006,7 +2016,8 @@ window.VimGrammar = (function () {
       ed.pending = "pending"; return;
     }
     if (key === '"' && !p.operator) { p.awaitingChar = "register"; ed.pending = "pending"; return; }
-    if (key === "g" && !p.operator) { p.awaitingChar = "g-prefix"; ed.pending = "pending"; return; }
+    // Also valid after an operator: dgg, ygg, dge, cgE...
+    if (key === "g") { p.awaitingChar = "g-prefix"; ed.pending = "pending"; return; }
     if (key === "ctrl-w" && !p.operator) { p.awaitingChar = "ctrl-w-prefix"; return; }
     if (key === "m" && !p.operator) { p.awaitingChar = "mark-set"; return; }
     if (key === "'") { p.awaitingChar = "mark-jump-line"; return; }
@@ -2021,6 +2032,8 @@ window.VimGrammar = (function () {
     if (!p.operator && "dcy".includes(key)) { p.operator = key; ed.pending = "pending"; return; }
     if (!p.operator && (key === ">" || key === "<")) { p.operator = key; ed.pending = "pending"; return; }
     if (p.operator && key === p.operator) { p.motion = "LINEWISE_SELF"; return executeParsed(engine, p); }
+    // The two-key case operators double on their second key: g~~, guu, gUU.
+    if (p.operator && p.operator.length === 2 && p.operator[0] === "g" && key === p.operator[1]) { p.motion = "LINEWISE_SELF"; return executeParsed(engine, p); }
     if (p.operator && (key === "i" || key === "a")) { p.textObjectKind = key; p.awaitingChar = "textobject"; ed.pending = "pending"; return; }
     if ("fFtT".includes(key)) { p.motion = key; p.awaitingChar = "find"; ed.pending = "pending"; return; }
 

@@ -125,7 +125,7 @@
             '(e.g. <code>Q = A · B</code> for AND)<br>' +
             '• A plain-English <strong>description</strong> of what it does<br>' +
             '• Its complete <strong>truth table</strong><br><br>' +
-            'On mobile, tap any gate to open this panel automatically.',
+            'On mobile, tap a gate, then tap the handle at the bottom of the screen to open this panel.',
       placement: 'left',
       padding: 6
     },

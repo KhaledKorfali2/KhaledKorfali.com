@@ -461,6 +461,10 @@ input[type="range"]::-moz-range-thumb {
   .algo-btn { padding: 5px 7px; font-size: 0.62rem; }
   .stat-val { font-size: 0.72rem; }
 }
+/* ── Desktop: the ⓘ button only opens the mobile info sheet ── */
+@media (min-width: 701px) {
+  #btn-info-tool, #graph-toolbar .tool-sep:nth-last-child(2) { display: none; }
+}
 /* ── Keyboard focus ── */
 .algo-btn:focus-visible, .tool-btn:focus-visible, .ctrl-btn:focus-visible,
 .wp-btn:focus-visible, #back-link:focus-visible, .tool-check:focus-within,

@@ -98,14 +98,16 @@ window.FsWidgets = (function () {
 
   function renderTerminal() {
     const state = ENGINE.state;
-    const quick = ["ls -l", "mv notes.txt docs/", "chmod 700 secret.key", "ln -s notes.txt shortcut"];
-    return `<div class="panel">
+    const quick = ["ls -l", "mv draft.txt docs/", "chmod 700 secret.key", "ln -s notes.txt shortcut"];
+    // No ids here: a lesson can embed several terminals on one page, so the
+    // handlers locate the input/history relative to their own [data-terminal].
+    return `<div class="panel" data-terminal>
       <div class="panel-header"><span class="title mono">${icon("terminal", 15)} terminal</span><span class="pill accent mono">${esc(state.cwd)}</span></div>
-      <div id="term-history" class="terminal-body" role="log" aria-label="Terminal output">
+      <div class="terminal-body term-history" role="log" aria-label="Terminal output">
         ${state.termHistory.map((h) => `<div class="term-line ${esc(h.type)} mono">${esc(h.text)}</div>`).join("")}
         <div class="term-prompt-row">
-          <label class="prompt mono" for="term-input">khaled@sim:${esc(state.cwd)}$</label>
-          <input id="term-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" />
+          <span class="prompt mono" aria-hidden="true">khaled@sim:${esc(state.cwd)}$</span>
+          <input class="term-input" data-terminput type="text" aria-label="Terminal command" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" />
           <span class="blink mono" style="color:var(--accent)" aria-hidden="true">&#9608;</span>
         </div>
       </div>
@@ -162,12 +164,9 @@ window.FsWidgets = (function () {
   function computeAllocatedBlocks(node) {
     const blockSize = 4096, totalBlocks = 24;
     const usedBlocks = node.type === "dir" ? 1 : Math.max(1, Math.min(totalBlocks - 2, Math.ceil(node.size / blockSize)));
-    const allocated = new Set();
-    let s = node.inode;
-    while (allocated.size < usedBlocks) {
-      s = (s * 1103515245 + 12345) % 2147483648;
-      allocated.add(s % totalBlocks);
-    }
+    // Deterministic per inode, and always terminates: shuffle the block
+    // numbers with the inode as the seed and take the first `usedBlocks`.
+    const allocated = new Set(window.Utils.seededShuffle(totalBlocks, node.inode).slice(0, usedBlocks));
     return { allocated, totalBlocks, usedBlocks, blockSize };
   }
 
@@ -342,7 +341,10 @@ window.FsWidgets = (function () {
     const totalDisk = 200 * 1024 * 1024;
     const usedPct = Math.min(100, Math.round((totalUsed / totalDisk) * 100));
     const totalTiles = 48;
-    const usedTiles = Math.round((usedPct / 100) * totalTiles);
+    // The grid is an illustration, not a readout of the usage bar above (the
+    // seed files fill well under 1% of the disk, which would leave it empty):
+    // a fixed ~40% of the blocks are in use so the two layouts can be compared.
+    const usedTiles = Math.round(totalTiles * 0.4);
     const order = state.storageDefrag ? [...Array(totalTiles).keys()] : window.Utils.seededShuffle(totalTiles, 4242);
     const usedSet = new Set(order.slice(0, usedTiles));
     const frag = Array.from({ length: totalTiles }, (_, i) => `<div class="frag-block" style="background:${usedSet.has(i) ? "var(--teal)" : "var(--bg-raised-2)"};border:1px solid ${usedSet.has(i) ? "var(--teal)" : "var(--border)"}"></div>`).join("");
@@ -370,17 +372,16 @@ window.FsWidgets = (function () {
   function challengeItems() {
     const state = ENGINE.state;
     const files = M.flatten(state.fs).filter((f) => f.path !== "/");
-    const largest = files.reduce((a, b) => (b.node.size > a.node.size ? b : a), files[0]);
-    const broken = files.find((f) => f.node.type === "symlink" && !M.resolveTarget(state.fs, f.path, f.node.target));
-    const hidden = files.find((f) => f.node.name.startsWith("."));
-    const worldWritable = files.find((f) => f.node.type === "file" && f.node.perms[7] === "w");
-    const orphan = state.processes.find((p) => p.ppid !== null && !state.processes.some((q) => q.pid === p.ppid));
+    const maxSize = files.reduce((m, f) => Math.max(m, f.node.size), 0);
+    // Each challenge validates the answer the learner actually picked, so any
+    // entry that satisfies it counts (there can be more than one).
+    const byPath = (pred) => (ans) => { const f = files.find((x) => x.path === ans); return !!f && pred(f); };
     return [
-      { key: "largest", title: "Find the largest file", hint: "Compare sizes across every directory.", answer: largest ? largest.path : null, type: "path" },
-      { key: "broken", title: "Find the broken symbolic link", hint: "A symlink whose target no longer resolves.", answer: broken ? broken.path : null, type: "path" },
-      { key: "hidden", title: "Find the hidden file", hint: "Dotfiles don't show up in a plain ls.", answer: hidden ? hidden.path : null, type: "path" },
-      { key: "worldwritable", title: "Find the world-writable file", hint: "Anyone — not just the owner or group — can write to it.", answer: worldWritable ? worldWritable.path : null, type: "path" },
-      { key: "orphan", title: "Find the orphaned process", hint: "Its parent process no longer exists.", answer: orphan ? String(orphan.pid) : null, type: "process" }
+      { key: "largest", title: "Find the largest file", hint: "Compare sizes across every directory.", check: byPath((f) => f.node.size === maxSize), type: "path" },
+      { key: "broken", title: "Find the broken symbolic link", hint: "A symlink whose target no longer resolves.", check: byPath((f) => f.node.type === "symlink" && !M.resolveTarget(state.fs, f.path, f.node.target)), type: "path" },
+      { key: "hidden", title: "Find the hidden file", hint: "Dotfiles don't show up in a plain ls.", check: byPath((f) => f.node.name.startsWith(".")), type: "path" },
+      { key: "worldwritable", title: "Find the world-writable file", hint: "Anyone — not just the owner or group — can write to it.", check: byPath((f) => f.node.type === "file" && f.node.perms[7] === "w"), type: "path" },
+      { key: "orphan", title: "Find the orphaned process", hint: "Its parent process no longer exists.", check: (ans) => state.processes.some((p) => String(p.pid) === ans && p.ppid !== null && !state.processes.some((q) => q.pid === p.ppid)), type: "process" }
     ];
   }
 
@@ -447,23 +448,36 @@ window.FsWidgets = (function () {
     Actions.register("click", "[data-toggle]", (el) => { const p = el.getAttribute("data-toggle"); state().expanded[p] = !state().expanded[p]; ENGINE.render(); });
     Actions.register("click", "[data-select]", (el) => { state().selectedPath = el.getAttribute("data-select"); ENGINE.render(); });
 
-    Actions.register("click", "[data-quickcmd]", (el) => {
-      window.FsTerminal.runCommand(el.getAttribute("data-quickcmd"));
-      state()._stickToBottomSelectors = ["#term-history"];
-      state()._focusSelector = "#term-input";
+    // Several terminals can be on screen at once (one per lesson subsection),
+    // all showing the same shared history. Remember WHICH one the event came
+    // from, re-render, then scroll them all down and refocus that same one.
+    const isTermInput = (target) => !!(target.classList && target.classList.contains("term-input"));
+    const termIndexOf = (el) => {
+      const term = el.closest ? el.closest("[data-terminal]") : null;
+      return term ? Array.from(document.querySelectorAll("[data-terminal]")).indexOf(term) : 0;
+    };
+    const renderAndRefocusTerm = (idx) => {
       ENGINE.render();
+      document.querySelectorAll("[data-terminal] .term-history").forEach((h) => { h.scrollTop = h.scrollHeight; });
+      const terms = document.querySelectorAll("[data-terminal]");
+      const inp = terms[idx] ? terms[idx].querySelector(".term-input") : null;
+      if (inp) { try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); } }
+    };
+    Actions.register("click", "[data-quickcmd]", (el) => {
+      const idx = termIndexOf(el);
+      window.FsTerminal.runCommand(el.getAttribute("data-quickcmd"));
+      renderAndRefocusTerm(idx);
     });
-    Actions.register("keydown", (target, e) => (target.id === "term-input" && e.key === "Enter" && !e.isComposing ? target : null), (el) => {
+    Actions.register("keydown", (target, e) => (isTermInput(target) && e.key === "Enter" && !e.isComposing ? target : null), (el) => {
+      const idx = termIndexOf(el);
       window.FsTerminal.runCommand(el.value);
       el.value = "";
       historyIdx = null;
-      state()._stickToBottomSelectors = ["#term-history"];
-      state()._focusSelector = "#term-input";
-      ENGINE.render();
+      renderAndRefocusTerm(idx);
     });
     // Up/Down walk back through previously-run commands, like a real shell.
     let historyIdx = null;
-    Actions.register("keydown", (target, e) => (target.id === "term-input" && (e.key === "ArrowUp" || e.key === "ArrowDown") ? target : null), (el, e) => {
+    Actions.register("keydown", (target, e) => (isTermInput(target) && (e.key === "ArrowUp" || e.key === "ArrowDown") ? target : null), (el, e) => {
       const past = state().termHistory.filter((h) => h.type === "cmd" && h.raw).map((h) => h.raw);
       if (!past.length) return;
       e.preventDefault();
@@ -484,8 +498,8 @@ window.FsWidgets = (function () {
       state()._focusSelector = `[data-select="${window.CSS && CSS.escape ? CSS.escape(p) : p}"]`;
       ENGINE.render();
     });
-    Actions.register("click", "#term-history", () => {
-      const inp = document.getElementById("term-input");
+    Actions.register("click", ".term-history", (el) => {
+      const inp = el.querySelector(".term-input");
       if (inp) inp.focus();
     });
 
@@ -589,7 +603,7 @@ window.FsWidgets = (function () {
       const item = challengeItems().find((i) => i.key === key);
       const ans = state().challengeAnswers[key];
       if (!item) return;
-      state().challengeResult[key] = ans !== undefined && ans !== "" && ans === item.answer;
+      state().challengeResult[key] = ans !== undefined && ans !== "" && item.check(ans);
       ENGINE.render();
     });
 

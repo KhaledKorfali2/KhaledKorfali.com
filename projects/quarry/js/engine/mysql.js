@@ -529,7 +529,11 @@ export function createSession(SQL, seed = []) {
     return out;
   };
   sess.one = one;
-  sess.tables = () => userTables().map(([name, type]) => ({ name, type, cols: columns(name), rows: scalar(`SELECT COUNT(*) FROM ${name}`) }));
+  // One unreadable table (a view whose base table was dropped, say) must not break the whole listing.
+  sess.tables = () => userTables().map(([name, type]) => {
+    try { return { name, type, cols: columns(name), rows: scalar(`SELECT COUNT(*) FROM "${name.replace(/"/g, '""')}"`) }; }
+    catch { return { name, type, cols: [], rows: "?" }; }
+  });
   sess.inTx = () => inTx;
 
   /** Query plan (SQLite's own wording) for a MySQL SELECT. */

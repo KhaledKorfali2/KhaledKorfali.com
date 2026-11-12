@@ -21,6 +21,8 @@
       consoleHistory: [{ type: "sys", text: "git-sim v1.0 — type 'help' to list commands" }],
       selectedCommit: null,
       hadConflict: false,
+      conflictResolved: false,
+      challengesDone: {},
       everStashed: false,
       everPopped: false
     };

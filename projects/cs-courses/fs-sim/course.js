@@ -81,7 +81,7 @@ window.FsCourse = (function () {
       { id: "l2", title: "Moving, copying, removing", view: "terminal", subsections: [
         { id: "s1", title: "mv — move (and rename)", kind: "practice", widget: "terminal",
           body: "There's no separate \"rename\" command — renaming <i>is</i> moving, just to a new name in the same directory instead of a different directory.",
-          tryIt: "Run <code>mv notes.txt docs/</code>, then check the Explorer widget below." },
+          tryIt: "Run <code>touch draft.txt</code> (a scratch file nothing else depends on), then <code>mv draft.txt docs/</code>, and check the Explorer widget below." },
         { id: "s2", title: "cp — copy", kind: "concept", widget: "terminal",
           body: "<code>cp &lt;src&gt; &lt;dst&gt;</code> duplicates a file. The copy is a completely independent file from the moment it's created — more on exactly what that means in Module 4.",
           tryIt: "Run <code>cp docs/report.docx docs/report-copy.docx</code>." },
@@ -163,7 +163,7 @@ window.FsCourse = (function () {
           body: "Copying allocates a brand-new inode and duplicates every block. That's real work, proportional to the file's size — which is why copying a large file takes noticeably longer than moving it." },
         { id: "s3", title: "Practice: watch the inode number", kind: "practice", widget: "terminal",
           body: "Rename a file, then copy a file, and check each one's inode number in the Inode Explorer (Sandbox mode) afterward.",
-          tryIt: "Run <code>mv docs/report.docx docs/final.docx</code> — same inode. Then <code>cp docs/final.docx docs/final2.docx</code> — different inode." }
+          tryIt: "Run <code>touch scratch.txt</code>, then <code>mv scratch.txt renamed.txt</code> — same inode. Then <code>cp renamed.txt copy.txt</code> — different inode." }
       ]}
     ]},
 

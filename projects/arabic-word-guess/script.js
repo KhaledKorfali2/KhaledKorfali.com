@@ -359,7 +359,7 @@ function startGame() {
 
   // Avoid repeating the word just played when there's a choice
   let chosen = chooseRandomWord();
-  if (quranWords.length > 1) {
+  if (quranWords.some(w => w.word !== targetWord)) {
     while (chosen.word === targetWord) chosen = chooseRandomWord();
   }
   targetWord    = chosen.word;
@@ -399,6 +399,9 @@ async function loadQuranWords() {
         return letters.length >= 2 && letters.length <= 7 &&
                letters.every(ch => arabicLetters.includes(ch));
       });
+    // Drop entries that normalise to a word already in the list
+    const seenWords = new Set();
+    quranWords = quranWords.filter(w => !seenWords.has(w.word) && seenWords.add(w.word));
     if (!quranWords.length) throw new Error("word list is empty");
 
     startGame();

@@ -67,6 +67,9 @@ window.GitCommands = (function () {
     const mc = G.addCommit(r, { message: `Merge branch '${conflict.theirBranch}'`, parents: [conflict.ourHash, conflict.theirHash], lane: currentLane(r), filesChanged });
     advanceHead(mc.hash);
     r.conflict = null;
+    // Only a conflicted merge that was actually completed counts for the
+    // capstone — 'merge --abort' and 'reset --hard' never reach this point.
+    ENGINE.state.conflictResolved = true;
     push({ type: "out", text: `Merge made. [${mc.hash}] Merge branch '${conflict.theirBranch}'` });
   }
 
@@ -131,7 +134,7 @@ window.GitCommands = (function () {
     } else if (cmd === "branch") {
       if (args[0] === "-d" || args[0] === "-D") {
         const name = args[1];
-        if (!name || !r.branches[name]) return fail(`error: branch '${name || ""}' not found`);
+        if (!name || !G.hasBranch(r, name)) return fail(`error: branch '${name || ""}' not found`);
         if (G.currentBranchName(r) === name) return fail(`error: cannot delete branch '${name}' used by worktree (you're on it — checkout another branch first)`);
         // -d refuses to throw away commits that aren't merged anywhere you are; -D forces it.
         if (args[0] === "-d" && !G.isAncestor(r, r.branches[name], G.headHash(r))) {
@@ -148,7 +151,7 @@ window.GitCommands = (function () {
       } else {
         const name = args[0];
         if (!validBranchName(name)) return fail(`fatal: '${name}' is not a valid branch name`);
-        if (r.branches[name]) return fail(`fatal: a branch named '${name}' already exists`);
+        if (G.hasBranch(r, name)) return fail(`fatal: a branch named '${name}' already exists`);
         const start = args[1] ? G.resolveRef(r, args[1]) : G.headHash(r);
         if (!start || start === "ambiguous") return fail(`fatal: not a valid object name: '${args[1]}'`);
         r.branches[name] = start;
@@ -163,14 +166,14 @@ window.GitCommands = (function () {
       if (!name) return fail(`${cmd}: usage: ${cmd === "switch" ? "switch [-c] <branch>" : "checkout [-b] <name|hash> [start]"}`);
       if (makeNew) {
         if (!validBranchName(name)) return fail(`fatal: '${name}' is not a valid branch name`);
-        if (r.branches[name]) return fail(`fatal: a branch named '${name}' already exists`);
+        if (G.hasBranch(r, name)) return fail(`fatal: a branch named '${name}' already exists`);
         const start = args[2] ? G.resolveRef(r, args[2]) : G.headHash(r);
         if (!start || start === "ambiguous") return fail(`fatal: '${args[2]}' is not a commit and a branch '${name}' cannot be created from it`);
         r.branches[name] = start;
         G.laneFor(r, name);
         r.head = { type: "branch", name };
         out(`Switched to a new branch '${name}'`);
-      } else if (r.branches[name]) {
+      } else if (G.hasBranch(r, name)) {
         if (G.currentBranchName(r) === name) return out(`Already on '${name}'`);
         r.head = { type: "branch", name };
         out(`Switched to branch '${name}'`);

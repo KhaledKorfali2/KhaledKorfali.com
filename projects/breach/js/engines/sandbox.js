@@ -4,8 +4,11 @@
 // reach the network — its CSP is default-src 'none' — so simulated pages talk to
 // the simulated server only through postMessage back to this parent.
 //
-// We render with srcdoc rather than a load+postMessage handshake: it runs inline
-// scripts reliably on every navigation, with no timing race.
+// The frame loads ../../sandbox.html, a real file with its own Content-Security-Policy,
+// which then asks for the page to show. (A srcdoc frame would inherit THIS document's
+// strict policy, and every inline script and style in a simulated site would be blocked.)
+// sandbox.html refuses to do anything unless its origin is opaque, so it cannot be
+// used to run script with this site's privileges.
 import { el } from "../ui.js";
 
 const token = () => {
@@ -138,7 +141,7 @@ function PRELUDE(cfg) {
 
 const PAGE_CSP = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; form-action 'none'; base-uri 'none'";
 
-function buildSrcdoc({ html, url, cookie, token }) {
+function buildDoc({ html, url, cookie, token }) {
   const cfg = JSON.stringify({ token, url, cookie: cookie || "" }).replace(/</g, "\\u003c");
   return `<!doctype html><html><head><meta charset="utf-8">`
     + `<meta http-equiv="Content-Security-Policy" content="${PAGE_CSP}">`
@@ -147,18 +150,24 @@ function buildSrcdoc({ html, url, cookie, token }) {
 
 /**
  * A persistent sandboxed frame in `container`. Call render() for each page; the frame
- * is REUSED (its srcdoc is updated) rather than recreated — removing and re-inserting an
- * iframe in the same slot can skip script execution in Chromium, so we never do that.
+ * is REUSED (navigated to a fresh sandbox.html) rather than recreated — removing and
+ * re-inserting an iframe in the same slot can skip script execution in Chromium.
+ *
+ * allow-forms lets the page's submit event fire so the prelude can intercept it; the
+ * frame's form-action 'none' still stops any real submission.
  *
  * render({ html, url, cookie, onMessage, title }):
  *   onMessage(type, data, reply): xss, nav, fetch, cookie, blocked, console.
  */
 export function createSandbox(container) {
-  const frame = el("iframe", { class: "sb-frame", sandbox: "allow-scripts", title: "Simulated page", referrerpolicy: "no-referrer" });
+  const frame = el("iframe", { class: "sb-frame", sandbox: "allow-scripts allow-forms", title: "Simulated page", referrerpolicy: "no-referrer" });
   container.replaceChildren(frame);
-  let tok = null, onMsg = null;
+  let tok = null, onMsg = null, doc = null;
   const handler = (e) => {
-    if (e.source !== frame.contentWindow || !e.data || e.data.__breach !== tok) return;
+    if (e.source !== frame.contentWindow || !e.data) return;
+    // A freshly loaded sandbox.html asks for its page; hand over the latest one.
+    if (e.data.__breach_ready) { if (doc !== null) frame.contentWindow.postMessage({ __breach_doc: doc }, "*"); return; }
+    if (e.data.__breach !== tok) return;
     const reply = (obj) => frame.contentWindow?.postMessage({ ...obj, __breach: tok }, "*");
     onMsg?.(e.data.type, e.data.data || {}, reply);
   };
@@ -169,9 +178,10 @@ export function createSandbox(container) {
       tok = token();
       onMsg = onMessage;
       if (title) frame.title = title;
-      frame.srcdoc = buildSrcdoc({ html, url, cookie, token: tok });
+      doc = buildDoc({ html, url, cookie, token: tok });
+      frame.src = new URL(`../../sandbox.html?${tok}`, import.meta.url).href;
     },
-    destroy() { window.removeEventListener("message", handler); onMsg = null; frame.remove(); },
+    destroy() { window.removeEventListener("message", handler); onMsg = null; doc = null; frame.remove(); },
   };
 }
 
