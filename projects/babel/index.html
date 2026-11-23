@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Babel — The Library That Already Contains What You're About to Type</title>
+  <meta name="description" content="A library of every page that could ever be written. Type anything and find the exact room, shelf and page where it has always been.">
+  <meta name="theme-color" content="#efe8d8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c0c0c'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23e8541a'/%3E%3C/svg%3E">
+  <link rel="canonical" href="https://khaledkorfali.com/projects/babel/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Khaled Korfali">
+  <meta property="og:title" content="Babel — Khaled Korfali">
+  <meta property="og:description" content="A library of every page that could ever be written. Type anything and find the page where it has always been.">
+  <meta property="og:url" content="https://khaledkorfali.com/projects/babel/">
+  <meta property="og:image" content="https://khaledkorfali.com/screenshots/babel.webp">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+  <header class="top">
+    <a class="back" href="/projects.html">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+      Projects
+    </a>
+  </header>
+
+  <main>
+    <section class="intro">
+      <h1>Babel</h1>
+      <p class="lede">This library holds every page that can be written with 26 letters, a space, a comma and a full stop. Every sentence you will ever say is already on a shelf here. <em>So is the one you're about to type.</em></p>
+    </section>
+
+    <form id="search" class="search" autocomplete="off">
+      <label for="query">Write anything</label>
+      <textarea id="query" rows="2" maxlength="600" placeholder="it was a bright cold day in april" autocapitalize="none" spellcheck="false" enterkeyhint="search"></textarea>
+      <div class="search-row">
+        <div class="seg" role="group" aria-label="What else is on the page">
+          <button type="button" data-mode="alone" class="active">On an empty page</button>
+          <button type="button" data-mode="buried">Buried in gibberish</button>
+        </div>
+        <button type="submit" class="primary">Find its page</button>
+      </div>
+      <p class="note" id="queryNote" hidden></p>
+    </form>
+
+    <section class="result" aria-live="polite">
+      <p class="found" id="found"></p>
+
+      <div class="address">
+        <div class="address-line">
+          <span class="lbl">Room</span>
+          <code id="room"></code>
+          <button type="button" class="link" id="roomToggle" aria-expanded="false">Show all</button>
+        </div>
+        <div class="address-grid">
+          <span><span class="lbl">Wall</span> <b id="wall"></b></span>
+          <span><span class="lbl">Shelf</span> <b id="shelf"></b></span>
+          <span><span class="lbl">Book</span> <b id="book"></b></span>
+          <span><span class="lbl">Page</span> <b id="pageNo"></b></span>
+        </div>
+      </div>
+
+      <article class="page" aria-label="The page at this address"><pre id="page"></pre></article>
+
+      <div class="nav">
+        <button type="button" id="prev" aria-label="Previous page">
+          <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+          <span>Previous page</span>
+        </button>
+        <button type="button" id="random">Random page</button>
+        <button type="button" id="next" aria-label="Next page">
+          <span>Next page</span>
+          <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+        </button>
+      </div>
+      <p class="share"><button type="button" class="link" id="copy">Copy a link to this exact page</button><span id="copied" role="status"></span></p>
+    </section>
+
+    <section class="how">
+      <h2>How can this be real?</h2>
+      <p>The library has <strong>29<sup>1000</sup></strong> pages, a number with 1,463 digits. There are about 10<sup>80</sup> atoms in the observable universe, so nobody could ever store it. Nothing is stored.</p>
+      <p>Instead, every page's address is one enormous number, and a reversible piece of arithmetic turns that number into 1,000 characters. Run it forwards and an address becomes a page. Run it backwards and <strong>your text becomes an address</strong>. Different addresses always give different pages, so every possible page sits at exactly one place.</p>
+      <p>That is why the link above works: it contains only the address. Open it on another device and the same page is waiting there, because it always was. Turn to the next page and you'll see what nearly all of the library looks like.</p>
+      <p class="credit">After Jorge Luis Borges' 1941 story <em>The Library of Babel</em>.</p>
+    </section>
+  </main>
+
+  <noscript><p style="padding:24px">The library needs JavaScript to work out where things are.</p></noscript>
+  <script src="script.js"></script>
+</body>
+</html>

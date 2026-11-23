@@ -1,0 +1,7 @@
+:root { --bg: #05060a; --accent: #ffb060; --accent-ink: #1d0f02; }
+#stage { cursor: crosshair; }
+#tools button { display: inline-flex; align-items: center; gap: 7px; }
+@media (max-width: 640px) {
+  #tools .dock-label { display: none; }
+  #tools button { min-width: 44px; justify-content: center; }
+}

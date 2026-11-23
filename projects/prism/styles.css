@@ -1,0 +1,42 @@
+:root { --bg: #07080c; --accent: #7fb6ff; --accent-ink: #06121f; }
+#stage { cursor: default; }
+#light { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+#addMenu {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-b) + 62px);
+  transform: translate(-50%, 8px);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 8px;
+  width: min(336px, calc(100vw - 24px));
+  border-radius: 16px;
+  background: var(--surface-strong);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  z-index: 12;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease), visibility 0s linear 0.18s;
+}
+#addMenu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease), visibility 0s;
+}
+#addMenu button {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 12px 4px 10px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+  transition: background-color 0.15s, color 0.15s;
+}
+#addMenu button:hover { background: var(--raised-2); color: var(--text); }

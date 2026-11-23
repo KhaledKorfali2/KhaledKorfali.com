@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Prism — A Light Sandbox</title>
+  <meta name="description" content="Drag lights, mirrors, lenses and prisms around and watch the rays bend, bounce and split into rainbows in real time.">
+  <meta name="theme-color" content="#07080c">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/playground-shared.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c0c0c'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23e8541a'/%3E%3C/svg%3E">
+  <link rel="canonical" href="https://khaledkorfali.com/projects/prism/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Khaled Korfali">
+  <meta property="og:title" content="Prism — Khaled Korfali">
+  <meta property="og:description" content="Drag lights, mirrors, lenses and prisms around and watch the rays bend, bounce and split into rainbows.">
+  <meta property="og:url" content="https://khaledkorfali.com/projects/prism/">
+  <meta property="og:image" content="https://khaledkorfali.com/screenshots/prism.webp">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+  <canvas id="light" aria-hidden="true"></canvas>
+  <canvas id="stage" role="img" aria-label="Optics table. Drag the light, mirrors and glass shapes to redirect the rays."></canvas>
+
+  <header id="topbar">
+    <a id="backLink" class="pill" href="/projects.html" aria-label="Back to projects">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+      <span class="back-text">Projects</span>
+    </a>
+    <div id="title" class="pill">
+      <h1>Prism</h1>
+      <span class="sub" id="sub">Rainbow</span>
+    </div>
+    <button type="button" id="infoBtn" class="pill" aria-expanded="false" aria-controls="info" aria-label="How it works">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v3.6"/><circle cx="8" cy="5" r=".5" fill="currentColor"/></svg>
+      <span>How it works</span>
+    </button>
+  </header>
+
+  <aside id="info" aria-label="How it works">
+    <h2>Thousands of rays, one rule</h2>
+    <p>Each light fires hundreds of rays, and every ray carries a single colour. When a ray meets glass it bends by <strong>Snell's law</strong>:</p>
+    <div class="formula">n<sub>1</sub> · sin θ<sub>1</sub> = n<sub>2</sub> · sin θ<sub>2</sub></div>
+    <p>Glass slows violet light more than red, so each colour bends by a slightly different amount. That is why white light entering a prism leaves as a rainbow, and why a simple lens can't focus every colour at the same point.</p>
+    <p>A little light also reflects off every glass surface, and past a critical angle all of it does: <strong>total internal reflection</strong>, the trick behind fibre optics. The dispersion here is exaggerated so it's easy to see.</p>
+  </aside>
+
+  <div id="addMenu" role="menu" aria-label="Add an object">
+    <button type="button" role="menuitem" data-add="beam"><svg aria-hidden="true" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2.5" y="7" width="6" height="6" rx="1.5"/><path d="M11 8h6.5M11 10h6.5M11 12h6.5"/></svg>Beam</button>
+    <button type="button" role="menuitem" data-add="lamp"><svg aria-hidden="true" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2.4M10 15.100v2.400M2.5 10h2.400M15.1 10h2.400M4.7 4.700l1.7 1.700M13.6 13.600l1.7 1.700M4.7 15.300l1.7-1.700M13.6 6.400l1.7-1.7"/></svg>Lamp</button>
+    <button type="button" role="menuitem" data-add="mirror"><svg aria-hidden="true" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 16L16 4"/><path d="M7 17l1.5-1.500M10.5 15.500l1.5-1.500M14 12l1.5-1.500M16.5 8.500l1-1" opacity=".55"/></svg>Mirror</button>
+    <button type="button" role="menuitem" data-add="prism"><svg aria-hidden="true" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M10 3.500l7 12.500H3z"/></svg>Prism</button>
+    <button type="button" role="menuitem" data-add="lens"><svg aria-hidden="true" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M10 2.500c3.5 4 3.5 11 0 15c-3.5-4-3.5-11 0-15z"/></svg>Lens</button>
+    <button type="button" role="menuitem" data-add="block"><svg aria-hidden="true" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="3" y="6" width="14" height="8" rx=".5"/></svg>Block</button>
+    <button type="button" role="menuitem" data-add="ball"><svg aria-hidden="true" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="6.5"/></svg>Ball</button>
+  </div>
+
+  <div id="dock" role="toolbar" aria-label="Controls">
+    <button type="button" class="dock-btn keep-label" id="sceneBtn" aria-label="Next scene">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 5.500h9.500M9.5 3l2.5 2.500L9.5 8M13.5 10.500H4M6.5 8L4 10.5 6.5 13"/></svg>
+      <span class="dock-label">Next scene</span>
+    </button>
+    <span class="dock-sep" aria-hidden="true"></span>
+    <button type="button" class="dock-btn keep-label" id="addBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="addMenu">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+      <span class="dock-label">Add</span>
+    </button>
+    <button type="button" class="dock-btn keep-label" id="removeBtn" disabled>
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.500h10M6.5 4.500V3h3v1.500M4.5 4.500l.6 8.200a1 1 0 0 0 1 .8h3.800a1 1 0 0 0 1-.8l.6-8.2"/></svg>
+      <span class="dock-label">Remove</span>
+    </button>
+  </div>
+
+  <div id="hint" aria-hidden="true">Drag anything. Turn it with the small handle on its ring.</div>
+
+  <script src="script.js"></script>
+</body>
+</html>

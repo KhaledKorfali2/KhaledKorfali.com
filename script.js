@@ -1,6 +1,6 @@
 // Project list with category metadata. Order matters: the first FEATURED_COUNT are
 // shown as "Featured" on the home page.
-const FEATURED_COUNT = 6;
+const FEATURED_COUNT = 9;
 const projects = [
   {
     name: "Breach",
@@ -29,6 +29,34 @@ const projects = [
     image: "screenshots/interview-prep.webp",
     path: "./projects/interview-prep/index.html",
     category: "programming"
+  },
+  {
+    name: "Babel",
+    description: "A library of every page that could ever be written. Type anything and find the exact room, shelf and page where it has always been.",
+    image: "screenshots/babel.webp",
+    path: "./projects/babel/index.html",
+    category: "experiment"
+  },
+  {
+    name: "Singularity",
+    description: "A gravity sandbox: drop planets, stars and black holes into space and watch them orbit, collide and merge, while each black hole bends the light around it.",
+    image: "screenshots/singularity.webp",
+    path: "./projects/singularity/index.html",
+    category: "experiment"
+  },
+  {
+    name: "Prism",
+    description: "A light sandbox: drag beams, mirrors, lenses and prisms and watch thousands of rays bend, bounce and split into rainbows.",
+    image: "screenshots/prism.webp",
+    path: "./projects/prism/index.html",
+    category: "experiment"
+  },
+  {
+    name: "Epicycles",
+    description: "Draw any shape and watch a chain of spinning circles learn to redraw it: a Fourier series you can play with.",
+    image: "screenshots/epicycles.webp",
+    path: "./projects/epicycles/index.html",
+    category: "experiment"
   },
   {
     name: "Falling Sand Simulator",
@@ -160,6 +188,7 @@ const projects = [
 
 const CATEGORY_LABELS = {
   security: "Security",
+  experiment: "Experiments",
   simulation: "Simulation",
   arabic: "Arabic Learning",
   programming: "Programming"

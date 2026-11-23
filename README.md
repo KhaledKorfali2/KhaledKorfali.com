@@ -1,6 +1,6 @@
 # khaledkorfali.com
 
-Personal project site of Khaled Korfali: 22 interactive projects that run entirely in the browser. They are written in JavaScript with no build step, and use WebAssembly builds of SQLite, PostgreSQL (PGlite), Python with pandas (Pyodide) and the OpenCascade CAD kernel (replicad) where a course needs a real engine. Three.js, MediaPipe and Tesseract.js power the 3D views, face and hand tracking, and text recognition. Live at <https://khaledkorfali.com>.
+Personal project site of Khaled Korfali: 26 interactive projects that run entirely in the browser. They are written in JavaScript with no build step, and use WebAssembly builds of SQLite, PostgreSQL (PGlite), Python with pandas (Pyodide) and the OpenCascade CAD kernel (replicad) where a course needs a real engine. Three.js, MediaPipe and Tesseract.js power the 3D views, face and hand tracking, and text recognition. Live at <https://khaledkorfali.com>.
 
 ## Security
 
@@ -20,6 +20,13 @@ Personal project site of Khaled Korfali: 22 interactive projects that run entire
 - [Logic Gate Simulator](https://khaledkorfali.com/projects/gatevis/index.html): Wire up logic gates and watch signals propagate through the circuit.
 - [Noosphere](https://khaledkorfali.com/projects/noosphere/index.html): An interactive particle field that responds to your cursor or touch.
 - [Wire: How Networks Work](https://khaledkorfali.com/projects/web-protocol-comparer/index.html): An interactive networking course: watch real packets as you learn TCP, TLS, HTTP/2, HTTP/3 and more.
+
+## Experiments
+
+- [Babel](https://khaledkorfali.com/projects/babel/index.html): A library of every page that could ever be written. Type anything and find the page where it has always been.
+- [Singularity](https://khaledkorfali.com/projects/singularity/index.html): A gravity sandbox: drop planets, stars and black holes into space and watch them orbit, collide and merge, with gravitational lensing drawn by a WebGL shader.
+- [Prism](https://khaledkorfali.com/projects/prism/index.html): A light sandbox: drag beams, mirrors, lenses and prisms and watch the rays bend, bounce and split into rainbows.
+- [Epicycles](https://khaledkorfali.com/projects/epicycles/index.html): Draw any shape and watch a chain of spinning circles redraw it using a Fourier series.
 
 ## Simulations
 
@@ -51,6 +58,7 @@ Then visit <http://localhost:8000>. Opening the files directly with `file://` do
 - `index.html`, `projects.html`, `styles.css`, `script.js`: the home page and project list. The project list lives in `script.js`.
 - `projects/<name>/`: one self-contained folder per project.
 - `screenshots/`: the card images.
+- `styles/playground-shared.css`: the top bar, dock and info sheet shared by Singularity, Prism and Epicycles.
 - Third-party code is vendored under each project's `vendor/` folder with its licence.
 - `projects/quarry/test/` and `projects/datum/test/`: Node.js suites that solve every challenge (`node test/run.mjs`), plus in-browser end-to-end tests.
 
