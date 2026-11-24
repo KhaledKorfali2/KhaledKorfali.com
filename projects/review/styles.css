@@ -1,0 +1,70 @@
+/* Review page. Builds on the Course Kit's tokens and buttons. */
+:root { --accent-light: #1f5fa8; --accent-dark: #8fbdf2; }
+
+.rv-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 26px; }
+.rv-stat { padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+.rv-stat b { display: block; font-family: var(--serif); font-weight: 400; font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.rv-stat span { font-size: 13px; color: var(--muted); }
+
+.rv-section { margin-top: 40px; }
+.rv-section > h2 { font-family: var(--serif); font-weight: 400; font-size: 1.55rem; margin-bottom: 6px; }
+.rv-section > p { color: var(--muted); font-size: 15px; max-width: 38em; }
+.rv-empty { margin-top: 22px; padding: 22px; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); }
+
+.rv-sources { list-style: none; margin-top: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
+.rv-sources li { display: flex; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }
+.rv-sources li + li { border-top: 1px solid var(--line); }
+.rv-source-name { flex: 1; min-width: 150px; }
+.rv-source-name b { display: block; font-weight: 500; }
+.rv-source-name span { font-size: 13.5px; color: var(--muted); }
+.rv-small { min-height: 38px; padding: 0 14px; font-size: 14px; }
+
+.rv-forecast { display: flex; align-items: flex-end; gap: 8px; height: 110px; margin-top: 16px; }
+.rv-forecast div { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%; font-size: 12px; color: var(--muted); }
+.rv-forecast i { display: block; width: 100%; min-height: 3px; border-radius: 6px 6px 2px 2px; background: var(--accent); opacity: 0.75; }
+.rv-forecast em { font-style: normal; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+.rv-form { display: grid; gap: 10px; margin-top: 14px; }
+.rv-form textarea, .rv-form input[type="text"], .rv-form input[type="number"] {
+  width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px;
+  background: var(--card); color: var(--ink); font: inherit; font-size: 16px;
+}
+.rv-form textarea { min-height: 76px; resize: vertical; line-height: 1.5; }
+.rv-form textarea:focus, .rv-form input:focus { outline: none; border-color: var(--accent); }
+.rv-form label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.rv-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rv-note { font-size: 14px; color: var(--muted); }
+.rv-mine { list-style: none; margin-top: 14px; }
+.rv-mine li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.rv-mine div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.rv-mine div span { display: block; color: var(--muted); }
+.rv-link { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; font-size: 14px; min-height: 32px; }
+details.rv-more { margin-top: 12px; }
+details.rv-more summary { cursor: pointer; color: var(--accent); font-size: 15px; min-height: 32px; }
+
+/* ── A review session ── */
+.rv-card {
+  margin-top: 26px; min-height: 42vh; padding: clamp(22px, 5vw, 40px);
+  display: flex; flex-direction: column; justify-content: center; gap: 18px; text-align: center;
+  border: 1px solid var(--line); border-radius: 20px; background: var(--card);
+  box-shadow: 0 16px 34px -24px rgba(0, 0, 0, 0.4);
+}
+.rv-from { font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.rv-front { font-size: clamp(1.3rem, 5vw, 1.9rem); line-height: 1.4; overflow-wrap: anywhere; }
+.rv-front .ar { font-size: 1.9em; }
+.rv-back { padding-top: 18px; border-top: 1px solid var(--line); font-size: 1.15rem; line-height: 1.55; overflow-wrap: anywhere; }
+.rv-back .ar { font-size: 1.6em; }
+.rv-back small { display: block; margin-top: 8px; font-size: 14.5px; color: var(--muted); }
+.rv-grades { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+.rv-grade { display: grid; gap: 1px; min-height: 56px; padding: 6px 4px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--card); font-weight: 500; font-size: 15px; }
+.rv-grade small { font-weight: 400; font-size: 12.5px; color: var(--muted); }
+.rv-grade:hover { border-color: var(--muted); }
+.rv-grade.again { color: var(--wrong); }
+.rv-grade.good { border-color: var(--accent); }
+.kit-bar.rv-bar { justify-content: center; }
+.kit-bar.rv-bar .kit-btn { min-width: min(320px, 100%); }
+
+@media (max-width: 560px) {
+  .rv-stats { grid-template-columns: repeat(2, 1fr); }
+  .kit-bar.rv-bar { flex-direction: row; }
+}

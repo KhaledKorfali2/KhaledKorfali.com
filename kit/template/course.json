@@ -1,0 +1,14 @@
+{
+  "id": "starter",
+  "title": "Starter Course",
+  "description": "A two-lesson course that shows everything the kit can do. Copy this folder to start your own.",
+  "accent": "#1f5fa8",
+  "accentDark": "#8fbdf2",
+  "units": [
+    {
+      "title": "How a course is put together",
+      "summary": "Read these two lessons next to their files in `lessons/`.",
+      "lessons": ["01-writing-a-lesson", "02-every-question-type"]
+    }
+  ]
+}

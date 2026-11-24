@@ -1,0 +1,266 @@
+/* Course Kit styles. A course can change --accent-light and --accent-dark (the
+   accent colour in light and dark mode) from course.json; everything else follows from the tokens below. */
+:root {
+  --accent-light: #9b2226;
+  --accent-dark: #f0a08f;
+  --accent: var(--accent-light);
+  --paper: #faf9f6;
+  --card: #ffffff;
+  --ink: #1d1b18;
+  --muted: #64605a;
+  --line: rgba(29, 27, 24, 0.12);
+  --soft: rgba(29, 27, 24, 0.05);
+  --right: #256b4b;
+  --right-bg: #dff3e8;
+  --wrong: #a12b25;
+  --wrong-bg: #fbe6e3;
+  --on-accent: #fff;
+  --serif: "DM Serif Display", Georgia, serif;
+  --sans: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --ar-font: "Amiri", "Noto Naskh Arabic", "Traditional Arabic", serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: var(--accent-dark);
+    --paper: #151412;
+    --card: #1f1d1a;
+    --ink: #ece8e0;
+    --muted: #a8a297;
+    --line: rgba(236, 232, 224, 0.14);
+    --soft: rgba(236, 232, 224, 0.06);
+    --right: #7fd3a6;
+    --right-bg: #173526;
+    --wrong: #f2a199;
+    --wrong-bg: #3d1c19;
+    --on-accent: #1a1210;
+    color-scheme: dark;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+button, input { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+.kit {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: max(18px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 140px max(20px, env(safe-area-inset-left));
+}
+
+/* Arabic (and other right-to-left script) inside running text */
+.ar { font-family: var(--ar-font); font-size: 1.4em; line-height: 1.5; }
+h1 .ar, h2 .ar, h3 .ar { font-size: 1.15em; }
+
+.kit-loading { padding: 80px 0; text-align: center; color: var(--muted); }
+
+/* ── Buttons ── */
+.kit-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 22px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--card); color: var(--ink);
+  font-size: 15.5px; font-weight: 500; text-decoration: none; text-align: center;
+  transition: filter 0.15s, background-color 0.15s;
+}
+.kit-btn:hover { background: var(--soft); }
+.kit-btn.primary { background: var(--accent); border-color: transparent; color: var(--on-accent); }
+.kit-btn.primary:hover { filter: brightness(1.1); }
+.kit-btn[disabled] { opacity: 0.4; cursor: default; filter: none; }
+.kit-btn[hidden] { display: none; }
+.kit-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+
+/* ── Course home ── */
+.kit-back, .kit-crumb a {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 40px; padding: 0 14px 0 10px; margin-left: -10px;
+  border-radius: 999px; color: var(--muted); text-decoration: none; font-size: 14px;
+}
+.kit-back:hover, .kit-crumb a:hover { color: var(--ink); background: var(--soft); }
+.kit-hero { padding-bottom: 34px; }
+.kit-hero h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(2.3rem, 9vw, 3.6rem); line-height: 1.08; letter-spacing: -0.015em; margin-top: 22px; }
+.kit-lede { margin-top: 14px; color: var(--muted); font-size: 1.06rem; max-width: 36em; }
+
+.kit-meter { display: flex; align-items: center; gap: 14px; margin-top: 24px; }
+.kit-meter-bar { flex: 1; height: 8px; border-radius: 8px; background: var(--soft); overflow: hidden; }
+.kit-meter-bar span { display: block; height: 100%; border-radius: 8px; background: var(--accent); transition: width 0.4s; }
+.kit-meter-text, .kit-count { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kit-finished { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; color: var(--right); font-weight: 500; }
+
+.kit-unit { margin-top: 30px; }
+.kit-unit-head { margin-bottom: 10px; }
+.kit-unit-n, .kit-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.kit-unit h2 { font-family: var(--serif); font-weight: 400; font-size: 1.55rem; line-height: 1.25; }
+.kit-unit-head p { color: var(--muted); font-size: 15px; }
+.kit-lessons { list-style: none; border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
+.kit-lessons li + li { border-top: 1px solid var(--line); }
+.kit-lessons a { display: flex; align-items: center; gap: 14px; min-height: 58px; padding: 10px 16px; color: var(--ink); text-decoration: none; }
+.kit-lessons a:hover { background: var(--soft); }
+.kit-dot {
+  flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  border: 1.5px solid var(--line); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.kit-lessons a.done .kit-dot { background: var(--right-bg); border-color: transparent; color: var(--right); }
+.kit-lesson-title { flex: 1; min-width: 0; font-weight: 500; line-height: 1.35; }
+.kit-lesson-meta { flex: none; font-size: 13px; color: var(--muted); white-space: nowrap; }
+
+.kit-warning { margin: 18px 0; padding: 14px 16px; border-radius: 12px; background: var(--wrong-bg); color: var(--wrong); font-size: 15px; }
+.kit-warning ul { margin: 6px 0 0 20px; }
+
+/* ── Lesson ── */
+.kit-lesson { padding-top: 14px; }
+.kit-lesson > h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 7vw, 2.8rem); line-height: 1.12; margin: 6px 0 22px; }
+.kit-prose > * + * { margin-top: 1em; }
+.kit-prose h2 { font-family: var(--serif); font-weight: 400; font-size: 1.5rem; line-height: 1.25; margin-top: 1.7em; }
+.kit-prose h3 { font-size: 1.05rem; margin-top: 1.5em; }
+.kit-prose ul, .kit-prose ol { padding-left: 1.4em; }
+.kit-prose li + li { margin-top: 0.3em; }
+.kit-prose code, .kit-feedback code, .kit-question code { font-family: var(--mono); font-size: 0.88em; padding: 0.1em 0.35em; border-radius: 5px; background: var(--soft); }
+.kit-prose pre { padding: 14px 16px; border-radius: 12px; background: var(--soft); overflow-x: auto; font-size: 14px; line-height: 1.55; }
+.kit-prose pre code { padding: 0; background: none; font-size: inherit; }
+.kit-prose blockquote, .kit-context {
+  padding: 14px 18px; border-radius: 12px; background: var(--card); border: 1px solid var(--line);
+  border-inline-start: 3px solid var(--accent);
+}
+.kit-prose blockquote p + p, .kit-context p + p { margin-top: 0.3em; }
+.kit-prose blockquote .ar, .kit-context .ar { font-size: 1.7em; }
+.kit-prose hr { border: 0; border-top: 1px solid var(--line); margin: 2em 0; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.kit-prose table { width: 100%; border-collapse: collapse; font-size: 15.5px; }
+.kit-prose th, .kit-prose td { padding: 9px 14px; text-align: start; vertical-align: middle; }
+.kit-prose th { font-size: 12px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); }
+.kit-prose tr + tr td { border-top: 1px solid var(--line); }
+
+.kit-words { margin-top: 2.2em; }
+.kit-words h2 { font-family: var(--serif); font-weight: 400; font-size: 1.5rem; margin-bottom: 12px; }
+.kit-words ul { list-style: none; border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
+.kit-words li { display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+.kit-words li + li { border-top: 1px solid var(--line); }
+.kit-term { flex: none; min-width: 4.2em; font-weight: 500; }
+.kit-term .ar { font-size: 1.7em; }
+.kit-gloss { flex: 1; min-width: 0; display: grid; }
+.kit-meaning { font-weight: 500; }
+.kit-say, .kit-note { font-size: 14px; color: var(--muted); }
+.kit-say { font-style: italic; }
+.kit-speak { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: var(--muted); }
+.kit-speak:hover { background: var(--soft); color: var(--ink); }
+
+/* ── The bar pinned to the bottom of lesson and practice screens ── */
+.kit-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: flex-end; gap: 14px;
+  padding: 14px max(20px, calc((100vw - 680px) / 2)) max(14px, env(safe-area-inset-bottom));
+  background: var(--paper); border-top: 1px solid var(--line);
+}
+.kit-bar[hidden] { display: none; }
+.kit-bar .kit-btn { flex: none; min-width: 150px; }
+.kit-bar.right { background: var(--right-bg); border-color: transparent; }
+.kit-bar.wrong { background: var(--wrong-bg); border-color: transparent; }
+.kit-feedback { flex: 1; min-width: 0; font-size: 15px; line-height: 1.5; max-height: 34vh; overflow-y: auto; }
+.kit-feedback strong { display: block; font-size: 17px; }
+.kit-feedback.right strong { color: var(--right); }
+.kit-feedback.wrong strong { color: var(--wrong); }
+.kit-feedback .ar { font-size: 1.3em; }
+
+/* ── Practice ── */
+.kit-practice-top { display: flex; align-items: center; gap: 12px; }
+.kit-close { display: grid; place-items: center; width: 40px; height: 40px; margin-left: -10px; border-radius: 50%; color: var(--muted); }
+.kit-close:hover { background: var(--soft); color: var(--ink); }
+.kit-question { padding-top: 26px; }
+.kit-question h1 { font-size: clamp(1.3rem, 4.6vw, 1.6rem); font-weight: 500; line-height: 1.35; }
+.kit-again { font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+.kit-context { margin-top: 16px; }
+.kit-q-body { margin-top: 22px; }
+.kit-q-body.locked { pointer-events: none; }
+.kit-tip { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+
+.kit-options { display: grid; gap: 10px; }
+.kit-option {
+  display: flex; align-items: center; gap: 14px; width: 100%; min-height: 56px; padding: 10px 16px;
+  border: 1.5px solid var(--line); border-radius: 14px; background: var(--card);
+  text-align: start; line-height: 1.4; transition: border-color 0.12s, background-color 0.12s;
+}
+.kit-option:hover { border-color: var(--muted); }
+.kit-option[aria-pressed="true"] { border-color: var(--accent); background: var(--soft); }
+.kit-option.right { border-color: var(--right); background: var(--right-bg); }
+.kit-option.wrong { border-color: var(--wrong); background: var(--wrong-bg); }
+.kit-key { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+@media (hover: none) { .kit-key { display: none; } }
+
+.kit-input {
+  width: 100%; min-height: 56px; padding: 0 16px;
+  border: 1.5px solid var(--line); border-radius: 14px; background: var(--card); font-size: 18px;
+}
+.kit-input:focus { outline: none; border-color: var(--accent); }
+.kit-input.right { border-color: var(--right); background: var(--right-bg); }
+.kit-input.wrong { border-color: var(--wrong); background: var(--wrong-bg); }
+
+.kit-slots {
+  display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start;
+  min-height: 74px; padding: 10px; border-radius: 14px; border: 1.5px dashed var(--line);
+}
+.kit-slots.right { border: 1.5px solid var(--right); background: var(--right-bg); }
+.kit-slots.wrong { border: 1.5px solid var(--wrong); background: var(--wrong-bg); }
+.kit-bank { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; min-height: 52px; }
+.kit-tile {
+  min-height: 48px; padding: 6px 16px; border: 1.5px solid var(--line); border-radius: 12px;
+  background: var(--card); line-height: 1.35; box-shadow: 0 2px 0 var(--line);
+}
+.kit-tile:hover { border-color: var(--muted); }
+.kit-tile.used { visibility: hidden; }
+.kit-tile.held { border-color: var(--accent); background: var(--soft); }
+.kit-tile.right { border-color: var(--right); background: var(--right-bg); }
+.kit-tile.wrong { border-color: var(--wrong); background: var(--wrong-bg); }
+
+.kit-match { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.kit-match > div { display: grid; gap: 10px; align-content: start; }
+.kit-pair { justify-content: center; text-align: center; padding: 8px 10px; }
+.kit-pair.right { opacity: 0.55; }
+.shake { animation: kit-shake 0.35s; border-color: var(--wrong) !important; }
+@keyframes kit-shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+.kit-bins { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 18px; }
+.kit-bin { min-height: 120px; padding: 12px; border: 1.5px dashed var(--line); border-radius: 14px; cursor: default; }
+.kit-bin.ready { border-color: var(--accent); cursor: pointer; }
+.kit-bin h3 { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.kit-bin-items { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ── Finished ── */
+.kit-done { padding: 12vh 0 0; text-align: center; }
+.kit-done-mark { display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--right-bg); color: var(--right); }
+.kit-done-mark svg { width: 28px; height: 28px; }
+.kit-done h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 8vw, 2.8rem); margin-top: 18px; }
+.kit-done .kit-lede { margin-inline: auto; }
+.kit-done .kit-actions { justify-content: center; }
+
+#kit-toast {
+  position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 10px); z-index: 20;
+  max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 12px;
+  background: var(--ink); color: var(--paper); font-size: 14px; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s;
+}
+#kit-toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 560px) {
+  body { font-size: 16px; }
+  .kit-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .kit-bar .kit-btn { width: 100%; }
+  .kit-lesson-meta { display: none; }
+  .kit-lessons a.done .kit-lesson-meta { display: inline; }
+  .kit-actions .kit-btn { flex: 1 1 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

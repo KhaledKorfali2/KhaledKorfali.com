@@ -31,6 +31,13 @@ const projects = [
     category: "programming"
   },
   {
+    name: "Arabic Foundations",
+    description: "Qur'anic Arabic from the ground up: 24 short lessons on how words are built and how sentences work, practice after each one, and about 190 core words that come back for review.",
+    image: "screenshots/arabic-foundations.webp",
+    path: "./projects/arabic-foundations/index.html",
+    category: "arabic"
+  },
+  {
     name: "Babel",
     description: "A library of every page that could ever be written. Type anything and find the exact room, shelf and page where it has always been.",
     image: "screenshots/babel.webp",
@@ -57,6 +64,13 @@ const projects = [
     image: "screenshots/epicycles.webp",
     path: "./projects/epicycles/index.html",
     category: "experiment"
+  },
+  {
+    name: "Review",
+    description: "One review queue for every course here. Flashcards return just before you'd forget them, you can add your own, and all your progress backs up to a single file.",
+    image: "screenshots/review.webp",
+    path: "./projects/review/index.html",
+    category: "tools"
   },
   {
     name: "Falling Sand Simulator",
@@ -189,6 +203,7 @@ const projects = [
 const CATEGORY_LABELS = {
   security: "Security",
   experiment: "Experiments",
+  tools: "Tools",
   simulation: "Simulation",
   arabic: "Arabic Learning",
   programming: "Programming"

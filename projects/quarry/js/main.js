@@ -151,6 +151,7 @@ async function viewChallenge(c) {
     }
     const first = !store.isSolved(c.id);
     store.markSolved(c.id);
+    remember(c);
     updateScore();
     showSolved(first);
   }
@@ -280,3 +281,20 @@ function viewRoadmap() {
 }
 
 route();
+
+/* Hand a solved challenge's takeaway to the site-wide review queue
+   (/shared/review.js), so it comes back for spaced review at /projects/review/.
+   The card asks for the key idea and shows the debrief as the answer. */
+function remember(c) {
+  if (!window.Review || !c.debrief) return;
+  let back = String(c.debrief)
+    .replace(/~~~[\s\S]*?~~~|```[\s\S]*?```/g, " ")     // drop code blocks
+    .replace(/~([^~\n]+)~/g, "`$1`")                     // ~code~ is this app's inline-code marker
+    .replace(/^#{1,6}\s*/gm, "")                          // headings become plain lines
+    .replace(/[ \t]*\n[ \t]*/g, "\n").replace(/\n{2,}/g, "\n").trim();
+  if (back.length > 700) back = back.slice(0, 700).replace(/\s+\S*$/, "") + " …";
+  window.Review.add(
+    [{ id: "quarry:" + c.id, front: c.title + "\nWhat was the key idea?", back }],
+    { id: "quarry", title: "Quarry", url: "/projects/quarry/" }
+  );
+}

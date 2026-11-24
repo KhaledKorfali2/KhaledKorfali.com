@@ -1,6 +1,6 @@
 # khaledkorfali.com
 
-Personal project site of Khaled Korfali: 26 interactive projects that run entirely in the browser. They are written in JavaScript with no build step, and use WebAssembly builds of SQLite, PostgreSQL (PGlite), Python with pandas (Pyodide) and the OpenCascade CAD kernel (replicad) where a course needs a real engine. Three.js, MediaPipe and Tesseract.js power the 3D views, face and hand tracking, and text recognition. Live at <https://khaledkorfali.com>.
+Personal project site of Khaled Korfali: 28 interactive projects that run entirely in the browser. They are written in JavaScript with no build step, and use WebAssembly builds of SQLite, PostgreSQL (PGlite), Python with pandas (Pyodide) and the OpenCascade CAD kernel (replicad) where a course needs a real engine. Three.js, MediaPipe and Tesseract.js power the 3D views, face and hand tracking, and text recognition. Live at <https://khaledkorfali.com>.
 
 ## Security
 
@@ -37,11 +37,20 @@ Personal project site of Khaled Korfali: 26 interactive projects that run entire
 
 ## Arabic learning
 
+- [Arabic Foundations](https://khaledkorfali.com/projects/arabic-foundations/index.html): A 24-lesson course in Qur'anic Arabic grammar and vocabulary, built with the Course Kit.
 - [Arabic Letter Quiz](https://khaledkorfali.com/projects/arabic-letter-quiz/index.html): Drill the 28 letters of the Arabic alphabet and their forms.
 - [Arabic Flashcards](https://khaledkorfali.com/projects/arabic-flashcards/index.html): Flip through Arabic letters and their isolated, initial, medial and final forms.
 - [Arabic Word Guess](https://khaledkorfali.com/projects/arabic-word-guess/index.html): A Wordle-style game for guessing Qur'anic Arabic words letter by letter.
 - [Arabic Word Breakdown](https://khaledkorfali.com/projects/arabic-breakdown/index.html): Paste or scan Arabic text and hear it broken down letter by letter.
 - [Surah Quiz](https://khaledkorfali.com/projects/surah-quiz/index.html): Test your knowledge of the 114 surahs: names, numbers and order.
+
+## Tools
+
+- [Review](https://khaledkorfali.com/projects/review/index.html): One spaced-repetition queue for every course on the site, your own flashcards, and a backup of all saved progress.
+
+## Writing your own course
+
+The [Course Kit](kit/README.md) turns a folder of plain-text lessons into a course with practice questions and flashcards. Copy `kit/template/`, write lessons, and check them at `/kit/check.html`. Breach, Quarry and Datum each have an `AUTHORING.md` explaining how to add challenges to them.
 
 ## Running it locally
 
@@ -57,6 +66,8 @@ Then visit <http://localhost:8000>. Opening the files directly with `file://` do
 
 - `index.html`, `projects.html`, `styles.css`, `script.js`: the home page and project list. The project list lives in `script.js`.
 - `projects/<name>/`: one self-contained folder per project.
+- `kit/`: the Course Kit (engine, checker, starter course, guide).
+- `shared/review.js`: the flashcard store and scheduler every course uses.
 - `screenshots/`: the card images.
 - `styles/playground-shared.css`: the top bar, dock and info sheet shared by Singularity, Prism and Epicycles.
 - Third-party code is vendored under each project's `vendor/` folder with its licence.

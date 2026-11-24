@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Course checker</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/kit/kit.css">
+  <style>
+    .check-form { display: flex; gap: 10px; flex-wrap: wrap; margin: 22px 0; }
+    .check-form input { flex: 1; min-width: 220px; min-height: 48px; padding: 0 14px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--card); font-family: var(--mono); font-size: 15px; }
+    .verdict { padding: 14px 16px; border-radius: 12px; font-weight: 500; }
+    .verdict.ok { background: var(--right-bg); color: var(--right); }
+    .verdict.bad { background: var(--wrong-bg); color: var(--wrong); }
+    .totals { margin: 14px 0 0; color: var(--muted); font-size: 15px; }
+    td.n { text-align: end; font-variant-numeric: tabular-nums; }
+    .issues { margin: 6px 0 0 18px; font-size: 14.5px; color: var(--wrong); }
+    .notes { margin: 6px 0 0 18px; font-size: 14.5px; color: var(--muted); }
+    h1 { font-family: var(--serif); font-weight: 400; font-size: 2.2rem; }
+  </style>
+</head>
+<body>
+  <main class="kit">
+    <h1>Course checker</h1>
+    <p class="kit-lede">Loads every lesson of a course and lists anything that is written wrongly, with the line it is on.</p>
+    <form class="check-form" id="form">
+      <input id="path" aria-label="Path to course.json" placeholder="/projects/my-course/course.json" spellcheck="false">
+      <button class="kit-btn primary" type="submit">Check</button>
+    </form>
+    <div id="out"></div>
+  </main>
+  <script src="/kit/kit.js"></script>
+  <script>
+  (function () {
+    var out = document.getElementById("out"), path = document.getElementById("path");
+    function el(tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
+
+    function run(url) {
+      out.textContent = "Checking…";
+      Kit.load(url).then(function (course) {
+        out.textContent = "";
+        var errors = course.problems.length, notes = 0, words = 0, questions = 0, cards = 0;
+        var seenTerm = {};
+        var table = el("table"), body = el("tbody");
+        table.innerHTML = "<thead><tr><th>Lesson</th><th>Words</th><th>Questions</th><th>Drills</th><th>Cards</th></tr></thead>";
+        course.lessons.forEach(function (l) {
+          var drills = Kit.drills(course, l).length;
+          var row = el("tr"), first = el("td");
+          first.appendChild(el("strong", l.title));
+          first.appendChild(el("div", l.id + ".md", "kit-say"));
+          var extra = [];
+          // Things that are allowed but usually a slip.
+          l.words.forEach(function (w) {
+            if (seenTerm[w.term] && seenTerm[w.term] !== l.id) extra.push('"' + w.term + '" is also a word in ' + seenTerm[w.term] + ".");
+            seenTerm[w.term] = l.id;
+          });
+          if (l.words.length && drills < l.words.length) extra.push("Only " + drills + " of " + l.words.length + " words got a drill: the course needs more words with different meanings to use as wrong answers.");
+          if (!l.exercises.length && !l.words.length && !l.cards.length) extra.push("No words, questions or cards: learners can only mark it as read.");
+          l.exercises.forEach(function (ex) {
+            if (!ex.why && ex.type !== "match") extra.push("Line " + ex.line + ": no explanation (a line starting with !).");
+          });
+          if (l.problems.length) {
+            var ul = el("ul", null, "issues");
+            l.problems.forEach(function (p) { ul.appendChild(el("li", (p.line ? "Line " + p.line + ": " : "") + p.message)); });
+            first.appendChild(ul);
+          }
+          if (extra.length) {
+            var ul2 = el("ul", null, "notes");
+            extra.forEach(function (t) { ul2.appendChild(el("li", t)); });
+            first.appendChild(ul2);
+          }
+          row.appendChild(first);
+          [l.words.length, l.exercises.length, drills, Kit.cardsFor(course, l).length].forEach(function (n) { row.appendChild(el("td", String(n), "n")); });
+          body.appendChild(row);
+          errors += l.problems.length; notes += extra.length;
+          words += l.words.length; questions += l.exercises.length + drills; cards += Kit.cardsFor(course, l).length;
+        });
+        table.appendChild(body);
+
+        out.appendChild(el("p", errors ? errors + (errors === 1 ? " problem" : " problems") + " to fix." : "No problems found.", "verdict " + (errors ? "bad" : "ok")));
+        if (course.problems.length) {
+          var ul = el("ul", null, "issues");
+          course.problems.forEach(function (p) { ul.appendChild(el("li", p)); });
+          out.appendChild(ul);
+        }
+        out.appendChild(el("p", course.title + ": " + course.units.length + " units, " + course.lessons.length + " lessons, " + words + " words, " +
+          questions + " questions, " + cards + " flashcards." + (notes ? " " + notes + " suggestions (in grey)." : ""), "totals"));
+        var wrap = el("div", null, "kit-prose"); wrap.style.marginTop = "18px";
+        var tw = el("div", null, "table-wrap"); tw.appendChild(table); wrap.appendChild(tw);
+        out.appendChild(wrap);
+        window.checkResult = { errors: errors, notes: notes, lessons: course.lessons.length, words: words, questions: questions, cards: cards };
+      }).catch(function (err) {
+        out.textContent = "";
+        out.appendChild(el("p", err.message, "verdict bad"));
+        window.checkResult = { errors: 1, fatal: err.message };
+      });
+    }
+
+    document.getElementById("form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      history.replaceState(null, "", "?course=" + encodeURIComponent(path.value.trim()));
+      run(path.value.trim());
+    });
+    var given = new URLSearchParams(location.search).get("course");
+    path.value = given || "/kit/template/course.json";
+    run(path.value);
+  })();
+  </script>
+</body>
+</html>

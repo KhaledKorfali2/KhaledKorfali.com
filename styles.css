@@ -661,6 +661,7 @@ header.light nav a.active {
 }
 
 .card-tag.experiment { color: #6d3aa8; }
+.card-tag.tools { color: #7a5200; }
 .card-tag.simulation { color: #2d6a4f; }
 .card-tag.arabic { color: #9b2226; }
 .card-tag.programming { color: #185aa5; }

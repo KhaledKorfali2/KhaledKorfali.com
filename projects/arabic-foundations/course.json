@@ -1,0 +1,40 @@
+{
+  "id": "arabic-foundations",
+  "title": "Arabic Foundations",
+  "description": "Qur'anic Arabic from the ground up: how words are built, how sentences work, and about 190 of the words you will meet most. It ends with reading al-Fātiḥah word by word.",
+  "accent": "#9b2226",
+  "accentDark": "#f0a08f",
+  "speak": "ar-SA",
+  "units": [
+    {
+      "title": "How Arabic words work",
+      "summary": "The three kinds of word, roots and patterns, and how to say \"a\" and \"the\".",
+      "lessons": ["01-three-kinds-of-word", "02-roots-and-patterns", "03-the-definite-article", "04-a-and-the"]
+    },
+    {
+      "title": "Nouns",
+      "summary": "Gender, number, and the case endings everything else depends on.",
+      "lessons": ["05-masculine-and-feminine", "06-two-and-many", "07-broken-plurals", "08-the-three-cases"]
+    },
+    {
+      "title": "Small words that carry meaning",
+      "summary": "Prepositions, pronouns, and the words for this, that and who.",
+      "lessons": ["09-prepositions", "10-pronouns", "11-attached-pronouns", "12-pointing-and-linking-words"]
+    },
+    {
+      "title": "Phrases and sentences",
+      "summary": "Describing, possessing, and making a statement without the word \"is\".",
+      "lessons": ["13-describing-nouns", "14-x-of-y", "15-sentences-without-is", "16-inna-and-kana"]
+    },
+    {
+      "title": "Verbs",
+      "summary": "Past, present, commands, negation, and who did what to whom.",
+      "lessons": ["17-the-past-tense", "18-the-present-tense", "19-commands-and-saying-no", "20-who-did-what"]
+    },
+    {
+      "title": "Patterns of meaning",
+      "summary": "The patterns that turn one root into a family of words, then a full reading.",
+      "lessons": ["21-doer-and-done-to", "22-patterns-of-intensity", "23-verb-families", "24-reading-al-fatihah"]
+    }
+  ]
+}
