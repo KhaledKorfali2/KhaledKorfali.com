@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Petri — Particle Life</title>
+  <meta name="description" content="Thousands of coloured particles follow one small table of attractions and organise themselves into things that look alive. Change the rules and watch a new world form.">
+  <meta name="theme-color" content="#06070b">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/playground-shared.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c0c0c'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23e8541a'/%3E%3C/svg%3E">
+  <link rel="canonical" href="https://khaledkorfali.com/projects/petri/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Khaled Korfali">
+  <meta property="og:title" content="Petri — Khaled Korfali">
+  <meta property="og:description" content="Thousands of coloured particles follow one small table of attractions and organise themselves into things that look alive. Change the rules and watch a new world form.">
+  <meta property="og:url" content="https://khaledkorfali.com/projects/petri/">
+  <meta property="og:image" content="https://khaledkorfali.com/screenshots/petri.webp">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+  <canvas id="stage" role="img" aria-label="Thousands of coloured particles attracting and repelling one another, forming moving clusters. Drag to pull them."></canvas>
+
+  <header id="topbar">
+    <a id="backLink" class="pill" href="/projects.html" aria-label="Back to projects">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+      <span class="back-text">Projects</span>
+    </a>
+    <div id="title" class="pill"><h1>Petri</h1><span class="sub" id="sub"></span></div>
+    <button type="button" id="infoBtn" class="pill" aria-expanded="false" aria-controls="info" aria-label="How it works">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v3.6"/><circle cx="8" cy="5" r=".5" fill="currentColor"/></svg>
+      <span>How it works</span>
+    </button>
+  </header>
+
+  <aside id="info" aria-label="How it works">
+    <h2>Life-like, from one small table</h2>
+    <p>Each particle has a colour, and the only rule is a table that says how much each colour is <strong>drawn to or pushed away from</strong> each other colour. Red might chase green while green runs from red.</p>
+    <p>That is all there is. Nothing here knows what a cell, a worm or a swarm is. Those shapes appear because the attractions don't have to be mutual, so the system never settles: something is always chasing something else.</p>
+    <p>Up close every particle also pushes its neighbours away, which stops clusters collapsing to a point and gives them a skin.</p>
+    <p>Press <strong>New rules</strong> for a fresh random table, or open <strong>Rules</strong> to edit it yourself and watch the world reorganise.</p>
+  </aside>
+
+  <aside id="rules" aria-label="Rules">
+    <div class="rules-head">
+      <h2>Rules</h2>
+      <button type="button" class="rules-x" id="rulesClose" aria-label="Close rules">
+        <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+      </button>
+    </div>
+    <p class="rules-note">Each square says how the colour on the <strong>left</strong> feels about the colour on <strong>top</strong>. Tap to change it.</p>
+    <div id="matrix" role="grid" aria-label="Attraction between colours"></div>
+    <div class="rules-key"><span><i class="k-neg"></i>pushed away</span><span><i class="k-zero"></i>ignores</span><span><i class="k-pos"></i>drawn to</span></div>
+    <div class="rules-presets" id="presets">
+      <button type="button" data-preset="snakes">Snakes</button>
+      <button type="button" data-preset="cells">Cells</button>
+      <button type="button" data-preset="hunters">Hunters</button>
+      <button type="button" data-preset="calm">All ignore</button>
+    </div>
+  </aside>
+
+  <div id="dock" role="toolbar" aria-label="Controls">
+    <button type="button" class="dock-btn primary keep-label" id="newBtn">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="11" height="11" rx="2.5"/><circle cx="5.8" cy="5.8" r=".9" fill="currentColor" stroke="none"/><circle cx="10.2" cy="10.2" r=".9" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r=".9" fill="currentColor" stroke="none"/></svg>
+      <span class="dock-label">New rules</span>
+    </button>
+    <button type="button" class="dock-btn" id="rulesBtn" aria-expanded="false" aria-controls="rules" aria-label="Edit the rules">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1" opacity=".5"/><rect x="2" y="9" width="5" height="5" rx="1" opacity=".5"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+      <span class="dock-label">Rules</span>
+    </button>
+    <span class="dock-sep" aria-hidden="true"></span>
+    <div class="seg" id="touch" role="group" aria-label="What your touch does">
+      <button type="button" data-touch="pull" class="active">Pull</button>
+      <button type="button" data-touch="push">Push</button>
+    </div>
+    <button type="button" class="dock-btn" id="trailBtn" aria-pressed="true" aria-label="Show trails">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 12c3-1 4-6 7-6" opacity=".45"/><circle cx="11.5" cy="5" r="2.2" fill="currentColor" stroke="none"/></svg>
+      <span class="dock-label">Trails</span>
+    </button>
+  </div>
+
+  <div id="hint" aria-hidden="true">Drag to pull them. Press New rules for a different world.</div>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -52,6 +52,20 @@ const projects = [
     category: "experiment"
   },
   {
+    name: "Ink",
+    description: "A real fluid you stir with your finger. Drag through it and coloured dye curls into whirlpools, simulated live on your graphics card.",
+    image: "screenshots/ink.webp",
+    path: "./projects/ink/index.html",
+    category: "simulation"
+  },
+  {
+    name: "Petri",
+    description: "Thousands of coloured particles follow one small table of attractions and organise into things that look alive. Change the rules and watch a new world form.",
+    image: "screenshots/petri.webp",
+    path: "./projects/petri/index.html",
+    category: "simulation"
+  },
+  {
     name: "Prism",
     description: "A light sandbox: drag beams, mirrors, lenses and prisms and watch thousands of rays bend, bounce and split into rainbows.",
     image: "screenshots/prism.webp",

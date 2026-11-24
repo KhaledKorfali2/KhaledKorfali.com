@@ -1,0 +1,5 @@
+:root { --bg: #05060a; --accent: #7cc4ff; --accent-ink: #04121d; }
+#stage { cursor: crosshair; }
+#fallback { position: fixed; inset: 0; display: grid; place-items: center; padding: 32px; text-align: center; color: var(--muted); line-height: 1.6; }
+#fallback[hidden] { display: none; }
+@media (max-width: 640px) { .dock-field span { display: none; } }

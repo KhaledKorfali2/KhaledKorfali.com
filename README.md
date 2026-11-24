@@ -1,6 +1,6 @@
 # khaledkorfali.com
 
-Personal project site of Khaled Korfali: 29 interactive projects that run entirely in the browser. They are written in JavaScript with no build step, and use WebAssembly builds of SQLite, PostgreSQL (PGlite), Python with pandas (Pyodide) and the OpenCascade CAD kernel (replicad) where a course needs a real engine. Three.js, MediaPipe and Tesseract.js power the 3D views, face and hand tracking, and text recognition. Live at <https://khaledkorfali.com>.
+Personal project site of Khaled Korfali: 31 interactive projects that run entirely in the browser. They are written in JavaScript with no build step, and use WebAssembly builds of SQLite, PostgreSQL (PGlite), Python with pandas (Pyodide) and the OpenCascade CAD kernel (replicad) where a course needs a real engine. Three.js, MediaPipe and Tesseract.js power the 3D views, face and hand tracking, and text recognition. Live at <https://khaledkorfali.com>.
 
 ## Security
 
@@ -30,6 +30,8 @@ Personal project site of Khaled Korfali: 29 interactive projects that run entire
 
 ## Simulations
 
+- [Ink](https://khaledkorfali.com/projects/ink/index.html): A fluid simulation you stir with your finger, solved on the GPU.
+- [Petri](https://khaledkorfali.com/projects/petri/index.html): Particle life: thousands of particles and one editable table of attractions.
 - [Falling Sand Simulator](https://khaledkorfali.com/projects/falling-sand/index.html): A particle sandbox of sand, water, fire and smoke interacting cell by cell.
 - [Boid Simulator](https://khaledkorfali.com/projects/boid-simulator/index.html): Flocking behaviour from three simple rules: separation, alignment, cohesion.
 - [Facepaint](https://khaledkorfali.com/projects/facepaint/index.html): Draw with your face using your webcam: open your mouth to paint.
