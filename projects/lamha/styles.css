@@ -1,0 +1,66 @@
+/* Lamha: reading-fluency drills. Builds on the Course Kit's tokens and buttons. */
+:root { --accent-light: #0f6b5c; --accent-dark: #7fd6c2; }
+
+.lm-tip { margin-top: 20px; padding: 14px 16px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); font-size: 15px; color: var(--muted); }
+.lm-tip strong { color: var(--ink); font-weight: 500; }
+
+.lm-group { margin-top: 34px; }
+.lm-group > h2 { font-family: var(--serif); font-weight: 400; font-size: 1.55rem; }
+.lm-group > p { color: var(--muted); font-size: 15px; margin-bottom: 10px; }
+.lm-levels { list-style: none; border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
+.lm-levels li + li { border-top: 1px solid var(--line); }
+.lm-levels a { display: flex; align-items: center; gap: 14px; min-height: 68px; padding: 8px 16px; color: var(--ink); text-decoration: none; }
+.lm-levels a:hover { background: var(--soft); }
+.lm-sample { flex: none; width: 4.6rem; text-align: center; font-family: var(--ar-font); font-size: 1.9rem; line-height: 1.3; color: var(--accent); }
+.lm-name { flex: 1; min-width: 0; display: grid; }
+.lm-name b { font-weight: 500; line-height: 1.3; }
+.lm-name span { font-size: 13.5px; color: var(--muted); line-height: 1.4; }
+.lm-score { flex: none; display: grid; justify-items: end; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lm-score b { font-size: 15px; font-weight: 600; color: var(--right); }
+
+details.lm-key { margin-top: 34px; }
+details.lm-key summary { cursor: pointer; color: var(--accent); min-height: 36px; }
+.lm-key-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; margin-top: 12px; }
+.lm-key-grid div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+.lm-key-grid .ar { font-size: 1.6rem; }
+.lm-key-grid span:last-child { font-size: 14px; color: var(--muted); }
+.lm-key-note { margin-top: 12px; font-size: 14px; color: var(--muted); }
+
+/* ── Level intro ── */
+.lm-intro h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 7vw, 2.7rem); line-height: 1.12; margin: 6px 0 18px; }
+.lm-switch { display: flex; align-items: center; gap: 10px; margin-top: 22px; font-size: 15px; cursor: pointer; }
+.lm-switch input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+/* ── Drill ── */
+.lm-speed { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lm-stage {
+  display: grid; place-items: center; align-content: center; gap: 6px;
+  min-height: 34vh; margin-top: 22px; padding: 18px;
+  border: 1px solid var(--line); border-radius: 20px; background: var(--card);
+}
+.lm-word { font-family: var(--ar-font); font-size: clamp(3.4rem, 17vw, 6rem); line-height: 1.6; direction: rtl; text-align: center; }
+.lm-word.long { font-size: clamp(2.4rem, 11vw, 4.2rem); }
+.lm-word.hidden { visibility: hidden; }
+.lm-reading { min-height: 1.6em; font-size: 1.25rem; font-weight: 500; }
+.lm-gloss { min-height: 1.4em; font-size: 15px; color: var(--muted); text-align: center; }
+.lm-prompt { margin-top: 18px; text-align: center; font-size: 15px; color: var(--muted); min-height: 1.6em; }
+.lm-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.lm-options .kit-option { justify-content: center; text-align: center; min-height: 62px; font-size: 1.15rem; font-weight: 500; }
+.lm-options.waiting { visibility: hidden; }
+.lm-options .kit-option:disabled { cursor: default; }
+.lm-after { display: flex; justify-content: center; gap: 10px; margin-top: 16px; min-height: 48px; }
+
+.lm-results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 26px 0 0; }
+.lm-results div { padding: 14px 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); text-align: center; }
+.lm-results b { display: block; font-family: var(--serif); font-weight: 400; font-size: 1.8rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.lm-results span { font-size: 13px; color: var(--muted); }
+.lm-missed { list-style: none; margin-top: 22px; text-align: start; border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
+.lm-missed li { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 16px; }
+.lm-missed li + li { border-top: 1px solid var(--line); }
+.lm-missed .ar { font-size: 1.9rem; }
+.lm-missed-head { margin-top: 26px; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); text-align: start; }
+
+@media (max-width: 560px) {
+  .lm-sample { width: 3.6rem; font-size: 1.6rem; }
+  .lm-name span { display: none; }
+}

@@ -1,6 +1,6 @@
 # khaledkorfali.com
 
-Personal project site of Khaled Korfali: 28 interactive projects that run entirely in the browser. They are written in JavaScript with no build step, and use WebAssembly builds of SQLite, PostgreSQL (PGlite), Python with pandas (Pyodide) and the OpenCascade CAD kernel (replicad) where a course needs a real engine. Three.js, MediaPipe and Tesseract.js power the 3D views, face and hand tracking, and text recognition. Live at <https://khaledkorfali.com>.
+Personal project site of Khaled Korfali: 29 interactive projects that run entirely in the browser. They are written in JavaScript with no build step, and use WebAssembly builds of SQLite, PostgreSQL (PGlite), Python with pandas (Pyodide) and the OpenCascade CAD kernel (replicad) where a course needs a real engine. Three.js, MediaPipe and Tesseract.js power the 3D views, face and hand tracking, and text recognition. Live at <https://khaledkorfali.com>.
 
 ## Security
 
@@ -38,6 +38,7 @@ Personal project site of Khaled Korfali: 28 interactive projects that run entire
 ## Arabic learning
 
 - [Arabic Foundations](https://khaledkorfali.com/projects/arabic-foundations/index.html): A 24-lesson course in Qur'anic Arabic grammar and vocabulary, built with the Course Kit.
+- [Lamha](https://khaledkorfali.com/projects/lamha/index.html): Flash drills for reading Arabic in chunks: every vowel mark, syllables, word shapes, whole words, and English words spelled in Arabic letters.
 - [Arabic Letter Quiz](https://khaledkorfali.com/projects/arabic-letter-quiz/index.html): Drill the 28 letters of the Arabic alphabet and their forms.
 - [Arabic Flashcards](https://khaledkorfali.com/projects/arabic-flashcards/index.html): Flip through Arabic letters and their isolated, initial, medial and final forms.
 - [Arabic Word Guess](https://khaledkorfali.com/projects/arabic-word-guess/index.html): A Wordle-style game for guessing Qur'anic Arabic words letter by letter.

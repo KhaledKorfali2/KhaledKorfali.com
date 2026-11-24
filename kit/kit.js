@@ -364,6 +364,7 @@
      4. Screens
      ════════════════════════════════════════════════════════════════════ */
   let course = null, root = null, progress = null, session = null;
+  let cameFromLesson = false;   // true when the page before this practice in the browser's history is its lesson
 
   function h(tag, attrs, children) {
     const el = document.createElement(tag);
@@ -506,7 +507,8 @@
 
     const finish = function () { complete(lesson, null); };
     const bar = h("div", { class: "kit-bar" }, all
-      ? h("a", { class: "kit-btn primary", href: "#/l/" + lesson.id + "/practice", text: "Practise · " + all + (all === 1 ? " question" : " questions") })
+      ? h("a", { class: "kit-btn primary", href: "#/l/" + lesson.id + "/practice", text: "Practise · " + all + (all === 1 ? " question" : " questions"),
+          onclick: function () { cameFromLesson = true; } })
       : h("button", { type: "button", class: "kit-btn primary", text: "Mark as read", onclick: finish }));
 
     show([
@@ -585,7 +587,10 @@
 
     show([
       h("div", { class: "kit-practice-top" }, [
-        h("a", { class: "kit-close", href: "#/l/" + s.lesson.id, "aria-label": "Leave practice", html: ICON.back }),
+        h("a", { class: "kit-close", href: "#/l/" + s.lesson.id, "aria-label": "Leave practice", html: ICON.back,
+          // Step back in history when the lesson is the previous page, so the browser's own
+          // Back button doesn't then return to the practice that was just left.
+          onclick: function (e) { if (cameFromLesson) { e.preventDefault(); cameFromLesson = false; history.back(); } } }),
         h("div", { class: "kit-meter-bar", role: "progressbar", "aria-valuemin": 0, "aria-valuemax": s.total, "aria-valuenow": s.cleared },
           h("span", { style: "width:" + (s.cleared / s.total * 100) + "%" })),
         h("span", { class: "kit-count", text: s.cleared + " / " + s.total })
@@ -829,6 +834,7 @@
         ])
       ])
     ]);
+    cameFromLesson = false;
     history.replaceState(null, "", "#/l/" + lesson.id + "/done");
   }
 

@@ -1,7 +1,7 @@
 {
   "id": "arabic-foundations",
   "title": "Arabic Foundations",
-  "description": "Qur'anic Arabic from the ground up: how words are built, how sentences work, and about 190 of the words you will meet most. It ends with reading al-Fātiḥah word by word.",
+  "description": "Qur'anic Arabic from the ground up: how words are built, how sentences work, and about 190 of the words you will meet most. It ends with reading al-Fātiḥah word by word. To build reading speed alongside it, use [Lamha](/projects/lamha/).",
   "accent": "#9b2226",
   "accentDark": "#f0a08f",
   "speak": "ar-SA",

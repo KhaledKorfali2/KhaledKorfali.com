@@ -66,6 +66,13 @@ const projects = [
     category: "experiment"
   },
   {
+    name: "Lamha",
+    description: "Read Arabic at a glance: flash drills for every vowel mark, syllables, word shapes and whole words, plus English words spelled in Arabic letters. The flash shortens as you improve.",
+    image: "screenshots/lamha.webp",
+    path: "./projects/lamha/index.html",
+    category: "arabic"
+  },
+  {
     name: "Review",
     description: "One review queue for every course here. Flashcards return just before you'd forget them, you can add your own, and all your progress backs up to a single file.",
     image: "screenshots/review.webp",
