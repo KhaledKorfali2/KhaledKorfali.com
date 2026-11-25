@@ -1,6 +1,6 @@
 # khaledkorfali.com
 
-Personal project site of Khaled Korfali: 31 interactive projects that run entirely in the browser. They are written in JavaScript with no build step, and use WebAssembly builds of SQLite, PostgreSQL (PGlite), Python with pandas (Pyodide) and the OpenCascade CAD kernel (replicad) where a course needs a real engine. Three.js, MediaPipe and Tesseract.js power the 3D views, face and hand tracking, and text recognition. Live at <https://khaledkorfali.com>.
+Personal project site of Khaled Korfali: 32 interactive projects that run entirely in the browser. They are written in JavaScript with no build step, and use WebAssembly builds of SQLite, PostgreSQL (PGlite), Python with pandas (Pyodide) and the OpenCascade CAD kernel (replicad) where a course needs a real engine. Three.js, MediaPipe and Tesseract.js power the 3D views, face and hand tracking, and text recognition. Live at <https://khaledkorfali.com>.
 
 ## Security
 
@@ -27,6 +27,10 @@ Personal project site of Khaled Korfali: 31 interactive projects that run entire
 - [Singularity](https://khaledkorfali.com/projects/singularity/index.html): A gravity sandbox: drop planets, stars and black holes into space and watch them orbit, collide and merge, with gravitational lensing drawn by a WebGL shader.
 - [Prism](https://khaledkorfali.com/projects/prism/index.html): A light sandbox: drag beams, mirrors, lenses and prisms and watch the rays bend, bounce and split into rainbows.
 - [Epicycles](https://khaledkorfali.com/projects/epicycles/index.html): Draw any shape and watch a chain of spinning circles redraw it using a Fourier series.
+
+## Games
+
+- [Slingshot](https://khaledkorfali.com/projects/slingshot/index.html): Orbital golf. One push, then gravity: twelve levels of planets, moons, black holes and barriers. The flight rules live in `model.js`, levels are data in `levels.js`, and `Slingshot.check(n)` in the console measures how forgiving a level is.
 
 ## Simulations
 

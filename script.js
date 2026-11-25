@@ -52,6 +52,13 @@ const projects = [
     category: "experiment"
   },
   {
+    name: "Slingshot",
+    description: "Orbital golf: aim a probe, launch it, and let gravity do the rest. Twelve levels of planets, moons, black holes and barriers, with three stars to collect on each.",
+    image: "screenshots/slingshot.webp",
+    path: "./projects/slingshot/index.html",
+    category: "game"
+  },
+  {
     name: "Ink",
     description: "A real fluid you stir with your finger. Drag through it and coloured dye curls into whirlpools, simulated live on your graphics card.",
     image: "screenshots/ink.webp",
@@ -224,6 +231,7 @@ const projects = [
 const CATEGORY_LABELS = {
   security: "Security",
   experiment: "Experiments",
+  game: "Games",
   tools: "Tools",
   simulation: "Simulation",
   arabic: "Arabic Learning",

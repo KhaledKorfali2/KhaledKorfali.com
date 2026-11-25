@@ -5,3 +5,6 @@
   #tools .dock-label { display: none; }
   #tools button { min-width: 44px; justify-content: center; }
 }
+
+#gameLink { text-decoration: none; color: var(--accent); }
+#info a { color: var(--accent); }

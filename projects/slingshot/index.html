@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Slingshot — Orbital Golf</title>
+  <meta name="description" content="One push, then gravity does the rest. Launch a probe past planets and black holes and into the ring, in a game built on real orbital mechanics.">
+  <meta name="theme-color" content="#05060a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/playground-shared.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c0c0c'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23e8541a'/%3E%3C/svg%3E">
+  <link rel="canonical" href="https://khaledkorfali.com/projects/slingshot/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Khaled Korfali">
+  <meta property="og:title" content="Slingshot — Khaled Korfali">
+  <meta property="og:description" content="One push, then gravity does the rest. Launch a probe past planets and black holes and into the ring, in a game built on real orbital mechanics.">
+  <meta property="og:url" content="https://khaledkorfali.com/projects/slingshot/">
+  <meta property="og:image" content="https://khaledkorfali.com/screenshots/slingshot.webp">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+  <canvas id="stage" role="img" aria-label="A probe, some planets and a target ring in space. Drag to aim the probe and set its power, then launch it."></canvas>
+
+  <header id="topbar">
+    <a id="backLink" class="pill" href="/projects.html" aria-label="Back to projects">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+      <span class="back-text">Projects</span>
+    </a>
+    <div id="title" class="pill"><h1>Slingshot</h1><span class="sub" id="sub"></span></div>
+    <button type="button" id="infoBtn" class="pill" aria-expanded="false" aria-controls="info" aria-label="How to play">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v3.6"/><circle cx="8" cy="5" r=".5" fill="currentColor"/></svg>
+      <span>How to play</span>
+    </button>
+  </header>
+
+  <aside id="info" aria-label="How to play">
+    <h2>One push, then gravity does the rest</h2>
+    <p><strong>Drag anywhere</strong> to move the arrow: its direction is where the probe will go and its length is how fast. Then press <strong>Launch</strong>. After that you can't steer: every planet and black hole pulls on it, and its path is whatever falls out of that.</p>
+    <p>The arrow stays where you left it, so after a miss you can change it a little and try again. On a keyboard, the arrow keys nudge it and Space launches; hold Shift for finer steps.</p>
+    <p>Fly it into the <strong>ring</strong> to finish the level. The ring has a weak pull of its own inside the faint dotted circle, so a near miss is drawn in. Pick up the three <strong>stars</strong> on the way for a full score. Hitting a planet or a red barrier, crossing a black hole's edge or leaving the dotted boundary sends the probe back to the start.</p>
+    <p>The dotted line shows only the first second of the flight. The faint trails are your last three attempts.</p>
+    <p>This is how real spacecraft travel. A probe that passes close behind a moving planet is flung onward faster, a <strong>gravity assist</strong>, which is how Voyager reached the outer planets.</p>
+  </aside>
+
+  <aside id="levels" aria-label="Levels">
+    <div class="lv-head">
+      <h2>Levels</h2>
+      <button type="button" class="lv-x" id="levelsClose" aria-label="Close levels">
+        <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+      </button>
+    </div>
+    <div id="levelGrid"></div>
+    <p class="lv-more">Want to play without a goal? <a href="/projects/singularity/">Open the Singularity sandbox</a> and drop in your own planets and black holes.</p>
+  </aside>
+
+  <div id="result" role="status" aria-live="polite" hidden>
+    <p class="res-eyebrow" id="resEyebrow"></p>
+    <div class="res-stars" id="resStars" aria-hidden="true"></div>
+    <p class="res-line" id="resLine"></p>
+    <div class="res-actions">
+      <button type="button" class="dock-btn" id="againBtn">Play again</button>
+      <button type="button" class="dock-btn primary" id="nextBtn">Next level</button>
+    </div>
+  </div>
+
+  <div id="dock" role="toolbar" aria-label="Controls">
+    <button type="button" class="dock-btn keep-label" id="levelsBtn" aria-expanded="false" aria-controls="levels">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+      <span class="dock-label">Levels</span>
+    </button>
+    <button type="button" class="dock-btn primary keep-label" id="launchBtn" aria-label="Launch the probe">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><path d="M3 13L13.5 8 3 3l2 5z"/></svg>
+      <span class="dock-label" id="launchLabel">Launch</span>
+    </button>
+    <span class="dock-sep" aria-hidden="true"></span>
+    <button type="button" class="dock-btn" id="soundBtn" aria-pressed="true" aria-label="Sound">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2v3.6h2.3L8 12.5v-9L4.8 6.2z"/><path d="M10.5 5.8a3 3 0 0 1 0 4.4M12.3 4a5.5 5.5 0 0 1 0 8"/></svg>
+      <span class="dock-label">Sound</span>
+    </button>
+  </div>
+
+  <div id="hint" aria-hidden="true">Drag to aim, then press Launch.</div>
+  <script src="model.js"></script>
+  <script src="levels.js"></script>
+
+  <script src="script.js"></script>
+</body>
+</html>
