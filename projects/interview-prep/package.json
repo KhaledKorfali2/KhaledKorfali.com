@@ -1,0 +1,6 @@
+{
+  "name": "pattern-trace",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test tests/" }
+}

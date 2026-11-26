@@ -27,8 +27,9 @@ export function render(el) {
 
   el.innerHTML = `<div class="page">
     <div class="page-head">
-      <div class="eyebrow">Practice</div>
-      <h1>${first ? "Welcome to Pattern Trace" : greeting()}</h1>
+      <div class="eyebrow">Clue drill</div>
+      <h1>Name the pattern from the statement</h1>
+      <p>A fast warm-up next to your study plan: no coding, just reading a problem and spotting what it's asking for. Missed problems come back sooner.</p>
     </div>
 
     <section class="hero-card" aria-labelledby="hero-title">
@@ -44,7 +45,7 @@ export function render(el) {
       ${first ? "" : `<div class="hero-due" aria-hidden="true"><b>${due}</b><span>due today</span></div>`}
     </section>
 
-    <div class="section-title">Other ways to practise</div>
+    <div class="section-title">Other ways to drill <a href="#/problems" class="faint" style="font-size:12px;letter-spacing:0;text-transform:none;font-family:var(--font)">Browse all problems →</a></div>
     <div class="mode-grid">
       <button type="button" class="mode" data-start="quick">
         <span class="mode-icon">${ICON.bolt}</span>
@@ -102,9 +103,4 @@ export function render(el) {
       el.querySelector("[data-focus]")?.focus({ preventScroll: true });
     }
   });
-}
-
-function greeting() {
-  const h = new Date().getHours();
-  return h < 5 ? "Late-night practice" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 }

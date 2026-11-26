@@ -1,5 +1,5 @@
-import { PATTERNS, PROBLEMS, CATEGORIES, DATA_STRUCTURES, TIME_BUCKETS, patternById, problemById, templateById, acceptedPatterns, leetcodeUrl } from "../data/index.js";
-import { settings, record, card, INTERVALS } from "../store.js";
+import { PATTERNS, PROBLEMS, CATEGORIES, DATA_STRUCTURES, TIME_BUCKETS, patternById, problemById, templateById, acceptedPatterns } from "../data/index.js";
+import { settings, record, card, INTERVALS, solvesOf } from "../store.js";
 import { getSession, endSession, singleSession, currentProblem, submitResult, advance, retrySession } from "../session.js";
 import { ICON, esc, difficultyTag, codeBlock, wireCode, shuffle, confirmDialog } from "../ui.js";
 import { loadViz } from "../viz/index.js";
@@ -32,7 +32,7 @@ function signalOptions(pr) {
 
 export function render(el, params) {
   let session = params.problem ? singleSession(params.problem) : getSession();
-  if (!session) { location.replace("#/"); return; }
+  if (!session) { location.replace("#/drills"); return; }
 
   let viz = null;         // mounted visualiser handle
   let state = null;       // answers for the current problem
@@ -224,6 +224,7 @@ export function render(el, params) {
     }
     const otherConfusions = (pr.confusions || []).filter((x) => x.pattern !== pick.pattern && patternById.has(x.pattern));
     const tpl = templateById.get(pr.template) || pat.templates[0];
+    const myNote = solvesOf(pr.id).slice(-1)[0];
 
     const grades = [];
     grades.push(gradeRow(patternOk ? "good" : "bad", "Pattern",
@@ -248,6 +249,7 @@ export function render(el, params) {
       <section class="card" style="margin-top:14px">
         <div class="insight"><b>Key insight</b>${esc(pr.insight)}</div>
         ${whyNot ? `<div style="margin-top:14px">${whyNot}</div>` : ""}
+        ${myNote ? `<div class="insight" style="margin-top:14px"><b>Your own clue for this one</b>${esc(myNote.note.clue)}</div>` : ""}
         <ol class="steps-list">${pr.explanation.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
         ${otherConfusions.length ? `<details style="margin-top:14px"><summary class="faint" style="cursor:pointer;font-size:13.5px">Common wrong turns</summary>
           <div style="margin-top:10px">${otherConfusions.map((x) => `<div class="confusion"><b>${esc(patternById.get(x.pattern).name)}:</b> ${esc(x.why)}</div>`).join("")}</div></details>` : ""}
@@ -269,7 +271,7 @@ export function render(el, params) {
       </section>
 
       <div class="actionbar" data-actions-after>
-        <a class="btn btn-ghost" href="${leetcodeUrl(pr)}" target="_blank" rel="noopener noreferrer">Solve on LeetCode ${ICON.external}</a>
+        <a class="btn btn-ghost" href="#/solve/${pr.slug}">Solve it step by step ${ICON.arrow}</a>
         ${session.single
           ? `<a class="btn btn-primary btn-lg" data-primary href="#/problems">Back to problems</a>`
           : `<button type="button" class="btn btn-primary btn-lg" data-primary data-next>${last ? "See results" : "Next problem"} <kbd class="hint">Enter</kbd></button>`}
@@ -323,7 +325,7 @@ export function render(el, params) {
       }).join("")}</div>
       <div class="btn-row" style="margin-top:20px">
         ${missed.length ? `<button type="button" class="btn btn-primary" data-retry>Retry the ${missed.length} missed</button>` : ""}
-        <a class="btn ${missed.length ? "" : "btn-primary"}" href="#/" data-home>Back to practice</a>
+        <a class="btn ${missed.length ? "" : "btn-primary"}" href="#/drills" data-home>Back to the drill</a>
         <a class="btn btn-ghost" href="#/progress">View progress</a>
       </div>
     </div>`;
@@ -356,7 +358,7 @@ export function render(el, params) {
       if (session.single) { location.hash = "#/problems"; return; }
       const answered = session.results.length;
       if (!answered || await confirmDialog({ title: "End this session?", body: `Your ${answered} answer${answered === 1 ? " is" : "s are"} saved. You'll see a summary of what you did.`, confirm: "End session" })) {
-        if (answered) summary(); else { endSession(); location.hash = "#/"; }
+        if (answered) summary(); else { endSession(); location.hash = "#/drills"; }
       }
     }
   });

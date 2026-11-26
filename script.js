@@ -25,7 +25,7 @@ const projects = [
   },
   {
     name: "Pattern Trace",
-    description: "Spot the pattern in 150+ LeetCode problems, with spaced repetition and step-through visualisations.",
+    description: "A 16-week DSA study plan for 150+ LeetCode problems: a guided solve routine, pattern notes, scheduled re-solves and mock interviews.",
     image: "screenshots/interview-prep.webp",
     path: "./projects/interview-prep/index.html",
     category: "programming"

@@ -1,5 +1,6 @@
-import { PATTERNS, CATEGORIES, patternById, problemsByPattern, templateById } from "../data/index.js";
-import { patternStats, patternMastery, status, STATUS_LABEL } from "../store.js";
+import { PATTERNS, CATEGORIES, CLUE_TABLE, CONSTRAINT_TABLE, patternById, problemsByPattern, templateById } from "../data/index.js";
+import { patternStats, patternMastery, solveStatus as status, SOLVE_STATUS_LABEL as STATUS_LABEL, solves } from "../store.js";
+import { noteItem } from "./notes.js";
 import { focusSession } from "../session.js";
 import { ICON, esc, pct, codeBlock, wireCode, difficultyTag, toast } from "../ui.js";
 import { loadViz } from "../viz/index.js";
@@ -14,6 +15,20 @@ function library(el) {
   el.innerHTML = `<div class="page page-wide">
     <div class="page-head"><div class="eyebrow">Pattern library</div><h1>The ${PATTERNS.length} patterns</h1>
       <p>What each pattern looks like in a problem statement, the question that gives it away, and a template to start from.</p></div>
+    <div class="ref-grid">
+      <details class="card ref-card" open>
+        <summary><span class="card-title">Wording clues</span><span class="faint">what the statement says → the pattern to try</span></summary>
+        <div class="table-wrap"><table class="ref"><thead><tr><th>When the problem says…</th><th>Think of</th></tr></thead>
+          <tbody>${CLUE_TABLE.map((r) => `<tr><td>${esc(r.clue)}</td><td>${r.patterns.map((id) => `<a class="tag tag-outline" href="#/patterns/${id}">${esc(patternById.get(id).name)}</a>`).join(" ")}</td></tr>`).join("")}</tbody></table></div>
+      </details>
+      <details class="card ref-card" open>
+        <summary><span class="card-title">Constraints → complexity</span><span class="faint">the input size tells you what you can afford</span></summary>
+        <div class="table-wrap"><table class="ref"><thead><tr><th>Input size</th><th>Time you can afford</th><th>Likely approach</th></tr></thead>
+          <tbody>${CONSTRAINT_TABLE.map((r) => `<tr><td class="mono">${esc(r.size)}</td><td class="mono">${esc(r.time)}</td><td>${esc(r.approach)}</td></tr>`).join("")}</tbody></table></div>
+      </details>
+    </div>
+
+    <div class="section-title">Every pattern</div>
     <div class="toolbar">
       <label class="search"><span class="sr-only">Search patterns</span>${ICON.search}
         <input class="input" type="search" placeholder="Search by name or signal, e.g. “subarray”" data-q autocomplete="off"></label>
@@ -36,7 +51,7 @@ function library(el) {
         const n = problemsByPattern.get(p.id).length;
         const m = patternMastery(p.id);
         return `<a class="pcard" href="#/patterns/${p.id}">
-          <h3>${esc(p.name)}</h3><p>${esc(p.short)}</p>
+          <h2>${esc(p.name)}</h2><p>${esc(p.short)}</p>
           <div class="pcard-foot"><span>${n} problem${n === 1 ? "" : "s"}</span>
             <div class="meter ${m >= 0.6 ? "good" : ""}" aria-label="${pct(m)} mastered"><i style="width:${m * 100}%"></i></div>
             <span>${s.attempts ? pct(s.acc) : "—"}</span></div>
@@ -59,6 +74,7 @@ function detail(el, id) {
   }
   const s = patternStats().get(id);
   const probs = problemsByPattern.get(id);
+  const myNotes = solves().filter((a) => a.note.pattern === id).reverse();
   let viz = null;
 
   el.innerHTML = `<div class="page page-wide">
@@ -97,10 +113,15 @@ function detail(el, id) {
       <div style="display:grid;gap:12px">${p.templates.map((t) => codeBlock(t)).join("")}</div>
     </section>
 
+    <div class="section-title">Your notes for this pattern (${myNotes.length})</div>
+    ${myNotes.length ? `<div class="note-list">${myNotes.slice(0, 8).map((a) => noteItem(a)).join("")}</div>
+      ${myNotes.length > 8 ? `<div class="btn-row" style="margin-top:10px"><a class="btn btn-ghost btn-sm" href="#/notes">All ${myNotes.length} notes ${ICON.arrow}</a></div>` : ""}`
+      : `<p class="muted">Notes you write after solving a ${esc(p.name)} problem show up here, so the page fills with your own clues.</p>`}
+
     <div class="section-title">Problems (${probs.length})</div>
     ${probs.length ? `<div class="list">${probs.map((pr) => {
       const st = status(pr.id);
-      return `<a class="row" href="#/problems/${pr.id}">
+      return `<a class="row" href="#/solve/${pr.slug}">
         <span class="status-dot ${st}" title="${STATUS_LABEL[st]}" aria-label="${STATUS_LABEL[st]}"></span>
         <span style="min-width:0"><span class="row-title" style="display:block">${esc(pr.title)}</span></span>
         <span class="row-num">#${pr.number}</span>${difficultyTag(pr.difficulty)}</a>`;

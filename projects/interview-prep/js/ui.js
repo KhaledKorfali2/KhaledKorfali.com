@@ -29,6 +29,14 @@ export const ICON = {
   play: svg(`<path d="M6 4.5v11l9-5.5z" fill="currentColor"/>`),
   eye: svg(`<path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z" ${st}/><circle cx="10" cy="10" r="2.3" ${st}/>`),
   skip: svg(`<path d="M5 5l6 5-6 5zM14 5v10" ${st}/>`),
+  today: svg(`<rect x="3" y="4.5" width="14" height="12.5" rx="2" ${st}/><path d="M3 8.5h14M7 2.5v3.5M13 2.5v3.5" ${st}/><path d="M7.2 12.6l2 2 3.8-4" ${st}/>`),
+  book: svg(`<path d="M10 5.2C8.4 4 6.2 3.6 3.5 3.8v11.4c2.7-.2 4.9.2 6.5 1.4 1.6-1.2 3.8-1.6 6.5-1.4V3.8C13.8 3.6 11.6 4 10 5.2zM10 5.2v11.4" ${st}/>`),
+  timer: svg(`<circle cx="10" cy="11" r="6.2" ${st}/><path d="M10 7.5V11l2.3 1.6M8 2.5h4" ${st}/>`),
+  note: svg(`<path d="M5 3h7l4 4v9a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" ${st}/><path d="M12 3v4h4M7 11h6M7 14h4" ${st}/>`),
+  pause: svg(`<path d="M7 5v10M13 5v10" ${st} stroke-width="2.2"/>`),
+  lock: svg(`<rect x="4.5" y="9" width="11" height="8" rx="1.8" ${st}/><path d="M7 9V6.5a3 3 0 016 0V9" ${st}/>`),
+  bulb: svg(`<path d="M7.5 14.5h5M8.5 17h3M10 2.8a5 5 0 00-3 9c.5.4.8 1 .8 1.6h4.4c0-.6.3-1.2.8-1.6a5 5 0 00-3-9z" ${st}/>`),
+  alert: svg(`<path d="M10 3.2l7.2 12.6H2.8L10 3.2z" ${st}/><path d="M10 8.5v3.4" ${st}/><circle cx="10" cy="13.9" r=".9" fill="currentColor"/>`),
 };
 
 export const difficultyTag = (d) => `<span class="tag tag-${esc(d.toLowerCase())}">${esc(d)}</span>`;
@@ -39,6 +47,43 @@ export function ring(fraction, color) {
 }
 
 export const pct = (x) => (x == null ? "—" : Math.round(x * 100) + "%");
+
+// 754 -> "12:34"; over an hour -> "1:02:34".
+export function clock(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return (h ? h + ":" + String(m).padStart(2, "0") : String(m)) + ":" + String(s).padStart(2, "0");
+}
+export const minutes = (sec) => Math.round(sec / 60);
+
+// Day number (store.today()) -> "Nov 26".
+export function dayLabel(day, opts = { month: "short", day: "numeric" }) {
+  return new Date(day * 86400000).toLocaleDateString(undefined, { timeZone: "UTC", ...opts });
+}
+// Relative wording for a due day: "today", "tomorrow", "in 6 days", "3 days overdue".
+export function dueLabel(due, today) {
+  const d = due - today;
+  if (d === 0) return "today";
+  if (d === 1) return "tomorrow";
+  if (d > 1) return `in ${d} days`;
+  return `${-d} day${d === -1 ? "" : "s"} overdue`;
+}
+
+// One chip style for a problem's study-plan status, everywhere it is listed.
+const CHIP_LABEL = { new: "Not started", attempted: "Attempted", due: "Due", mastered: "Mastered" };
+export const statusChip = (st) => `<span class="st st-${st}">${CHIP_LABEL[st]}</span>`;
+
+// Markdown subset for primers: paragraphs, "- " lists, **bold**, `code`.
+export function md(text) {
+  const inline = (t) => esc(t)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  return text.trim().split(/\n\s*\n/).map((block) => {
+    const lines = block.split("\n").map((l) => l.trim());
+    if (lines.every((l) => l.startsWith("- "))) return `<ul>${lines.map((l) => `<li>${inline(l.slice(2))}</li>`).join("")}</ul>`;
+    return `<p>${inline(lines.join(" "))}</p>`;
+  }).join("");
+}
 
 /* ── Syntax highlighting (enough for short Python / JS templates) ── */
 const KW = {

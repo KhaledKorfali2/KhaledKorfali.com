@@ -1,5 +1,5 @@
 import { PROBLEMS, PATTERNS, CATEGORIES, LISTS, patternById } from "../data/index.js";
-import { status, STATUS_LABEL, settings } from "../store.js";
+import { solveStatus as status, SOLVE_STATUS_LABEL as STATUS_LABEL, settings } from "../store.js";
 import { ICON, esc, difficultyTag } from "../ui.js";
 
 // Filters survive navigating into a problem and back.
@@ -10,7 +10,7 @@ export function render(el) {
   if (!filters.list) filters.list = settings().list;
   el.innerHTML = `<div class="page">
     <div class="page-head"><div class="eyebrow">Problem bank</div><h1>${PROBLEMS.length} problems</h1>
-      <p>Every NeetCode 150 problem plus a few extras. Open one to practise it on its own.</p></div>
+      <p>Every NeetCode 150 problem plus a few extras. Open one to work it through the guided solve.</p></div>
     <div class="toolbar">
       <label class="search"><span class="sr-only">Search problems</span>${ICON.search}
         <input class="input" type="search" placeholder="Search by title or number" data-f="q" value="${esc(filters.q)}" autocomplete="off"></label>
@@ -61,7 +61,7 @@ export function render(el) {
     listEl.innerHTML = `<div class="list">${rows.slice(0, limit).map((p) => {
       const st = status(p.id);
       const sub = filters.reveal || filters.pattern ? patternById.get(p.pattern).name : "";
-      return `<a class="row" href="#/problems/${p.id}">
+      return `<a class="row" href="#/solve/${p.slug}">
         <span class="status-dot ${st}" title="${STATUS_LABEL[st]}" aria-label="${STATUS_LABEL[st]}"></span>
         <span style="min-width:0"><span class="row-title" style="display:block">${esc(p.title)}</span>${sub ? `<span class="row-sub" style="display:block">${esc(sub)}</span>` : ""}</span>
         <span class="row-num">#${p.number}</span>${difficultyTag(p.difficulty)}</a>`;

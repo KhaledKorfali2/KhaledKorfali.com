@@ -10,7 +10,7 @@ Personal project site of Khaled Korfali: 32 interactive projects that run entire
 
 - [Quarry](https://khaledkorfali.com/projects/quarry/index.html): Learn databases by doing: write real queries in live consoles and capture a flag for every skill. A full MySQL course from your first SELECT to production data fixes, plus PostgreSQL, SQLite, pandas, document databases and vector search.
 - [Datum](https://khaledkorfali.com/projects/datum/index.html): Learn CAD by building the part: sketch, extrude, cut, fillet and shell on a real CAD kernel until your solid matches the target, then export it for 3D printing.
-- [Pattern Trace](https://khaledkorfali.com/projects/interview-prep/index.html): Spot the pattern in 150+ LeetCode problems, with spaced repetition and step-through visualisations.
+- [Pattern Trace](https://khaledkorfali.com/projects/interview-prep/index.html): A 16-week DSA study plan for 150+ LeetCode problems: a guided solve routine, pattern notes, scheduled re-solves and mock interviews.
 - [Vim System](https://khaledkorfali.com/projects/cs-courses/vim-sim-index.html): An interactive course that teaches Vim motions and operators in the browser.
 - [Linux File System](https://khaledkorfali.com/projects/cs-courses/fs-sim-index.html): Learn the shell by navigating a simulated Linux file system.
 - [Git System](https://khaledkorfali.com/projects/cs-courses/git-sim-index.html): See commits, branches and merges take shape as you type git commands.
